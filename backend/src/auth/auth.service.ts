@@ -120,6 +120,15 @@ export class AuthService {
       throw new ConflictException("El correo ya está registrado");
     }
 
+    if (dto.ruc) {
+      const existingRuc = await this.profileRepository.findOne({
+        where: { ruc: dto.ruc },
+      });
+      if (existingRuc) {
+        throw new ConflictException("El RUC ya está registrado");
+      }
+    }
+
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(dto.contrasena, salt);
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -173,6 +182,9 @@ export class AuthService {
       };
     } catch (error) {
       if (error instanceof ConflictException) throw error;
+      if (error.code === "23505") {
+        throw new ConflictException("Uno de los datos ya está registrado (correo, RUC o DNI)");
+      }
       throw new InternalServerErrorException("Error al registrar el usuario");
     }
   }

@@ -1,21 +1,35 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import { SettingsService } from "../settings/settings.service";
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private transporter: nodemailer.Transporter;
 
-  constructor(private config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: config.get<string>("SMTP_HOST", "smtp.gmail.com"),
-      port: config.get<number>("SMTP_PORT", 587),
-      secure: false,
-      auth: {
-        user: config.get<string>("SMTP_USER", ""),
-        pass: config.get<string>("SMTP_PASS", ""),
-      },
-    });
+  constructor(
+    private config: ConfigService,
+    private settings: SettingsService
+  ) {
+    this.transporter = nodemailer.createTransport({});
+  }
+
+  async onModuleInit() {
+    await this.reloadTransporter();
+  }
+
+  async reloadTransporter() {
+    const host = await this.settings.get("smtp_host");
+    const port = parseInt((await this.settings.get("smtp_port")) || "587");
+    const user = await this.settings.get("smtp_user");
+    const pass = await this.settings.get("smtp_pass");
+
+    if (!host || !user || !pass) {
+      console.warn("[MailService] SMTP no configurado en panel admin. Los correos no se enviarán.");
+      return;
+    }
+
+    this.transporter = nodemailer.createTransport({ host, port, secure: false, auth: { user, pass } });
   }
 
   async sendVerificationCode(to: string, code: string, name: string) {

@@ -224,7 +224,7 @@ export interface Banner {
 }
 
 export async function getBanners(): Promise<Banner[]> {
-  const res = await authFetch(`${API_URL}/banners`);
+  const res = await fetch(`${API_URL}/banners`);
   if (!res.ok) throw new Error("Error al obtener banners");
   return res.json();
 }
@@ -286,7 +286,7 @@ export interface Marquee {
 }
 
 export async function getMarquees(): Promise<Marquee[]> {
-  const res = await authFetch(`${API_URL}/marquees`);
+  const res = await fetch(`${API_URL}/marquees`);
   if (!res.ok) throw new Error("Error al obtener logos");
   return res.json();
 }
@@ -324,4 +324,67 @@ export async function updateMarquee(id: string, name: string, file?: File): Prom
 export async function deleteMarquee(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/marquees/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar logo");
+}
+
+// ─── Settings ─────────────────────────────────────────────────
+
+export async function getSettings(): Promise<Record<string, string>> {
+  const res = await authFetch(`${API_URL}/settings`);
+  if (!res.ok) throw new Error("Error al obtener configuración");
+  return res.json();
+}
+
+export async function updateSettings(data: Record<string, string>): Promise<void> {
+  const res = await authFetch(`${API_URL}/settings`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Error al actualizar configuración");
+}
+
+// ─── Testimonials ────────────────────────────────────────────
+
+export interface Testimonial {
+  id: string;
+  stars: number;
+  text: string;
+  name: string;
+  cargo: string;
+  is_active: boolean;
+  order_index: number;
+  created_at: string;
+}
+
+export async function getTestimonials(): Promise<Testimonial[]> {
+  const res = await fetch(`${API_URL}/testimonials`);
+  if (!res.ok) throw new Error("Error al obtener testimonios");
+  return res.json();
+}
+
+export async function createTestimonial(dto: { stars: number; text: string; name: string; cargo: string }): Promise<Testimonial> {
+  const res = await authFetch(`${API_URL}/testimonials`, {
+    method: "POST", body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error("Error al crear testimonio");
+  return res.json();
+}
+
+export async function updateTestimonial(id: string, dto: Partial<{ stars: number; text: string; name: string; cargo: string; is_active: boolean }>): Promise<Testimonial> {
+  const res = await authFetch(`${API_URL}/testimonials/${id}`, {
+    method: "PUT", body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error("Error al actualizar testimonio");
+  return res.json();
+}
+
+export async function deleteTestimonial(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/testimonials/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar testimonio");
+}
+
+export async function reorderTestimonials(ids: string[]): Promise<void> {
+  const res = await authFetch(`${API_URL}/testimonials/reorder`, {
+    method: "PUT", body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error("Error al reordenar testimonios");
 }

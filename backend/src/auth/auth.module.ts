@@ -10,6 +10,7 @@ import { User } from "./entities/user.entity";
 import { Role } from "./entities/role.entity";
 import { UserProfile } from "./entities/user-profile.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
+import { CleanupService } from "../common/services/cleanup.service";
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { RefreshToken } from "./entities/refresh-token.entity";
     PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, RolesGuard],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, RolesGuard, CleanupService],
   exports: [RolesGuard],
 })
 export class AuthModule {}

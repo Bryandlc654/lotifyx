@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { loginUser, getGoogleAuthUrl } from "@/lib/api";
+import { Input } from "@/components/ui/input";
 
 interface LoginFormData {
   credential: string;
@@ -57,15 +58,12 @@ export function LoginForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <input
-            type="password"
-            placeholder="Contraseña"
+          <Input
+            label="Contraseña"
+            isPassword
             {...register("contrasena", { required: "Este campo es obligatorio" })}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500 transition-colors"
+            error={errors.contrasena?.message}
           />
-          {errors.contrasena && (
-            <p className="text-xs text-red-500">{errors.contrasena.message}</p>
-          )}
         </div>
 
         <div className="flex items-center justify-between">

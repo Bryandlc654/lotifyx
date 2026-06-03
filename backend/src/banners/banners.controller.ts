@@ -21,16 +21,15 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 
 @Controller("banners")
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class BannersController {
   constructor(private readonly bannersService: BannersService) {}
 
   @Get()
-  @Roles("superadmin")
   findAll() {
     return this.bannersService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @Roles("superadmin")
   @HttpCode(HttpStatus.CREATED)
@@ -50,12 +49,14 @@ export class BannersController {
           cb(null, true);
         }
       },
+      limits: { fileSize: 5 * 1024 * 1024 },
     })
   )
   create(@UploadedFile() file: Express.Multer.File, @Body("title") title: string) {
     return this.bannersService.create(title, file);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Put(":id")
   @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
@@ -75,6 +76,7 @@ export class BannersController {
           cb(null, true);
         }
       },
+      limits: { fileSize: 5 * 1024 * 1024 },
     })
   )
   update(
@@ -86,6 +88,7 @@ export class BannersController {
     return this.bannersService.update(id, title, file);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete(":id")
   @Roles("superadmin")
   @HttpCode(HttpStatus.OK)

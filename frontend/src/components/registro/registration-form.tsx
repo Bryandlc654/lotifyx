@@ -31,6 +31,7 @@ export function RegistrationForm() {
     formState: { errors },
   } = useForm<RegistroFormData>({
     resolver: zodResolver(registroSchema),
+    mode: "onChange",
     defaultValues: {
       nombre: "",
       apellidos: "",

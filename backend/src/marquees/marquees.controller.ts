@@ -22,31 +22,34 @@ const fileFilter = (_req: any, file: any, cb: any) => {
   else cb(null, true);
 };
 
+const limits = { fileSize: 5 * 1024 * 1024 }; // 5MB
+
 @Controller("marquees")
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class MarqueesController {
   constructor(private readonly service: MarqueesService) {}
 
   @Get()
-  @Roles("superadmin")
   findAll() { return this.service.findAll(); }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @Roles("superadmin")
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor("image", { storage, fileFilter }))
+  @UseInterceptors(FileInterceptor("image", { storage, fileFilter, limits }))
   create(@UploadedFile() file: Express.Multer.File, @Body("name") name: string) {
     return this.service.create(name, file);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Put(":id")
   @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor("image", { storage, fileFilter }))
+  @UseInterceptors(FileInterceptor("image", { storage, fileFilter, limits }))
   update(@Param("id") id: string, @Body("name") name: string, @UploadedFile() file?: Express.Multer.File) {
     return this.service.update(id, name, file);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete(":id")
   @Roles("superadmin")
   @HttpCode(HttpStatus.OK)

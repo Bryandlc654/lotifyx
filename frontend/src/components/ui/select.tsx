@@ -1,5 +1,5 @@
 import { forwardRef, SelectHTMLAttributes } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
@@ -9,6 +9,8 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, className = "", ...props }, ref) => {
+    const hasValue = typeof props.value === "string" && props.value.length > 0;
+
     return (
       <div className="flex flex-col gap-1.5">
         <div className="relative">
@@ -23,7 +25,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               ${
                 error
                   ? "border-red-300 focus:border-red-400 focus:ring-red-200"
-                  : "border-gray-300 focus:border-primary-500 focus:ring-primary-200"
+                  : hasValue && !error
+                    ? "border-green-400 focus:border-green-500 focus:ring-green-200"
+                    : "border-gray-300 focus:border-primary-500 focus:ring-primary-200"
               }
               ${!props.value ? "text-gray-400" : ""}
               ${className}
@@ -38,10 +42,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          {hasValue && !error ? (
+            <Check className="absolute right-8 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500 stroke-[3]" />
+          ) : (
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          )}
+          {!hasValue && (
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          )}
         </div>
-        {error && (
-          <p className="text-xs text-red-500 mt-0.5">{error}</p>
+        {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
+        {hasValue && !error && (
+          <p className="text-xs text-green-600 mt-0.5">✓ Válido</p>
         )}
       </div>
     );
