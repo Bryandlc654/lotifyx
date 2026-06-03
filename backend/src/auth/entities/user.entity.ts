@@ -39,12 +39,6 @@ export class User {
   is_verified: boolean;
 
   @Column({ nullable: true })
-  verification_code: string;
-
-  @Column({ nullable: true })
-  verification_expires_at: string;
-
-  @Column({ nullable: true })
   status: string;
 
   @Column({ nullable: true })

@@ -230,48 +230,16 @@ export async function getBanners(): Promise<Banner[]> {
 }
 
 export async function createBanner(title: string, file: File): Promise<Banner> {
-  const token = getAccessToken();
-  const formData = new FormData();
-  formData.append("title", title);
-  formData.append("image", file);
+  return multipartAuth(`${API_URL}/banners`, "POST", { title, image: file });
+}
 
-  const res = await fetch(`${API_URL}/banners`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Error" }));
-    throw new Error(err.message || "Error al crear banner");
-  }
-
-  return res.json();
+export async function updateBanner(id: string, title: string, file?: File): Promise<Banner> {
+  return multipartAuth(`${API_URL}/banners/${id}`, "PUT", { title, ...(file ? { image: file } : {}) });
 }
 
 export async function deleteBanner(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/banners/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar banner");
-}
-
-export async function updateBanner(id: string, title: string, file?: File): Promise<Banner> {
-  const token = getAccessToken();
-  const formData = new FormData();
-  formData.append("title", title);
-  if (file) formData.append("image", file);
-
-  const res = await fetch(`${API_URL}/banners/${id}`, {
-    method: "PUT",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Error" }));
-    throw new Error(err.message || "Error al actualizar banner");
-  }
-
-  return res.json();
 }
 
 // ─── Marquees ─────────────────────────────────────────────────
@@ -292,33 +260,11 @@ export async function getMarquees(): Promise<Marquee[]> {
 }
 
 export async function createMarquee(name: string, file: File): Promise<Marquee> {
-  const token = getAccessToken();
-  const fd = new FormData();
-  fd.append("name", name);
-  fd.append("image", file);
-
-  const res = await fetch(`${API_URL}/marquees`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: fd,
-  });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
-  return res.json();
+  return multipartAuth(`${API_URL}/marquees`, "POST", { name, image: file });
 }
 
 export async function updateMarquee(id: string, name: string, file?: File): Promise<Marquee> {
-  const token = getAccessToken();
-  const fd = new FormData();
-  fd.append("name", name);
-  if (file) fd.append("image", file);
-
-  const res = await fetch(`${API_URL}/marquees/${id}`, {
-    method: "PUT",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: fd,
-  });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
-  return res.json();
+  return multipartAuth(`${API_URL}/marquees/${id}`, "PUT", { name, ...(file ? { image: file } : {}) });
 }
 
 export async function deleteMarquee(id: string): Promise<void> {
@@ -387,4 +333,125 @@ export async function reorderTestimonials(ids: string[]): Promise<void> {
     method: "PUT", body: JSON.stringify({ ids }),
   });
   if (!res.ok) throw new Error("Error al reordenar testimonios");
+}
+
+// ─── Admin Users ─────────────────────────────────────────────
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  phone: string;
+  status: string;
+  is_verified: boolean;
+  provider: string;
+  referral_code: string;
+  role_id: string;
+  role?: { id: string; name: string };
+  profile?: {
+    first_name: string; last_name: string; document_type: string;
+    document_number: string; ruc: string; razon_social: string;
+    avatar_url: string;
+  };
+  created_at: string;
+}
+
+export async function getAdminUsers(params?: {
+  search?: string; role?: string; status?: string; page?: number; limit?: number;
+}): Promise<{ data: AdminUser[]; total: number; page: number; totalPages: number }> {
+  const qs = new URLSearchParams();
+  if (params?.search) qs.set("search", params.search);
+  if (params?.role) qs.set("role", params.role);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const res = await authFetch(`${API_URL}/admin/users?${qs.toString()}`);
+  if (!res.ok) throw new Error("Error al obtener usuarios");
+  return res.json();
+}
+
+export async function getAdminUser(id: string): Promise<AdminUser> {
+  const res = await authFetch(`${API_URL}/admin/users/${id}`);
+  if (!res.ok) throw new Error("Usuario no encontrado");
+  return res.json();
+}
+
+export async function createAdminUser(dto: any): Promise<AdminUser> {
+  const res = await authFetch(`${API_URL}/admin/users`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(()=>({message:"Error"}))).message);
+  return res.json();
+}
+
+export async function updateAdminUser(id: string, dto: any): Promise<AdminUser> {
+  const res = await authFetch(`${API_URL}/admin/users/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(()=>({message:"Error"}))).message);
+  return res.json();
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/users/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar usuario");
+}
+
+export async function getAdminRoles(): Promise<{ id: string; name: string }[]> {
+  const res = await authFetch(`${API_URL}/admin/users/roles`);
+  if (!res.ok) throw new Error("Error al obtener roles");
+  return res.json();
+}
+
+// ─── Categories ──────────────────────────────────────────────
+
+export interface Category {
+  id: string; name: string; slug: string; icon: string;
+  parent_id: string; parent?: Category; children?: Category[];
+  status: string; created_at: string;
+}
+
+export async function getCategories(): Promise<Category[]> {
+  const res = await fetch(`${API_URL}/categories`);
+  if (!res.ok) throw new Error("Error al obtener categorías");
+  return res.json();
+}
+
+export async function createCategory(dto: { name: string; slug: string; icon?: File; parent_id?: string }): Promise<Category> {
+  return multipartAuth(`${API_URL}/categories`, "POST", dto);
+}
+
+export async function updateCategory(id: string, dto: { name: string; slug: string; icon?: File; parent_id?: string; status?: string }): Promise<Category> {
+  return multipartAuth(`${API_URL}/categories/${id}`, "PUT", dto);
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/categories/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar categoría");
+}
+
+// ─── Multipart auth helper ────────────────────────────────────
+
+async function multipartAuth(url: string, method: string, fields: Record<string, any>): Promise<any> {
+  const token = getAccessToken();
+  const fd = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value instanceof File) fd.append(key, value);
+    else if (value !== undefined && value !== null && value !== "") fd.append(key, String(value));
+  }
+
+  let res = await fetch(url, {
+    method,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+
+  if (res.status === 401 && getRefreshToken()) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${newToken}` },
+        body: fd,
+      });
+    }
+  }
+
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
 }

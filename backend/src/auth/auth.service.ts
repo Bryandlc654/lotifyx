@@ -13,6 +13,7 @@ import * as crypto from "crypto";
 import { User } from "./entities/user.entity";
 import { UserProfile } from "./entities/user-profile.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
+import { UserVerification } from "./entities/user-verification.entity";
 import { MailService } from "../mail/mail.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -27,6 +28,8 @@ export class AuthService {
     private readonly profileRepository: Repository<UserProfile>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(UserVerification)
+    private readonly verificationRepository: Repository<UserVerification>,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService
   ) {}
@@ -152,11 +155,23 @@ export class AuthService {
         referral_code: this.generateReferralCode(),
         referred_by: referredBy,
         is_verified: false,
-        verification_code: verificationCode,
-        verification_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       });
 
       const savedUser = await this.userRepository.save(user);
+
+      // Crear registro de verificación
+      const verification = this.verificationRepository.create({
+        user_id: savedUser.id,
+        verification_type: "email",
+        verification_status: "pending",
+        request_payload: { email: dto.correo },
+        response_payload: {
+          code: verificationCode,
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        },
+      });
+
+      await this.verificationRepository.save(verification);
 
       const profile = this.profileRepository.create({
         user_id: savedUser.id,
@@ -204,20 +219,36 @@ export class AuthService {
       return { message: "La cuenta ya está verificada" };
     }
 
-    if (user.verification_code !== dto.code) {
+    const verification = await this.verificationRepository.findOne({
+      where: {
+        user_id: user.id,
+        verification_type: "email",
+        verification_status: "pending",
+      },
+      order: { created_at: "DESC" },
+    });
+
+    if (!verification) {
+      throw new BadRequestException("No hay verificación pendiente. Solicita un nuevo código.");
+    }
+
+    const storedCode = verification.response_payload?.code;
+    const expiresAt = verification.response_payload?.expires_at;
+
+    if (storedCode !== dto.code) {
       throw new BadRequestException("Código de verificación inválido");
     }
 
-    if (
-      user.verification_expires_at &&
-      new Date(user.verification_expires_at) < new Date()
-    ) {
+    if (expiresAt && new Date(expiresAt) < new Date()) {
       throw new BadRequestException("El código de verificación expiró. Solicita uno nuevo.");
     }
 
+    verification.verification_status = "verified";
+    verification.verified_at = new Date();
+    verification.verified_data = { email: dto.email };
+    await this.verificationRepository.save(verification);
+
     user.is_verified = true;
-    user.verification_code = null as any;
-    user.verification_expires_at = null as any;
     await this.userRepository.save(user);
 
     return { message: "Cuenta verificada exitosamente. Ya puedes iniciar sesión." };

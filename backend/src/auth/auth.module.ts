@@ -10,11 +10,12 @@ import { User } from "./entities/user.entity";
 import { Role } from "./entities/role.entity";
 import { UserProfile } from "./entities/user-profile.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
+import { UserVerification } from "./entities/user-verification.entity";
 import { CleanupService } from "../common/services/cleanup.service";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, UserProfile, RefreshToken]),
+    TypeOrmModule.forFeature([User, Role, UserProfile, RefreshToken, UserVerification]),
     PassportModule,
   ],
   controllers: [AuthController],
