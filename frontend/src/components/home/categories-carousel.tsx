@@ -28,24 +28,35 @@ export function CategoriesCarousel() {
   }, []);
 
   const total = cats.length;
-  const pages = Math.ceil(total / VISIBLE);
 
   const goTo = useCallback((idx: number) => {
-    setCurrent(((idx % pages) + pages) % pages);
-  }, [pages]);
+    setCurrent(idx);
+  }, []);
 
-  const next = useCallback(() => goTo(current + 1), [current, goTo]);
-  const prev = useCallback(() => goTo(current - 1), [current, goTo]);
+  const next = useCallback(() => {
+    setCurrent(prev => {
+      if (prev >= total - 1) return 0;
+      return prev + 1;
+    });
+  }, [total]);
+
+  const prev = useCallback(() => {
+    setCurrent(prev => {
+      if (prev <= 0) return total - 1;
+      return prev - 1;
+    });
+  }, [total]);
 
   useEffect(() => {
-    if (pages <= 1) return;
+    if (total <= VISIBLE) return;
     const timer = setInterval(next, 4000);
     return () => clearInterval(timer);
-  }, [pages, next]);
+  }, [total, next]);
 
   if (!loaded || total === 0) return null;
 
-  const visibleItems = cats.length >= 4 ? cats : [...cats, ...Array(4 - cats.length).fill(null)];
+  // Duplicate items for infinite loop effect
+  const displayItems = [...cats, ...cats, ...cats];
 
   return (
     <section className="bg-white py-12 sm:py-16">
@@ -58,35 +69,32 @@ export function CategoriesCarousel() {
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-500"
-              style={{ transform: `translateX(-${current * 100}%)` }}
+              style={{ transform: `translateX(-${(current + total) * (100 / VISIBLE)}%)` }}
             >
-              {/* Duplicate for infinite loop */}
-              {[...Array(Math.max(1, pages * 2))].map((_, pageIdx) => (
-                <div key={pageIdx} className="grid grid-cols-2 sm:grid-cols-4 gap-8 w-full flex-shrink-0 px-0.5">
-                  {visibleItems.map((cat, i) => {
-                    if (!cat) return <div key={`empty-${i}`} />;
-                    const imgSrc = cat.icon
-                      ? (cat.icon.startsWith("http") ? cat.icon : `${API_URL}${cat.icon}`)
-                      : null;
+              {displayItems.map((cat, i) => {
+                const imgSrc = cat.icon
+                  ? (cat.icon.startsWith("http") ? cat.icon : `${API_URL}${cat.icon}`)
+                  : null;
 
-                    return (
-                      <div key={`${cat.id}-${pageIdx}`} className="flex items-center gap-5 py-2">
-                        {imgSrc ? (
-                          <img src={imgSrc} alt={cat.name} className="w-[85px] h-[85px] object-contain flex-shrink-0" />
-                        ) : (
-                          <div className="w-[85px] h-[85px] rounded-lg bg-gray-100 flex-shrink-0" />
-                        )}
-                        <span className="text-[20px] text-[#344054] line-clamp-2 leading-tight">{cat.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                return (
+                  <div
+                    key={`${cat.id}-${i}`}
+                    className="flex items-center gap-5 py-2 flex-shrink-0"
+                    style={{ width: `${100 / VISIBLE}%` }}
+                  >
+                    {imgSrc ? (
+                      <img src={imgSrc} alt={cat.name} className="w-[85px] h-[85px] object-contain flex-shrink-0" />
+                    ) : (
+                      <div className="w-[85px] h-[85px] rounded-lg bg-gray-100 flex-shrink-0" />
+                    )}
+                    <span className="text-[20px] text-[#344054] line-clamp-2 leading-tight">{cat.name}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Navigation arrows */}
-          {pages > 1 && (
+          {total > VISIBLE && (
             <>
               <button onClick={prev}
                 className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-white shadow-md border border-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
@@ -100,15 +108,14 @@ export function CategoriesCarousel() {
           )}
         </div>
 
-        {/* Pagination */}
-        {pages > 1 && (
+        {total > VISIBLE && (
           <div className="flex items-center justify-center gap-2 mt-6">
-            {Array.from({ length: pages }).map((_, i) => (
+            {cats.map((_, i) => (
               <button
                 key={i}
                 onClick={() => goTo(i)}
                 className={`transition-all duration-300 ${
-                  i === current
+                  i === (current % total)
                     ? "w-6 h-2.5 rounded-full bg-gradient-to-r from-[#8234FE] to-[#26BEFE]"
                     : "w-2.5 h-2.5 rounded-full bg-[#D9D9D9] hover:bg-gray-400"
                 }`}

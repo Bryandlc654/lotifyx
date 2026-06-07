@@ -53,6 +53,9 @@ export class UserProfile {
   @Column({ nullable: true })
   razon_social: string;
 
+  @Column({ nullable: true, length: 20 })
+  account_type: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

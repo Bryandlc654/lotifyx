@@ -14,6 +14,7 @@ import { User } from "./entities/user.entity";
 import { UserProfile } from "./entities/user-profile.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
 import { UserVerification } from "./entities/user-verification.entity";
+import { Role } from "./entities/role.entity";
 import { MailService } from "../mail/mail.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -30,6 +31,8 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(UserVerification)
     private readonly verificationRepository: Repository<UserVerification>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService
   ) {}
@@ -136,6 +139,18 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.contrasena, salt);
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
+    let roleId: string | undefined;
+    if (dto.accountType) {
+      const roleName = dto.accountType === "Quiero vender" ? "vendedor" : "comprador";
+      let role = await this.roleRepository.findOne({ where: { name: roleName } });
+      if (!role) {
+        role = await this.roleRepository.save(
+          this.roleRepository.create({ name: roleName, description: `Rol automático: ${dto.accountType}` })
+        );
+      }
+      roleId = role.id;
+    }
+
     let referredBy: string | undefined;
     if (dto.codigoReferidos) {
       const referrer = await this.userRepository.findOne({
@@ -151,6 +166,7 @@ export class AuthService {
         email: dto.correo,
         password_hash: hashedPassword,
         phone: dto.telefono,
+        role_id: roleId,
         status: "active",
         referral_code: this.generateReferralCode(),
         referred_by: referredBy,
@@ -183,6 +199,7 @@ export class AuthService {
         how_found_us: dto.comoNosEncontraste,
         ruc: dto.ruc,
         razon_social: dto.razonSocial,
+        account_type: dto.accountType,
       });
 
       await this.profileRepository.save(profile);

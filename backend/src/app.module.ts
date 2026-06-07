@@ -15,6 +15,8 @@ import { SettingsModule } from "./settings/settings.module";
 import { TestimonialsModule } from "./testimonials/testimonials.module";
 import { AdminModule } from "./admin/admin.module";
 import { CategoriesModule } from "./categories/categories.module";
+import { SecondaryBannersModule } from "./secondary-banners/secondary-banners.module";
+import { BackingModule } from "./backing/backing.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -73,6 +75,8 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     TestimonialsModule,
     AdminModule,
     CategoriesModule,
+    SecondaryBannersModule,
+    BackingModule,
   ],
 
   // ─── Global rate limit guard ──────────────

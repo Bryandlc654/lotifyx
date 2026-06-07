@@ -43,6 +43,7 @@ export function RegistrationForm() {
       ruc: "",
       razonSocial: "",
       codigoReferidos: "",
+      accountType: "",
       comoNosEncontraste: "",
       aceptaTerminos: false as unknown as true,
     },
@@ -56,6 +57,7 @@ export function RegistrationForm() {
       const payload = {
         ...data,
         aceptaTerminos: Boolean(data.aceptaTerminos),
+        accountType: data.accountType,
         codigoReferidos: data.codigoReferidos || undefined,
       };
       await registerUser(payload);
@@ -206,6 +208,13 @@ export function RegistrationForm() {
           isPassword
           {...register("contrasena")}
           error={errors.contrasena?.message}
+        />
+
+        <Select
+          label="¿Qué quieres hacer en Lotifyx?"
+          options={["Quiero vender", "Quiero comprar"]}
+          {...register("accountType")}
+          error={errors.accountType?.message}
         />
       </section>
 

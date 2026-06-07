@@ -425,6 +425,58 @@ export async function deleteCategory(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar categoría");
 }
 
+// ─── Secondary Banners ───────────────────────────────────────
+
+export interface SecondaryBanner {
+  id: string; title: string; subtitle: string; image_url: string; link_url: string;
+  button_text: string; type: string; is_active: boolean; order_index: number; created_at: string;
+}
+
+export async function getSecondaryBanners(type?: string): Promise<SecondaryBanner[]> {
+  const qs = type ? `?type=${type}` : "";
+  const res = await fetch(`${API_URL}/secondary-banners${qs}`);
+  if (!res.ok) throw new Error("Error al obtener banners");
+  return res.json();
+}
+
+export async function createSecondaryBanner(dto: { title: string; subtitle?: string; type: string; link_url?: string; button_text?: string }, file: File): Promise<SecondaryBanner> {
+  return multipartAuth(`${API_URL}/secondary-banners`, "POST", { ...dto, image: file });
+}
+
+export async function updateSecondaryBanner(id: string, dto: { title?: string; subtitle?: string; link_url?: string; button_text?: string; is_active?: boolean; type?: string }, file?: File): Promise<SecondaryBanner> {
+  return multipartAuth(`${API_URL}/secondary-banners/${id}`, "PUT", { ...dto, ...(file ? { image: file } : {}) });
+}
+
+export async function deleteSecondaryBanner(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/secondary-banners/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar banner");
+}
+
+// ─── Backing Logos ───────────────────────────────────────────
+
+export interface BackingLogo {
+  id: string; name: string; image_url: string; is_active: boolean; order_index: number; created_at: string;
+}
+
+export async function getBackingLogos(): Promise<BackingLogo[]> {
+  const res = await fetch(`${API_URL}/backing`);
+  if (!res.ok) throw new Error("Error al obtener logos");
+  return res.json();
+}
+
+export async function createBackingLogo(name: string, file: File): Promise<BackingLogo> {
+  return multipartAuth(`${API_URL}/backing`, "POST", { name, image: file });
+}
+
+export async function updateBackingLogo(id: string, dto: { name?: string; is_active?: boolean }, file?: File): Promise<BackingLogo> {
+  return multipartAuth(`${API_URL}/backing/${id}`, "PUT", { ...dto, ...(file ? { image: file } : {}) });
+}
+
+export async function deleteBackingLogo(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/backing/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar logo");
+}
+
 // ─── Multipart auth helper ────────────────────────────────────
 
 async function multipartAuth(url: string, method: string, fields: Record<string, any>): Promise<any> {

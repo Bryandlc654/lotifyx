@@ -65,6 +65,10 @@ export class RegisterDto {
   codigoReferidos?: string;
 
   @IsString()
+  @IsNotEmpty({ message: "Selecciona si quieres vender o comprar" })
+  accountType: string;
+
+  @IsString()
   @IsNotEmpty({ message: "Selecciona cómo nos encontraste" })
   comoNosEncontraste: string;
 

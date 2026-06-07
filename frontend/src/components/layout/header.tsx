@@ -25,6 +25,31 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [topBarText, setTopBarText] = useState("Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.");
+  const [topBarVisible, setTopBarVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    fetch(`${apiUrl}/settings`)
+      .then(r => r.json())
+      .then(d => { if (d.topbar_text) setTopBarText(d.topbar_text); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 40) {
+        setTopBarVisible(false);
+      } else {
+        setTopBarVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
 
   const fetchUser = useCallback(async () => {
     if (!isAuthenticated()) {
@@ -54,14 +79,14 @@ export function Header() {
   return (
     <>
       {/* Top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#8234FE] to-[#26BEFE]">
+      <div className={`fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#8234FE] to-[#26BEFE] transition-transform duration-300 ${topBarVisible ? "translate-y-0" : "-translate-y-full"}`}>
         <p className="text-center text-xs sm:text-sm font-medium text-white py-2 px-4">
-          Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.
+          {topBarText}
         </p>
       </div>
 
       {/* Header */}
-      <header className="fixed top-9 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <header className={`fixed left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300 ${topBarVisible ? "top-9" : "top-0"}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <img

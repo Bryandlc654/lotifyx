@@ -53,6 +53,9 @@ export const registroSchema = z
       .max(20)
       .optional()
       .or(z.literal("")),
+    accountType: z
+      .string()
+      .min(1, "Selecciona si quieres vender o comprar"),
     comoNosEncontraste: z
       .string()
       .min(1, "Selecciona cómo nos encontraste"),

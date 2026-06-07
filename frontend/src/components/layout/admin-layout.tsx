@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,9 +15,11 @@ const modules = [
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/categories", label: "Categorías", icon: FolderTree },
   { href: "/admin/banners", label: "Banners", icon: Image },
+  { href: "/admin/secondary-banners", label: "Banners Promo", icon: PanelTop },
+  { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck },
   { href: "/admin/marquees", label: "Logos", icon: Star },
   { href: "/admin/testimonials", label: "Testimonios", icon: MessageSquare },
-  { href: "/admin/settings", label: "SMTP", icon: Settings },
+  { href: "/admin/settings", label: "Configuración", icon: Settings },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {

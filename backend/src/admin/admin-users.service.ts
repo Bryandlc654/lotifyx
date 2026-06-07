@@ -26,7 +26,7 @@ export class AdminUsersService {
       .createQueryBuilder("u")
       .leftJoinAndSelect("u.profile", "p")
       .leftJoinAndSelect("u.role", "r")
-      .where("1=1");
+      .where("(r.name IS NULL OR r.name != :excludeRole)", { excludeRole: "superadmin" });
 
     if (query.search) {
       qb.andWhere("(u.email ILIKE :s OR p.first_name ILIKE :s OR p.last_name ILIKE :s OR p.document_number ILIKE :s)", {

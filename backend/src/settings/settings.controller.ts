@@ -5,14 +5,14 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 
 @Controller("settings")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("superadmin")
 export class SettingsController {
   constructor(private readonly service: SettingsService) {}
 
   @Get()
   getAll() { return this.service.getAll(); }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("superadmin")
   @Put()
   @HttpCode(HttpStatus.OK)
   update(@Body() data: Record<string, string>) {
