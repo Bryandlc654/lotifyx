@@ -17,7 +17,7 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
@@ -25,6 +25,14 @@ export class RolesGuard implements CanActivate {
 
     if (!user || !user.role) {
       throw new ForbiddenException("Acceso denegado");
+    }
+
+    // If endpoint requires superadmin/admin, check is_admin flag from token
+    if (requiredRoles.includes("superadmin") || requiredRoles.includes("admin")) {
+      if (user.isAdmin || user.role === "superadmin") {
+        return true;
+      }
+      throw new ForbiddenException("No tienes permisos de administrador");
     }
 
     const hasRole = requiredRoles.some((role) => user.role === role);

@@ -1,0 +1,21 @@
+export const MOCK_PRODUCTS = Array.from({ length: 9 }, (_, i) => ({
+  id: `${i + 1}`,
+  brand: ["Samsung", "LG", "Sony", "Apple", "Xiaomi", "Huawei"][i % 6],
+  name: [
+    "Smart TV 55\" 4K UHD",
+    "Monitor Gaming 27\" 165Hz",
+    "TV LED 50\" Full HD",
+    "MacBook Pro 14\" M3",
+    "Redmi Note 13 Pro",
+    "MateBook 16\" Core i7",
+    "Galaxy Tab S9 Ultra",
+    "PlayStation 5 Digital",
+    "iPad Air 11\" M2",
+  ][i],
+  image: "",
+  shipping: i % 3 === 0 ? "Envío gratis" : i % 3 === 1 ? "Envío 24h" : "Envío cálculo",
+  price: [1299, 899, 799, 5499, 1299, 3499, 2799, 2199, 2899][i],
+  oldPrice: i % 2 === 0 ? [1599, 1099, 999, 6499, 1599, 3999, 3299, 2599, 3299][i] : undefined,
+  rating: [4.5, 4.8, 4.2, 5.0, 4.3, 4.7, 4.6, 4.9, 4.4][i],
+  reviews: [128, 256, 64, 512, 89, 340, 178, 420, 95][i],
+}));

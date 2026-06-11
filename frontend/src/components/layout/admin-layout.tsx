@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -12,11 +12,14 @@ interface AdminLayoutProps {
 
 const modules = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/gestores", label: "Gestores", icon: UserCog },
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/categories", label: "Categorías", icon: FolderTree },
   { href: "/admin/banners", label: "Banners", icon: Image },
   { href: "/admin/secondary-banners", label: "Banners Promo", icon: PanelTop },
   { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck },
+  { href: "/admin/plans", label: "Planes", icon: CreditCard },
+  { href: "/admin/rbac", label: "RBAC", icon: Shield },
   { href: "/admin/marquees", label: "Logos", icon: Star },
   { href: "/admin/testimonials", label: "Testimonios", icon: MessageSquare },
   { href: "/admin/settings", label: "Configuración", icon: Settings },
@@ -34,7 +37,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     getProfile()
       .then((data) => {
         const u = data.user as any;
-        if (u?.role?.name !== "superadmin") { router.push("/perfil"); return; }
+        const isAdmin = u?.role?.is_admin || u?.role?.name === "superadmin";
+        if (!isAdmin) {
+          router.push("/perfil");
+          return;
+        }
         setUser(u);
       })
       .catch(() => { removeTokens(); router.push("/login"); });

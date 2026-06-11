@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { loginUser, getGoogleAuthUrl } from "@/lib/api";
+import { loginUser, getGoogleAuthUrl, getProfile } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 
 interface LoginModalProps {
@@ -37,6 +37,16 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       toast.success("¡Bienvenido!");
       reset();
       onClose();
+
+      try {
+        const profile = await getProfile();
+        const u = profile.user as any;
+        if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
+          router.push("/planes");
+          return;
+        }
+      } catch {}
+
       router.push("/perfil");
     } catch (err) {
       const message =

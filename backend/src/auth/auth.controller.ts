@@ -92,4 +92,11 @@ export class AuthController {
       user,
     };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("select-plan")
+  @HttpCode(HttpStatus.OK)
+  selectPlan(@Req() req, @Body("plan_id") planId: string) {
+    return this.authService.selectPlan(req.user.id, planId);
+  }
 }

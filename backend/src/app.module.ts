@@ -17,6 +17,7 @@ import { AdminModule } from "./admin/admin.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { SecondaryBannersModule } from "./secondary-banners/secondary-banners.module";
 import { BackingModule } from "./backing/backing.module";
+import { PlansModule } from "./plans/plans.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -77,6 +78,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     CategoriesModule,
     SecondaryBannersModule,
     BackingModule,
+    PlansModule,
   ],
 
   // ─── Global rate limit guard ──────────────

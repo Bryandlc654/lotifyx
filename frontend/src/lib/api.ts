@@ -356,12 +356,13 @@ export interface AdminUser {
 }
 
 export async function getAdminUsers(params?: {
-  search?: string; role?: string; status?: string; page?: number; limit?: number;
+  search?: string; role?: string; status?: string; is_admin?: string; page?: number; limit?: number;
 }): Promise<{ data: AdminUser[]; total: number; page: number; totalPages: number }> {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.role) qs.set("role", params.role);
   if (params?.status) qs.set("status", params.status);
+  if (params?.is_admin) qs.set("is_admin", params.is_admin);
   if (params?.page) qs.set("page", String(params.page));
   if (params?.limit) qs.set("limit", String(params.limit));
   const res = await authFetch(`${API_URL}/admin/users?${qs.toString()}`);
@@ -475,6 +476,87 @@ export async function updateBackingLogo(id: string, dto: { name?: string; is_act
 export async function deleteBackingLogo(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/backing/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar logo");
+}
+
+// ─── Plans ───────────────────────────────────────────────────
+
+export interface Plan {
+  id: string; name: string; price: number; ads_count: number;
+  featured_count: number; note: string; order_index: number; is_active: boolean;
+}
+
+export async function getPlans(): Promise<Plan[]> {
+  const res = await fetch(`${API_URL}/plans`);
+  if (!res.ok) throw new Error("Error al obtener planes");
+  return res.json();
+}
+
+export async function createPlan(dto: { name: string; price: number; ads_count: number; featured_count?: number; note?: string }): Promise<Plan> {
+  const res = await authFetch(`${API_URL}/plans`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(()=>({message:"Error"}))).message);
+  return res.json();
+}
+
+export async function updatePlan(id: string, dto: Partial<Plan>): Promise<Plan> {
+  const res = await authFetch(`${API_URL}/plans/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar plan");
+  return res.json();
+}
+
+export async function deletePlan(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/plans/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar plan");
+}
+
+// ─── RBAC ────────────────────────────────────────────────────
+
+export interface RoleWithPerms {
+  id: string; name: string; description: string;
+  rolePermissions: { id: string; permission_id: string; permission?: Permission; }[];
+}
+
+export interface Permission {
+  id: string; name: string; description: string; module: string;
+}
+
+export async function getRbacRoles(): Promise<RoleWithPerms[]> {
+  const res = await authFetch(`${API_URL}/admin/rbac/roles`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createRbacRole(dto: { name: string; description?: string }): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/rbac/roles`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json()).message);
+  return res.json();
+}
+
+export async function deleteRbacRole(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/rbac/roles/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).message);
+}
+
+export async function getPermissions(): Promise<Permission[]> {
+  const res = await authFetch(`${API_URL}/admin/rbac/permissions`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function assignPermission(roleId: string, permissionId: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/rbac/roles/${roleId}/permissions`, {
+    method: "POST", body: JSON.stringify({ permission_id: permissionId }),
+  });
+  if (!res.ok) throw new Error("Error");
+}
+
+export async function revokePermission(rpId: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/rbac/permissions/${rpId}/revoke`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error");
+}
+
+export async function seedPermissions(): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/rbac/seed`, { method: "POST" });
+  if (!res.ok) throw new Error("Error");
 }
 
 // ─── Multipart auth helper ────────────────────────────────────

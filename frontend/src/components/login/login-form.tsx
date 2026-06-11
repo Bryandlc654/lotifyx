@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { loginUser, getGoogleAuthUrl } from "@/lib/api";
+  import { toast } from "sonner";
+import { loginUser, getGoogleAuthUrl, getProfile } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 
 interface LoginFormData {
@@ -28,6 +28,14 @@ export function LoginForm() {
     try {
       await loginUser(data);
       toast.success("¡Bienvenido!");
+
+      const profile = await getProfile();
+      const u = profile.user as any;
+      if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
+        router.push("/planes");
+        return;
+      }
+
       router.push("/perfil");
     } catch (err) {
       const message =

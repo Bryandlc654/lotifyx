@@ -11,15 +11,18 @@ import { Role } from "./entities/role.entity";
 import { UserProfile } from "./entities/user-profile.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
 import { UserVerification } from "./entities/user-verification.entity";
+import { Permission } from "./entities/permission.entity";
+import { RolePermission } from "./entities/role-permission.entity";
 import { CleanupService } from "../common/services/cleanup.service";
+import { PermissionsGuard } from "./guards/permissions.guard";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, UserProfile, RefreshToken, UserVerification]),
+    TypeOrmModule.forFeature([User, Role, UserProfile, RefreshToken, UserVerification, Permission, RolePermission]),
     PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, RolesGuard, CleanupService],
-  exports: [RolesGuard],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, RolesGuard, PermissionsGuard, CleanupService],
+  exports: [RolesGuard, PermissionsGuard],
 })
 export class AuthModule {}

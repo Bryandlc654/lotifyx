@@ -56,6 +56,9 @@ export class UserProfile {
   @Column({ nullable: true, length: 20 })
   account_type: string;
 
+  @Column({ type: "uuid", nullable: true })
+  plan_id: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

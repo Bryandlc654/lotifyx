@@ -17,7 +17,7 @@ export class AdminUsersService {
     @InjectRepository(UserVerification) private readonly vfyRepo: Repository<UserVerification>,
   ) {}
 
-  async findAll(query: { search?: string; role?: string; status?: string; page?: number; limit?: number }) {
+  async findAll(query: { search?: string; role?: string; status?: string; is_admin?: string; page?: number; limit?: number }) {
     const page = query.page || 1;
     const limit = query.limit || 15;
     const skip = (page - 1) * limit;
@@ -26,7 +26,7 @@ export class AdminUsersService {
       .createQueryBuilder("u")
       .leftJoinAndSelect("u.profile", "p")
       .leftJoinAndSelect("u.role", "r")
-      .where("(r.name IS NULL OR r.name != :excludeRole)", { excludeRole: "superadmin" });
+      .where("(r.name = :vendedor OR r.name = :comprador)", { vendedor: "vendedor", comprador: "comprador" });
 
     if (query.search) {
       qb.andWhere("(u.email ILIKE :s OR p.first_name ILIKE :s OR p.last_name ILIKE :s OR p.document_number ILIKE :s)", {
@@ -40,6 +40,10 @@ export class AdminUsersService {
 
     if (query.status) {
       qb.andWhere("u.status = :status", { status: query.status });
+    }
+
+    if (query.is_admin === "true") {
+      qb.andWhere("r.is_admin = true");
     }
 
     qb.orderBy("u.created_at", "DESC").skip(skip).take(limit);

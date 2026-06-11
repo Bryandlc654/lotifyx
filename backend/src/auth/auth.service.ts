@@ -54,10 +54,13 @@ export class AuthService {
         : (user.role as any).name
       : null;
 
+    const isAdmin = user.role ? !!(user.role as any).is_admin : false;
+
     const accessToken = this.jwtService.sign({
       sub: user.id,
       email: user.email,
       role,
+      isAdmin,
     });
 
     const refreshValue = this.generateRefreshTokenValue();
@@ -391,5 +394,12 @@ export class AuthService {
 
     const { password_hash: _, ...result } = user;
     return result;
+  }
+
+  // ─── Select Plan ─────────────────────────────────────────
+
+  async selectPlan(userId: string, planId: string) {
+    await this.profileRepository.update({ user_id: userId }, { plan_id: planId });
+    return { message: "Plan activado exitosamente" };
   }
 }

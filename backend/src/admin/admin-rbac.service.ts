@@ -1,0 +1,136 @@
+import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Role } from "../auth/entities/role.entity";
+import { Permission } from "../auth/entities/permission.entity";
+import { RolePermission } from "../auth/entities/role-permission.entity";
+
+@Injectable()
+export class AdminRbacService {
+  constructor(
+    @InjectRepository(Role) private readonly roleRepo: Repository<Role>,
+    @InjectRepository(Permission) private readonly permRepo: Repository<Permission>,
+    @InjectRepository(RolePermission) private readonly rpRepo: Repository<RolePermission>,
+  ) {}
+
+  // --- Roles ---
+  async getRoles() {
+    return this.roleRepo.find({
+      where: { is_admin: true },
+      relations: ["rolePermissions", "rolePermissions.permission"],
+    });
+  }
+
+  async createRole(dto: { name: string; description?: string }) {
+    const exists = await this.roleRepo.findOne({ where: { name: dto.name } });
+    if (exists) throw new ConflictException("El rol ya existe");
+    return this.roleRepo.save(this.roleRepo.create({ name: dto.name, description: dto.description, is_admin: true }));
+  }
+
+  async deleteRole(id: string) {
+    const role = await this.roleRepo.findOne({ where: { id } });
+    if (!role) throw new NotFoundException("Rol no encontrado");
+    if (role.name === "superadmin") throw new ConflictException("No se puede eliminar el rol superadmin");
+    await this.roleRepo.remove(role);
+    return { message: "Rol eliminado" };
+  }
+
+  // --- Permissions ---
+  async getPermissions() {
+    return this.permRepo.find({ order: { module: "ASC", name: "ASC" } });
+  }
+
+  async createPermission(dto: { name: string; description: string; module: string }) {
+    const exists = await this.permRepo.findOne({ where: { name: dto.name } });
+    if (exists) throw new ConflictException("El permiso ya existe");
+    return this.permRepo.save(this.permRepo.create(dto));
+  }
+
+  async deletePermission(id: string) {
+    const perm = await this.permRepo.findOne({ where: { id } });
+    if (!perm) throw new NotFoundException("Permiso no encontrado");
+    await this.permRepo.remove(perm);
+    return { message: "Permiso eliminado" };
+  }
+
+  // --- Role-Permission assignments ---
+  async getRolePermissions(roleId: string) {
+    return this.rpRepo.find({
+      where: { role_id: roleId },
+      relations: ["permission"],
+    });
+  }
+
+  async assignPermission(roleId: string, permissionId: string) {
+    const exists = await this.rpRepo.findOne({ where: { role_id: roleId, permission_id: permissionId } });
+    if (exists) return exists;
+    return this.rpRepo.save(this.rpRepo.create({ role_id: roleId, permission_id: permissionId }));
+  }
+
+  async revokePermission(rolePermissionId: string) {
+    const rp = await this.rpRepo.findOne({ where: { id: rolePermissionId } });
+    if (!rp) throw new NotFoundException("Asignación no encontrada");
+    await this.rpRepo.remove(rp);
+    return { message: "Permiso revocado" };
+  }
+
+  // --- Seed default permissions ---
+  async seedDefaultPermissions() {
+    const defaults = [
+      { name: "banners.read", description: "Ver banners", module: "banners" },
+      { name: "banners.write", description: "Crear/editar banners", module: "banners" },
+      { name: "banners.delete", description: "Eliminar banners", module: "banners" },
+      { name: "marquees.read", description: "Ver logos", module: "marquees" },
+      { name: "marquees.write", description: "Crear/editar logos", module: "marquees" },
+      { name: "marquees.delete", description: "Eliminar logos", module: "marquees" },
+      { name: "testimonials.read", description: "Ver testimonios", module: "testimonials" },
+      { name: "testimonials.write", description: "Crear/editar testimonios", module: "testimonials" },
+      { name: "testimonials.delete", description: "Eliminar testimonios", module: "testimonials" },
+      { name: "categories.read", description: "Ver categorías", module: "categories" },
+      { name: "categories.write", description: "Crear/editar categorías", module: "categories" },
+      { name: "categories.delete", description: "Eliminar categorías", module: "categories" },
+      { name: "users.read", description: "Ver usuarios", module: "users" },
+      { name: "users.write", description: "Crear/editar usuarios", module: "users" },
+      { name: "users.delete", description: "Eliminar usuarios", module: "users" },
+      { name: "plans.read", description: "Ver planes", module: "plans" },
+      { name: "plans.write", description: "Crear/editar planes", module: "plans" },
+      { name: "plans.delete", description: "Eliminar planes", module: "plans" },
+      { name: "settings.read", description: "Ver configuración", module: "settings" },
+      { name: "settings.write", description: "Editar configuración", module: "settings" },
+      { name: "backing.read", description: "Ver logos respaldo", module: "backing" },
+      { name: "backing.write", description: "Crear/editar logos respaldo", module: "backing" },
+      { name: "backing.delete", description: "Eliminar logos respaldo", module: "backing" },
+      { name: "secondary_banners.read", description: "Ver banners promo", module: "secondary_banners" },
+      { name: "secondary_banners.write", description: "Crear/editar banners promo", module: "secondary_banners" },
+      { name: "secondary_banners.delete", description: "Eliminar banners promo", module: "secondary_banners" },
+      { name: "rbac.read", description: "Ver roles y permisos", module: "rbac" },
+      { name: "rbac.write", description: "Gestionar roles y permisos", module: "rbac" },
+    ];
+
+    let created = 0;
+    for (const d of defaults) {
+      const exists = await this.permRepo.findOne({ where: { name: d.name } });
+      if (!exists) {
+        await this.permRepo.save(this.permRepo.create(d));
+        created++;
+      }
+    }
+
+    // Assign all to superadmin and set is_admin
+    const superadmin = await this.roleRepo.findOne({ where: { name: "superadmin" } });
+    if (superadmin) {
+      if (!superadmin.is_admin) {
+        await this.roleRepo.update(superadmin.id, { is_admin: true });
+      }
+      const allPerms = await this.permRepo.find();
+      for (const perm of allPerms) {
+        const exists = await this.rpRepo.findOne({ where: { role_id: superadmin.id, permission_id: perm.id } });
+        if (!exists) {
+          await this.rpRepo.save(this.rpRepo.create({ role_id: superadmin.id, permission_id: perm.id }));
+        }
+      }
+    }
+
+    return { message: `Creados ${created} permisos. Superadmin actualizado.` };
+  }
+}

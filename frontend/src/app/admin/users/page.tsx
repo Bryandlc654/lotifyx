@@ -30,6 +30,7 @@ export default function AdminUsersPage() {
     ruc: "", razon_social: "", is_verified: true,
   });
   const [saving, setSaving] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; user?: AdminUser }>({ open: false });
 
   useEffect(() => { load(); getAdminRoles().then(setRoles).catch(() => {}); }, []);
   useEffect(() => { setPage(1); load(); }, [search, filterRole, filterStatus]);
@@ -82,8 +83,7 @@ export default function AdminUsersPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este usuario?")) return;
-    try { await deleteAdminUser(id); toast.success("Eliminado"); load(); }
+    try { await deleteAdminUser(id); toast.success("Eliminado"); setDeleteModal({ open: false }); load(); }
     catch (e: any) { toast.error("Error al eliminar"); }
   }
 
@@ -112,7 +112,7 @@ export default function AdminUsersPage() {
           <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
             <option value="">Todos los roles</option>
-            {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+            {roles.filter(r => r.name === "vendedor" || r.name === "comprador").map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
@@ -175,7 +175,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => openEdit(u)} className="p-1.5 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(u.id)} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => setDeleteModal({ open: true, user: u })} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                       </td>
                     </tr>
                   ))}
@@ -223,7 +223,7 @@ export default function AdminUsersPage() {
                 <select value={form.role_id} onChange={e => setForm({...form, role_id: e.target.value})}
                   className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200">
                   <option value="">Sin rol</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {roles.filter(r => r.name === "vendedor" || r.name === "comprador").map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -248,6 +248,36 @@ export default function AdminUsersPage() {
               <button onClick={handleSave} disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60">
                 {saving ? "Guardando..." : modal.user ? "Actualizar" : "Crear usuario"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {deleteModal.open && deleteModal.user && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteModal({ open: false })} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">¿Eliminar usuario?</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Esta acción eliminará permanentemente a{" "}
+              <span className="font-medium text-gray-700">
+                {deleteModal.user.profile?.first_name} {deleteModal.user.profile?.last_name}
+              </span>
+              {" "}({deleteModal.user.email})
+            </p>
+            <div className="flex gap-3 justify-center mt-6">
+              <button onClick={() => setDeleteModal({ open: false })}
+                className="px-5 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={() => handleDelete(deleteModal.user!.id)}
+                className="px-5 py-2 rounded-lg bg-red-500 text-sm font-semibold text-white hover:bg-red-600 transition-colors">
+                Eliminar
               </button>
             </div>
           </div>
