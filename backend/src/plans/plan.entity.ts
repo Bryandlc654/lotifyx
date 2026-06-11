@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm";
 
 @Entity("plans")
 export class Plan {
@@ -8,27 +8,30 @@ export class Plan {
   @Column({ length: 100 })
   name: string;
 
+  @Column({ type: "text", nullable: true })
+  description: string;
+
   @Column({ type: "decimal", precision: 10, scale: 2 })
   price: number;
 
   @Column({ type: "int" })
-  ads_count: number;
+  max_products: number;
 
   @Column({ type: "int", default: 0 })
-  featured_count: number;
+  max_featured: number;
+
+  @Column({ type: "int", default: 30 })
+  duration_days: number;
 
   @Column({ type: "text", nullable: true })
-  note: string;
-
-  @Column({ default: 0 })
-  order_index: number;
+  icon: string;
 
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ default: 0 })
+  order_index: number;
+
   @CreateDateColumn()
   created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

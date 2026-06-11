@@ -7,8 +7,8 @@ import { diskStorage } from "multer";
 import { extname } from "path";
 import { MarqueesService } from "./marquees.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 const storage = diskStorage({
   destination: "./uploads",
@@ -31,27 +31,27 @@ export class MarqueesController {
   @Get()
   findAll() { return this.service.findAll(); }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("marquees.write")
   @Post()
-  @Roles("superadmin")
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor("image", { storage, fileFilter, limits }))
   create(@UploadedFile() file: Express.Multer.File, @Body("name") name: string) {
     return this.service.create(name, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("marquees.write")
   @Put(":id")
-  @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor("image", { storage, fileFilter, limits }))
   update(@Param("id") id: string, @Body("name") name: string, @UploadedFile() file?: Express.Multer.File) {
     return this.service.update(id, name, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("marquees.delete")
   @Delete(":id")
-  @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) {
     return this.service.remove(id);

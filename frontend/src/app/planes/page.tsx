@@ -85,9 +85,9 @@ export default function PlanesPage() {
                   : "border-[#C8D2DF] bg-[#FBF9FF] hover:border-gray-400"
               }`}
             >
-              {plan.note && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#8234FE] text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
-                  {plan.note}
+              {plan.description && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#8234FE] text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap max-w-[90%] truncate">
+                  {plan.description}
                 </span>
               )}
 
@@ -95,19 +95,19 @@ export default function PlanesPage() {
                 <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
                 <p className="text-3xl font-bold text-gray-900 mt-4">
                   S/ {plan.price}
-                  <span className="text-sm font-normal text-gray-400">/mes</span>
+                  <span className="text-sm font-normal text-gray-400">/{plan.duration_days} días</span>
                 </p>
               </div>
 
               <ul className="mt-6 space-y-3">
                 <li className="flex items-center gap-2 text-sm text-gray-600">
                   <span className="w-5 h-5 rounded-full bg-[#8234FE]/10 flex items-center justify-center text-[#8234FE] text-xs font-bold">✓</span>
-                  {plan.ads_count} anuncio{plan.ads_count !== 1 ? "s" : ""}
+                  {plan.max_products} producto{plan.max_products !== 1 ? "s" : ""}
                 </li>
-                {plan.featured_count > 0 && (
+                {plan.max_featured > 0 && (
                   <li className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="w-5 h-5 rounded-full bg-[#8234FE]/10 flex items-center justify-center text-[#8234FE] text-xs font-bold">✓</span>
-                    {plan.featured_count} destacado{plan.featured_count !== 1 ? "s" : ""}
+                    {plan.max_featured} destacado{plan.max_featured !== 1 ? "s" : ""}
                   </li>
                 )}
               </ul>

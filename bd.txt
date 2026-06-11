@@ -1,901 +1,2428 @@
-Modelado PostgreSQL — Lotifyx
-Relaciones y Diseño ERD
-Marketplace Web Multi-Vendedor — MVP
-
-1. Objetivo del Modelado
-El modelo de base de datos de Lotifyx está diseñado para soportar:
-marketplace multi-vendedor
-escalabilidad modular
-subastas en tiempo real
-reputación de usuarios
-pedidos multi-vendedor
-cotizaciones
-publicaciones inmobiliarias
-trazabilidad y auditoría
-futura migración a microservicios
-La base de datos utilizará PostgreSQL como motor relacional principal.
-
-2. Principios del Diseño
-Arquitectura de datos
-El modelo seguirá:
-normalización relacional
-integridad referencial
-separación modular
-soft delete
-auditoría básica
-timestamps estándar
-
-3. Convenciones Generales
-Campos estándar
-La mayoría de tablas incluirán:
-id
-created_at
-updated_at
-deleted_at (soft delete opcional)
-status
-
-4. Entidades Principales
-El MVP estará compuesto por los siguientes dominios:
-Dominio
-Entidades
-Usuarios
-users, roles, user_profiles
-Verificación
-user_verifications
-Marketplace
-products, product_variants, categories
-Pedidos
-orders, order_items
-Subastas
-auctions, auction_bids
-Cotizaciones
-quote_requests, quote_proposals
-Reputación
-reviews
-Escrow
-escrow_records
-Notificaciones
-notifications
-Administración
-audit_logs
-Inmobiliario
-real_estate_properties
-
-
-5. Modelo Relacional Principal
-
-5.1 Roles
-Tabla: roles
-Campo
-Tipo
-id
-UUID
-name
-VARCHAR
-description
-TEXT
-created_at
-TIMESTAMP
-
-Relaciones:
-1:N con users
-
-5.2 Usuarios
-Tabla: users
-Campo
-Tipo
-id
-UUID
-role_id
-UUID
-email
-VARCHAR UNIQUE
-password_hash
-TEXT
-phone 
-VARCHAR
-provider
-VARCHAR
-is_verified
-BOOLEAN
-verification_code 
-VARCHAR
-verification_expires_at 
-VARCHAR
-status
-VARCHAR
-referral_code 
-VARCHAR( 
-referred_by 
-UUID 
-created_at
-TIMESTAMP
-updated_at
-TIMESTAMP
-
-Relaciones:
-N:1 con roles
-1:1 con user_profiles
-1:N con products
-1:N con orders
-1:N con auctions
-1:N con reviews
-
-5.3 Perfil de Usuario
-Tabla: user_profiles
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-first_name
-VARCHAR
-last_name
-VARCHAR
-birth_date 
-DATE 
-document_type
-VARCHAR
-document_number
-VARCHAR
-avatar_url
-TEXT
-address
-TEXT
-profile_alias 
-VARCHAR 
-how_found_us 
-VARCHAR 
-created_at
-TIMESTAMP
-
-Relaciones:
-1:1 con users
-
-5.4 Verificación de Usuarios
-Tabla: user_verifications
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-verification_type
-VARCHAR
-verification_status
-VARCHAR
-provider
-VARCHAR
-request_payload
-JSONB
-response_payload
-JSONB
-verified_data
-JSONB
-verified_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-5.5 Categorías
-Tabla: categories
-Campo
-Tipo
-id
-UUID
-parent_id
-UUID NULL
-name
-VARCHAR
-slug
-VARCHAR
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-auto relación jerárquica
-1:N con products
-
-5.6 Productos
-Tabla: products
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-category_id
-UUID
-title
-VARCHAR
-slug
-VARCHAR
-description
-TEXT
-price
-NUMERIC
-
-| listing_type | VARCHAR |
-| publication_status | VARCHAR |
-| approved_by | UUID NULL |
-| approved_at | TIMESTAMP NULL |
-| rejection_reason | TEXT NULL |
-| condition | VARCHAR |
-| created_at | TIMESTAMP |
-| updated_at | TIMESTAMP |
-Relaciones:
-N:1 con users
-N:1 con categories
-1:N con product_images
-1:N con product_variants
-1:N con order_items
-1:N con reviews
-
-5.7 Imágenes de Productos
-Tabla: product_images
-Campo
-Tipo
-id
-UUID
-product_id
-UUID
-image_url
-TEXT
-sort_order
-INTEGER
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con products
-
-5.8 Variantes de Productos
-Nota de arquitectura:
-Todo el inventario y stock del marketplace será gestionado exclusivamente desde la tabla product_variants para mantener compatibilidad con variantes, SKUs y futuras integraciones logísticas.
-Tabla: product_variants
-Campo
-Tipo
-id
-UUID
-product_id
-UUID
-sku
-VARCHAR
-variant_name
-VARCHAR
-variant_value
-VARCHAR
-stock
-INTEGER
-price
-NUMERIC
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con products
-
-5.9 Pedidos
-Tabla: orders
-Campo
-Tipo
-id
-UUID
-buyer_id
-UUID
-order_number
-VARCHAR
-total_amount
-NUMERIC
-payment_status
-VARCHAR
-order_status
-VARCHAR
-delivery_type
-VARCHAR
-created_at
-TIMESTAMP
-updated_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-1:N con order_items
-1:1 con escrow_records
-
-5.10 Detalle de Pedidos
-Tabla: order_items
-Campo
-Tipo
-id
-UUID
-order_id
-UUID
-product_id
-UUID
-seller_id
-UUID
-quantity
-INTEGER
-product_title_snapshot
-VARCHAR
-variant_snapshot
-JSONB
-seller_snapshot
-JSONB
-unit_price
-NUMERIC
-subtotal
-NUMERIC
-item_status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con orders
-N:1 con products
-N:1 con users
-
-5.11 Escrow
-Tabla: escrow_records
-Campo
-Tipo
-id
-UUID
-order_id
-UUID
-escrow_status
-VARCHAR
-released_at
-TIMESTAMP
-dispute_status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-1:1 con orders
-
-5.12 Reseñas
-Tabla: reviews
-Campo
-Tipo
-id
-UUID
-order_id
-UUID
-reviewer_id
-UUID
-reviewed_user_id
-UUID
-order_item_id
-UUID
-rating
-INTEGER
-comment
-TEXT
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con orders
-N:1 con order_items
-N:1 con users
-
-5.13 Subastas
-Tabla: auctions
-Campo
-Tipo
-id
-UUID
-product_id
-UUID
-seller_id
-UUID
-starting_price
-NUMERIC
-current_price
-NUMERIC
-minimum_increment
-NUMERIC
-starts_at
-TIMESTAMP
-ends_at
-TIMESTAMP
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-1:1 con products
-N:1 con users
-1:N con auction_bids
-
-5.14 Pujas
-Tabla: auction_bids
-Campo
-Tipo
-id
-UUID
-auction_id
-UUID
-bidder_id
-UUID
-bid_amount
-NUMERIC
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con auctions
-N:1 con users
-
-5.15 Solicitudes de Cotización
-Tabla: quote_requests
-Campo
-Tipo
-id
-UUID
-requester_id
-UUID
-title
-VARCHAR
-description
-TEXT
-category_id
-UUID
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-1:N con quote_proposals
-
-5.16 Propuestas de Cotización
-Tabla: quote_proposals
-Campo
-Tipo
-id
-UUID
-quote_request_id
-UUID
-seller_id
-UUID
-proposal_text
-TEXT
-proposed_amount
-NUMERIC
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con quote_requests
-N:1 con users
-
-5.17 Disputas
-Tabla: disputes
-Campo
-Tipo
-id
-UUID
-order_id
-UUID
-order_item_id
-UUID
-buyer_id
-UUID
-seller_id
-UUID
-reason
-TEXT
-dispute_status
-VARCHAR
-resolution
-TEXT
-resolved_at
-TIMESTAMP NULL
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con orders
-N:1 con order_items
-N:1 con users
-
-Tabla: dispute_messages
-Campo
-Tipo
-id
-UUID
-dispute_id
-UUID
-user_id
-UUID
-message
-TEXT
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con disputes
-N:1 con users
-
-Tabla: dispute_evidence
-Campo
-Tipo
-id
-UUID
-dispute_id
-UUID
-uploaded_by
-UUID
-file_id
-UUID
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con disputes
-N:1 con media_files
-
-5.18 Notificaciones
-Las notificaciones podrán asociarse dinámicamente a entidades internas del sistema como pedidos, subastas, disputas o publicaciones.
-Tabla: notifications
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-type
-VARCHAR
-title
-VARCHAR
-message
-TEXT
-entity_type
-VARCHAR
-entity_id
-UUID
-is_read
-BOOLEAN
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-5.19 Archivos Multimedia
-Tabla: media_files
-Campo
-Tipo
-id
-UUID
-uploaded_by
-UUID
-entity_type
-VARCHAR
-entity_id
-UUID
-file_type
-VARCHAR
-file_url
-TEXT
-metadata
-JSONB
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-5.20 Auditoría
-Tabla: audit_logs
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-action
-VARCHAR
-entity_type
-VARCHAR
-entity_id
-UUID
-old_values
-JSONB
-new_values
-JSONB
-ip_address
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-5.21 Inmobiliario
-Tabla: real_estate_properties
-Campo
-Tipo
-id
-UUID
-product_id
-UUID
-property_type
-VARCHAR
-operation_type
-VARCHAR
-address
-TEXT
-district
-VARCHAR
-city
-VARCHAR
-area_m2
-NUMERIC
-bedrooms
-INTEGER
-bathrooms
-INTEGER
-parking_spaces
-INTEGER
-created_at
-TIMESTAMP
-
-Relaciones:
-1:1 con products
-
-5.22 Carrito Persistente
-Tabla: carts
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-created_at
-TIMESTAMP
-updated_at
-TIMESTAMP
-
-Relaciones:
-1:1 con users
-1:N con cart_items
-
-Tabla: cart_items
-Campo
-Tipo
-id
-UUID
-cart_id
-UUID
-product_variant_id
-UUID
-quantity
-INTEGER
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con carts
-N:1 con product_variants
-
-5.23 Favoritos
-Tabla: favorites
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-product_id
-UUID
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-N:1 con products
-
-5.24 Configuración y Moderación
-Tabla: banners
-Campo
-Tipo
-id
-UUID
-title
-VARCHAR
-image_url
-TEXT
-redirect_url
-TEXT
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-
-Tabla: sanctions
-Campo
-Tipo
-id
-UUID
-user_id
-UUID
-reason
-TEXT
-sanction_type
-VARCHAR
-starts_at
-TIMESTAMP
-ends_at
-TIMESTAMP
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-Tabla: reports
-Campo
-Tipo
-id
-UUID
-reported_by
-UUID
-entity_type
-VARCHAR
-entity_id
-UUID
-reason
-TEXT
-status
-VARCHAR
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con users
-
-Tabla: order_sellers
-Campo
-Tipo
-id
-UUID
-order_id
-UUID
-seller_id
-UUID
-seller_status
-VARCHAR
-subtotal
-NUMERIC
-created_at
-TIMESTAMP
-
-Relaciones:
-N:1 con orders
-N:1 con users
-
-6. Relaciones Principales del Sistema
-Usuarios
-Un rol puede tener muchos usuarios.
-Un usuario tiene un perfil.
-Un usuario puede tener múltiples publicaciones.
-Un usuario puede generar múltiples pedidos.
-Un usuario puede crear múltiples subastas.
-Un usuario puede realizar múltiples pujas.
-
-Productos
-Un producto pertenece a una categoría.
-Un producto puede tener múltiples imágenes.
-Un producto puede tener múltiples variantes.
-Un producto puede aparecer en múltiples pedidos.
-Un producto puede tener una subasta.
-
-Pedidos
-Un pedido pertenece a un comprador.
-Un pedido tiene múltiples items.
-Cada item pertenece a un vendedor.
-Un pedido puede tener un escrow.
-
-Cotizaciones
-Una solicitud puede recibir múltiples propuestas.
-Un vendedor puede enviar múltiples propuestas.
-
-7. Diagrama ERD Conceptual
-ROLES
-  └── USERS
-        ├── USER_PROFILES
-        ├── USER_VERIFICATIONS
-        ├── PRODUCTS
-        │     ├── PRODUCT_IMAGES
-        │     ├── PRODUCT_VARIANTS
-        │     ├── AUCTIONS
-        │     │      └── AUCTION_BIDS
-        │     └── REAL_ESTATE_PROPERTIES
-        │
-        ├── ORDERS
-        │     ├── ORDER_ITEMS
-        │     └── ESCROW_RECORDS
-        │
-        ├── REVIEWS
-        ├── QUOTE_REQUESTS
-        │     └── QUOTE_PROPOSALS
-        │
-        ├── NOTIFICATIONS
-        └── AUDIT_LOGS
-
-
-8. Índices Recomendados
-Índices Críticos
-Tabla
-Índice
-users
-email
-products
-category_id
-products
-user_id
-products
-publication_status
-orders
-buyer_id
-orders
-order_status
-auctions
-ends_at
-auction_bids
-auction_id
-reviews
-reviewed_user_id
-notifications
-user_id
-
-
-9. Estrategia de Escalabilidad
-PostgreSQL + Redis
-PostgreSQL manejará:
-relaciones críticas
-integridad de negocio
-transacciones
-auditoría
-Redis manejará:
-cache
-subastas tiempo real
-sesiones
-colas
-rate limiting
-
-10. Estrategia de Soft Delete
-Tablas críticas usarán:
-deleted_at
-status
-Beneficios:
-recuperación de información
-auditoría
-historial
-prevención de pérdida accidental
-
-11. Consideraciones Futuras
-La arquitectura de datos quedará preparada para:
-microservicios
-multi-tenant futuro
-ElasticSearch
-analítica avanzada
-recomendaciones IA
-pagos automatizados
-facturación electrónica
-escalabilidad horizontal
+# Documento de Diseno de Base de Datos
+
+## Lotifyx - Plataforma de Marketplace
+
+| Version | Fecha | Autor | Descripcion |
+|---------|-------|-------|-------------|
+| 1.0 | 2026-06-10 | Equipo de Arquitectura | Version inicial del documento de diseno de base de datos |
+
+---
+
+## 1. Informacion General
+
+**Proyecto:** Lotifyx - Plataforma de Marketplace Multifuncional
+
+**Cliente:** Lotifyx S.A.C.
+
+**Tecnologia de Base de Datos:** PostgreSQL 16+
+
+**Motor de Base de Datos:** PostgreSQL
+
+**Version del Documento:** 1.0
+
+**Fecha de Elaboracion:** 10 de junio de 2026
+
+**Equipo Responsable:** Departamento de Arquitectura de Software
+
+**Descripcion del Proyecto:** Lotifyx es una plataforma de marketplace integral que permite la compra y venta de productos, subastas en tiempo real, ventas por lote, cotizaciones personalizadas, servicios, y gestion de pagos con proteccion de fondos mediante sistema escrow. La plataforma opera en el mercado peruano, utilizando codigos de verificacion RENIEC y comprobantes electronicos.
+
+**Alcance del Documento:** Este documento describe el diseno completo de la base de datos relacional del sistema Lotifyx, abarcando el modelo conceptual, logico y fisico, diccionario de datos, reglas de integridad, indices, estrategias de seguridad, respaldo y escalabilidad. El diseno contempla 67 tablas con soporte para todas las funcionalidades del MVP (Minimum Viable Product) y proyecciones para fases futuras.
+
+---
+
+## 2. Objetivo del Documento
+
+El presente documento tiene como objetivos fundamentales:
+
+1. **Definir la arquitectura de datos** que soporte todas las operaciones del marketplace Lotifyx, incluyendo comercio electronico, subastas, ventas por lote, cotizaciones y servicios.
+
+2. **Establecer el modelo de datos normalizado** que garantice la integridad referencial, evite la redundancia y permita consultas eficientes en un entorno de alta concurrencia.
+
+3. **Documentar exhaustivamente cada entidad** con sus campos, tipos de datos, restricciones y relaciones, sirviendo como referencia unica para los equipos de desarrollo backend, frontend y QA.
+
+4. **Proveer la base para la generacion automatica** de migraciones, modelos ORM y documentacion de API a partir de la definicion del esquema.
+
+5. **Facilitar la trazabilidad** entre los requerimientos funcionales del sistema y las entidades de base de datos que los implementan.
+
+6. **Garantizar el cumplimiento normativo** mediante la documentacion de estrategias de auditoria, cifrado de datos sensibles y politicas de retencion.
+
+7. **Servir como insumo para auditorias** de seguridad, revisiones de arquitectura y procesos de onboarding de nuevos desarrolladores al proyecto.
+
+---
+
+## 3. Descripcion General de la Base de Datos
+
+### 3.1 Caracteristicas Principales
+
+| Caracteristica | Detalle |
+|----------------|---------|
+| Motor de Base de Datos | PostgreSQL 16+ |
+| Cantidad de Tablas | 67 tablas |
+| Tipo de Clave Primaria | UUID version 4 (RFC 4122) |
+| Codificacion | UTF-8 |
+| Collation | es_PE.UTF-8 |
+| Zona Horaria | America/Lima (UTC-5) |
+| Extensiones Requeridas | uuid-ossp, pgcrypto |
+| Estrategia de Borrado | Soft delete en tablas criticas (products) |
+| Auditoria | Tabla audit_logs con registro completo de cambios |
+| Niveles de Aislamiento | READ COMMITTED (por defecto) |
+| Dominios Definidos | 30 dominios conceptuales de negocio |
+
+### 3.2 Modulos del Sistema
+
+La base de datos se organiza en los siguientes 30 dominios funcionales:
+
+1. **Gestion de Usuarios** - Registro, autenticacion, perfiles
+2. **Roles y Permisos** - Control de acceso basado en roles (RBAC)
+3. **Administracion** - Panel administrativo y superadmin
+4. **Verificacion de Identidad** - Validacion RENIEC y documentos
+5. **Planes y Suscripciones** - Membresias para vendedores
+6. **Categorias** - Taxonomia de productos y servicios
+7. **Productos** - Publicacion, gestion y busqueda de productos
+8. **Servicios** - Catalogo de servicios profesionales
+9. **Carrito de Compras** - Gestion de compras pendientes
+10. **Favoritos** - Lista de deseos de usuarios
+11. **Pedidos** - Gestion de ordenes de compra
+12. **Pagos** - Registro de comprobantes de pago
+13. **Escrow** - Retencion y liberacion de fondos
+14. **Fondos y Retiros** - Billetera virtual y extracciones
+15. **Cuentas Bancarias** - Metodos de pago y retiro
+16. **Subastas** - Sistema de pujas en tiempo real
+17. **Ventas por Lote** - Compras colectivas con precio escalonado
+18. **Cotizaciones** - Solicitudes y propuestas personalizadas
+19. **Resenas y Calificaciones** - Sistema de reputacion
+20. **Disputas** - Resolucion de conflictos
+21. **Libro de Reclamaciones** - Cumplimiento normativo peruano
+22. **Chat** - Mensajeria entre compradores y vendedores
+23. **Notificaciones** - Sistema de alertas y avisos
+24. **Insignias** - Gamificacion para vendedores
+25. **FAQs** - Preguntas frecuentes
+26. **Banners y Contenido** - Gestion de contenido promocional
+27. **Configuracion del Sitio** - Parametros del sistema
+28. **Correo Electronico** - Configuracion SMTP
+29. **Moderacion** - Sanciones y reportes
+30. **Auditoria** - Registro de cambios y trazabilidad
+
+---
+
+## 4. Requerimientos de Datos
+
+A continuacion se presentan los requerimientos de datos para los 32 dominios principales del sistema.
+
+| Entidad | Tabla(s) Principal(es) | Proceso Relacionado |
+|---------|------------------------|---------------------|
+| Usuarios | users, user_profiles | Registro, autenticacion, onboarding |
+| Roles y Permisos | roles, permissions, admin_roles, admin_role_permissions | Control de acceso RBAC |
+| Administradores | admin_users | Gestion de plataforma |
+| Verificacion de Identidad | user_verifications | Validacion KYC, RENIEC |
+| Planes de Vendedor | plans, plan_features, seller_plans, plan_payments | Suscripciones y pagos |
+| Categorias | categories | Navegacion y filtrado |
+| Productos | products, product_images, product_variants, product_sale_conditions, product_views | Publicacion, busqueda, visualizacion |
+| Servicios | services, service_images | Catalogo de servicios |
+| Carrito de Compras | carts, cart_items | Gestion de intencion de compra |
+| Favoritos | favorites | Lista de deseos |
+| Pedidos | orders, order_items, order_sellers | Procesamiento de compras |
+| Comprobantes de Pago | payment_proofs | Verificacion de pagos |
+| Escrow | escrow_records | Retencion de fondos |
+| Billetera Virtual | funds, fund_transactions | Gestion de saldos |
+| Retiros | withdrawals | Extraccion de fondos |
+| Cuentas Bancarias | bank_accounts | Vinculacion de cuentas |
+| Subastas | auctions, auction_bids, auction_guarantee_payments | Pujas y adjudicacion |
+| Ventas por Lote | lot_sales, lot_participants | Compras colectivas |
+| Cotizaciones | quote_requests, quote_request_images, quote_proposals | Negociacion personalizada |
+| Resenas | reviews | Calificacion y reputacion |
+| Disputas | disputes, dispute_messages, dispute_evidence, dispute_reasons, dispute_solutions | Resolucion de conflictos |
+| Libro de Reclamaciones | complaints_book | Atencion al cliente, normativa |
+| Chat | chat_conversations, chat_messages | Mensajeria interna |
+| Notificaciones | notifications | Alertas y comunicaciones |
+| Insignias | badges, seller_badges | Sistema de logros |
+| FAQs | faqs | Centro de ayuda |
+| Multimedia | media_files | Gestion de archivos |
+| Banners y Contenido | banners | Marketing y promociones |
+| Configuracion del Sistema | site_settings, smtp_configs | Parametros globales |
+| Moderacion | sanctions, reports | Control de contenido |
+| Auditoria | audit_logs | Trazabilidad y cumplimiento |
+| Propiedades Inmobiliarias | real_estate_properties | Sector inmobiliario |
+
+
+---
+
+## 5. Modelo Conceptual
+
+### 5.1 Entidades Nucleares del Negocio
+
+El modelo conceptual de Lotifyx se fundamenta en 11 entidades nucleares que representan los conceptos centrales del negocio:
+
+1. **Usuario (User):** Entidad central que representa a cualquier persona registrada en la plataforma. Un usuario puede actuar como comprador, vendedor o ambos. Contiene credenciales de acceso, datos de contacto y estado de verificacion.
+
+2. **Producto (Product):** Representa un bien tangible o intangible publicado por un vendedor. Puede ser de tipo venta directa, subasta o lote. Incluye precio, descripcion, imagenes, variantes y condiciones de venta.
+
+3. **Pedido (Order):** Transaccion de compra que agrupa uno o mas productos de diferentes vendedores. Contiene el estado de pago, direccion de envio y costos asociados.
+
+4. **Subasta (Auction):** Modalidad de venta donde los compradores compiten mediante pujas durante un periodo definido. Requiere un precio base, incremento minimo y garantia de participacion.
+
+5. **Venta por Lote (Lot Sale):** Modalidad de compra colectiva donde el precio final depende de la cantidad de participantes. Cada participante se compromete a comprar una cantidad especifica.
+
+6. **Cotizacion (Quote):** Solicitud de presupuesto personalizado donde compradores describen sus necesidades y vendedores envian propuestas con precios y condiciones.
+
+7. **Fondos (Funds):** Billetera virtual del vendedor que registra el saldo disponible, pendiente y en disputa. Centraliza todas las transacciones financieras de la plataforma.
+
+8. **Disputa (Dispute):** Proceso de resolucion de conflictos entre comprador y vendedor, con intervencion administrativa, mensajes y evidencias documentales.
+
+9. **Escrow (Escrow):** Mecanismo de proteccion que retiene el pago del comprador hasta que se confirme la recepcion satisfactoria del producto.
+
+10. **Chat (Chat):** Sistema de mensajeria directa entre dos participantes, vinculado opcionalmente a un pedido, que permite la comunicacion en tiempo real.
+
+11. **Administracion (Admin):** Conjunto de entidades que gestionan roles administrativos, permisos, configuraciones del sistema, sanciones y auditoria.
+
+### 5.2 Relaciones Conceptuales
+
+```
+    +------------------+          +------------------+          +------------------+
+    |     USUARIO      |--------->|     PRODUCTO     |<---------|    CATEGORIA     |
+    |   (Comprador/   |  1:N     |   (Vendedor)     |   N:1    |                  |
+    |    Vendedor)     |<---------|                  |          +------------------+
+    +------------------+   1:N    +------------------+
+           |      |                      |
+           |      |                      | 1:1 (opcional)
+           |      |                      |
+           |      |    +------------------+     +------------------+
+           |      |    |    SUBASTA      |     |   VENTA LOTE     |
+           |      |    +------------------+     +------------------+
+           |      |           | 1:N                     | 1:N
+           |      |    +------------------+     +------------------+
+           |      |    |   PUJA           |     |  PARTICIPANTE    |
+           |      |    +------------------+     +------------------+
+           |      |
+           |      |    +------------------+
+           |      |--->|    PEDIDO        |
+           |      |    +------------------+
+           |      |           |
+           |      |     +-----+------+
+           |      |     |            |
+           |      | +--------+ +----------+
+           |      | | ESCROW | | PAGO     |
+           |      | +--------+ +----------+
+           |      |
+           | 1:1  |
+           +------+----> +------------------+
+           |      |      |     FONDOS       |
+           |      |      +------------------+
+           |      |              |
+           |      |        +-----------+ +------------+
+           |      |        | RETIRO    | | TRANSACCION|
+           |      |        +-----------+ +------------+
+           |      |
+           |      |    +------------------+
+           |      |--->|     DISPUTA      |
+           |      |    +------------------+
+           |      |           |
+           |      |     +-----------+ +----------+
+           |      |     | MENSAJES  |  | EVIDENCIA|
+           |      |     +-----------+ +----------+
+           |      |
+           |      |    +------------------+
+           |      |--->|      CHAT        |
+           |      |    +------------------+
+           |      |           |
+           |      |     +-----------+
+           |      |     |  MENSAJES |
+           |      |     +-----------+
+           |
+           |    +------------------+
+           |--->|   COTIZACION     |
+           |    +------------------+
+           |           |
+           |     +-----------+
+           |     | PROPUESTA |
+           |     +-----------+
+           |
+           +------------------+
+           | RESENA           |
+           +------------------+
+```
+
+### 5.3 Convenciones del Diagrama
+
+- **Flecha simple (--->):** Relacion uno a muchos (1:N). La entidad del lado de la flecha tiene la clave foranea.
+- **Linea doble (<==>):** Relacion uno a uno (1:1).
+- Las entidades en la misma columna vertical estan agrupadas por dominio funcional.
+- Las relaciones opcionales se indican con "(opcional)".
+
+---
+
+
+## 6. Modelo Logico
+
+A continuacion se presenta el modelo logico completo con las 67 tablas del sistema, incluyendo nombre, cantidad de campos, claves primarias, claves foraneas, cardinalidades y descripcion funcional.
+
+### 6.1 Tablas de Autenticacion y Control de Acceso
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 1 | roles | 4 | id | - | users 1:N roles | Roles de usuario del sistema (comprador, vendedor, administrador). Define el nivel de acceso base de cada usuario registrado. |
+| 2 | permissions | 4 | id | - | admin_role_permissions N:1 permissions | Permisos atomicos del sistema definidos por modulo y accion. Unidad minima de autorizacion para funcionalidades administrativas. |
+| 3 | admin_roles | 5 | id | - | admin_users N:1 admin_roles; admin_role_permissions N:1 admin_roles | Roles administrativos configurables que agrupan permisos. Incluye bandera de superadmin para acceso total. |
+| 4 | admin_role_permissions | 4 | id | admin_role_id (admin_roles), permission_id (permissions) | N:1 a ambas tablas padre | Tabla de cruce que asigna permisos especificos a cada rol administrativo. Restriccion UNIQUE en (admin_role_id, permission_id). |
+| 5 | admin_users | 7 | id | user_id (users), admin_role_id (admin_roles), created_by (users) | users 1:1 admin_users | Asignacion de roles administrativos a usuarios especificos. Registra quien otorgo el rol y el estado actual. |
+
+### 6.2 Tablas de Gestion de Usuarios
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 6 | users | 16 | id | role_id (roles), referred_by (users) | roles 1:N users; users 1:N users (auto-referencia) | Tabla principal de usuarios. Almacena credenciales, estado de verificacion, codigo de referido y configuracion de autenticacion. |
+| 7 | social_accounts | 5 | id | user_id (users) | users 1:N social_accounts | Vinculacion de cuentas de redes sociales para autenticacion OAuth (Google, Facebook, etc.). Restriccion UNIQUE en (provider, provider_id). |
+| 8 | remember_tokens | 5 | id | user_id (users) | users 1:N remember_tokens | Tokens de sesion persistente para la funcionalidad "Recordarme". Cada token tiene fecha de expiracion. |
+| 9 | password_reset_tokens | 6 | id | user_id (users) | users 1:N password_reset_tokens | Tokens de un solo uso para restablecimiento de contrasena. Incluye bandera de uso y fecha de expiracion. |
+| 10 | user_profiles | 12 | id | user_id (users) | users 1:1 user_profiles | Informacion personal extendida del usuario: nombres, apellidos, documento de identidad, fecha de nacimiento y direccion. Relacion 1:1 UNIQUE con users. |
+| 11 | seller_profiles | 14 | id | user_id (users) | users 1:1 seller_profiles | Perfil de vendedor con informacion legal y comercial: RUC, razon social, tipo de vendedor, calificacion y metricas de rendimiento. |
+| 12 | user_verifications | 10 | id | user_id (users) | users 1:N user_verifications | Registro de verificaciones de identidad (RENIEC, biometrica, documental). Almacena datos de solicitud, respuesta y resultado. |
+
+### 6.3 Tablas de Planes y Suscripciones
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 13 | plans | 11 | id | - | seller_plans N:1 plans | Catalogo de planes de suscripcion disponibles para vendedores. Incluye precio en soles, descripcion, icono y orden de presentacion. |
+| 14 | plan_features | 4 | id | plan_id (plans) | plans 1:N plan_features | Caracteristicas incluidas en cada plan. Cada caracteristica es un texto descriptivo con orden de visualizacion. |
+| 15 | seller_plans | 8 | id | user_id (users), plan_id (plans) | users 1:N seller_plans; plans 1:N seller_plans | Suscripciones activas, pendientes o expiradas de vendedores. Define el periodo de vigencia y estado de pago. |
+| 16 | plan_payments | 11 | id | seller_plan_id (seller_plans), user_id (users), reviewed_by (users) | seller_plans 1:N plan_payments | Registro de pagos realizados para cada suscripcion. Incluye comprobante, estado de revision y motivo de rechazo. |
+
+### 6.4 Tablas de Categorias y Productos
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 17 | categories | 7 | id | parent_id (categories) | categories 1:N categories (auto-referencia) | Taxonomia jerarquica de categorias. Soporta subcategorias mediante auto-referencia con parent_id. Slug unico para URLs amigables. |
+| 18 | products | 27 | id | user_id (users), category_id (categories), approved_by (users) | users 1:N products; categories 1:N products | Catalogo de productos publicados. Incluye tipo de producto, tipo de listado, precio, descuentos, estado de publicacion y soft delete. |
+| 19 | product_sale_conditions | 10 | id | product_id (products) | products 1:1 product_sale_conditions | Condiciones de venta especificas del producto: metodos de pago, tipo de entrega, costo de envio, politicas de cambios y devoluciones. |
+| 20 | product_images | 5 | id | product_id (products) | products 1:N product_images | Imagenes asociadas al producto. Una imagen puede marcarse como principal (is_primary). Ordenadas por sort_order. |
+| 21 | product_variants | 8 | id | product_id (products) | products 1:N product_variants | Variantes del producto (talla, color, capacidad). Cada variante tiene SKU, stock y precio independiente. |
+| 22 | product_views | 5 | id | product_id (products), user_id (users) | products 1:N product_views | Registro de visualizaciones de productos, con usuario (si esta autenticado) o direccion IP. |
+
+### 6.5 Tablas de Servicios
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 23 | services | 9 | id | user_id (users) | users 1:N services | Catalogo de servicios profesionales ofrecidos por vendedores. Incluye titulo, descripcion, precio y estado. |
+| 24 | service_images | 5 | id | service_id (services) | services 1:N service_images | Imagenes asociadas a servicios. Similar a product_images en estructura. |
+
+### 6.6 Tablas de Carrito y Favoritos
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 25 | carts | 4 | id | user_id (users) | users 1:1 carts | Carrito de compras unico por usuario. Almacena la fecha de creacion y ultima modificacion. |
+| 26 | cart_items | 5 | id | cart_id (carts), product_variant_id (product_variants) | carts 1:N cart_items; product_variants 1:N cart_items | Items agregados al carrito. Referencia a la variante especifica del producto y cantidad deseada. |
+| 27 | favorites | 4 | id | user_id (users), product_id (products) | users 1:N favorites; products 1:N favorites | Lista de deseos de usuarios. Restriccion UNIQUE en (user_id, product_id) para evitar duplicados. |
+
+### 6.7 Tablas Financieras
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 28 | bank_accounts | 10 | id | user_id (users) | users 1:N bank_accounts | Cuentas bancarias registradas por usuarios para recibir pagos o realizar retiros. Una cuenta puede marcarse como por defecto. |
+| 29 | orders | 11 | id | buyer_id (users) | users 1:N orders | Ordenes de compra generadas por compradores. Contiene monto total, direccion de envio, estado de pago y tipo de entrega. |
+| 30 | order_sellers | 7 | id | order_id (orders), seller_id (users) | orders 1:N order_sellers; users 1:N order_sellers | Desglose de una orden por vendedor. Permite que una orden contenga productos de multiples vendedores con estados independientes. |
+| 31 | order_items | 13 | id | order_id (orders), product_id (products), seller_id (users) | orders 1:N order_items; products 1:N order_items | Items individuales dentro de una orden. Incluye snapshots del producto, variante y vendedor al momento de la compra para preservar la integridad historica. |
+| 32 | payment_proofs | 11 | id | order_id (orders), user_id (users), bank_account_id (bank_accounts), reviewed_by (users) | orders 1:N payment_proofs | Comprobantes de pago subidos por compradores. Sujetos a revision administrativa antes de confirmar el pago. |
+| 33 | escrow_records | 8 | id | order_id (orders) | orders 1:1 escrow_records | Registro de fondos retenidos en garantia por cada orden. Controla el estado del escrow (retenido, liberado) y disputas asociadas. |
+| 34 | funds | 7 | id | user_id (users) | users 1:1 funds | Billetera virtual del vendedor. Desglosa saldos disponibles, pendientes y en disputa, ademas de metricas historicas. |
+| 35 | fund_transactions | 9 | id | user_id (users) | users 1:N fund_transactions; funds 1:N fund_transactions | Movimientos contables de la billetera. Cada transaccion registra tipo, monto, saldo resultante y referencia a la entidad origen. |
+| 36 | withdrawals | 8 | id | user_id (users), bank_account_id (bank_accounts) | users 1:N withdrawals; bank_accounts 1:N withdrawals | Solicitudes de retiro de fondos hacia cuentas bancarias. Requiere confirmacion administrativa. |
+
+### 6.8 Tablas de Seguimiento de Envios
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 37 | delivery_tracking | 6 | id | order_item_id (order_items), updated_by (users) | order_items 1:N delivery_tracking | Historial de estados de envio para cada item de orden. Registra quien actualizo cada cambio de estado. |
+| 38 | delivery_confirmations | 6 | id | order_item_id (order_items), buyer_id (users) | order_items 1:1 delivery_confirmations | Confirmacion de recepcion por parte del comprador. Dispara la liberacion de fondos del escrow. |
+
+### 6.9 Tablas de Subastas
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 39 | auctions | 15 | id | product_id (products), seller_id (users), winner_id (users) | products 1:1 auctions | Configuracion de subasta para un producto. Define precio inicial, precio base, incremento minimo, garantia requerida y periodo de vigencia. |
+| 40 | auction_bids | 5 | id | auction_id (auctions), bidder_id (users) | auctions 1:N auction_bids; users 1:N auction_bids | Pujas realizadas por compradores en subastas. Cada registro contiene el monto ofertado y la fecha exacta de la puja. |
+| 41 | auction_guarantee_payments | 8 | id | auction_id (auctions), bidder_id (users) | auctions 1:N auction_guarantee_payments | Pagos de garantia requeridos para participar en subastas. Incluye estado de pago, comprobante y estado de reembolso. |
+
+### 6.10 Tablas de Ventas por Lote
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 42 | lot_sales | 12 | id | product_id (products), seller_id (users) | products 1:1 lot_sales | Configuracion de venta por lote. Define precio del lote, precio individual, cantidad minima y fecha de cierre. |
+| 43 | lot_participants | 7 | id | lot_sale_id (lot_sales), buyer_id (users) | lot_sales 1:N lot_participants; users 1:N lot_participants | Participantes de una venta por lote. Registra cantidad solicitada, garantia pagada y estado. Restriccion UNIQUE en (lot_sale_id, buyer_id). |
+
+### 6.11 Tablas de Cotizaciones
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 44 | quote_requests | 7 | id | requester_id (users), category_id (categories) | users 1:N quote_requests | Solicitudes de cotizacion creadas por compradores. Incluye titulo, descripcion, categoria y estado. |
+| 45 | quote_request_images | 4 | id | quote_request_id (quote_requests) | quote_requests 1:N quote_request_images | Imagenes adjuntas a la solicitud de cotizacion. |
+| 46 | quote_proposals | 8 | id | quote_request_id (quote_requests), seller_id (users) | quote_requests 1:N quote_proposals; users 1:N quote_proposals | Propuestas comerciales enviadas por vendedores en respuesta a una solicitud de cotizacion. |
+
+### 6.12 Tablas de Resenas y Disputas
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 47 | reviews | 10 | id | order_id (orders), order_item_id (order_items), reviewer_id (users), reviewed_user_id (users), product_id (products) | N:1 a cada entidad referenciada | Resenas y calificaciones de usuarios. Puede estar asociada a una orden, item o producto. Incluye rating de 1 a 5 estrellas y fotos. |
+| 48 | dispute_reasons | 5 | id | - | disputes N:1 dispute_reasons | Catalogo de motivos de disputa predefinidos (producto no recibido, producto danado, no coincide con descripcion). |
+| 49 | dispute_solutions | 5 | id | - | disputes N:1 dispute_solutions | Catalogo de soluciones predefinidas (reembolso total, reembolso parcial, reenvio, devolucion). |
+| 50 | disputes | 26 | id | order_id (orders), order_item_id (order_items), product_id (products), buyer_id (users), seller_id (users), reason_id (dispute_reasons), requested_solution_id (dispute_solutions), admin_reviewed_by (users) | N:1 a cada entidad referenciada | Casos de disputa entre comprador y vendedor. Documenta motivo, solucion solicitada, respuesta del vendedor, resolucion administrativa y montos involucrados. |
+| 51 | dispute_messages | 4 | id | dispute_id (disputes), user_id (users) | disputes 1:N dispute_messages | Mensajes intercambiados entre las partes durante el proceso de disputa. |
+| 52 | dispute_evidence | 5 | id | dispute_id (disputes), uploaded_by (users) | disputes 1:N dispute_evidence | Archivos de evidencia (fotos, documentos) adjuntados a una disputa. |
+
+### 6.13 Tablas de Atencion al Cliente
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 53 | complaints_book | 15 | id | responded_by (users) | - | Libro de reclamaciones digital en cumplimiento con la normativa peruana (INDECOPI). Registra datos del reclamante, descripcion y respuesta. |
+| 54 | notifications | 11 | id | user_id (users) | users 1:N notifications | Notificaciones del sistema para usuarios. Incluye tipo, titulo, mensaje, referencia a la entidad notificada y URL de accion. |
+| 55 | chat_conversations | 6 | id | participant_1_id (users), participant_2_id (users), order_id (orders) | N:1 a cada entidad | Conversaciones de chat entre dos usuarios, opcionalmente vinculadas a un pedido. UNIQUE en (participant_1_id, participant_2_id, order_id). |
+| 56 | chat_messages | 7 | id | conversation_id (chat_conversations), sender_id (users) | chat_conversations 1:N chat_messages; users 1:N chat_messages | Mensajes individuales dentro de una conversacion. Incluye estado de lectura y fecha. |
+| 57 | badges | 5 | id | - | seller_badges N:1 badges | Catalogo de insignias disponibles (vendedor verificado, mejor calificado, mayor antiguedad). |
+| 58 | seller_badges | 4 | id | user_id (users), badge_id (badges) | users 1:N seller_badges; badges 1:N seller_badges | Insignias otorgadas a vendedores. UNIQUE en (user_id, badge_id). |
+| 59 | faqs | 7 | id | - | - | Preguntas frecuentes organizadas por categoria, con orden de visualizacion y estado. |
+| 60 | media_files | 9 | id | uploaded_by (users) | users 1:N media_files | Registro centralizado de archivos multimedia subidos al sistema, con metadatos. |
+
+### 6.14 Tablas de Configuracion y Administracion
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 61 | banners | 11 | id | - | - | Banners promocionales del sitio. Incluye titulo, imagen, URL de redireccion, texto del boton y orden de presentacion. |
+| 62 | site_settings | 8 | id | updated_by (users) | - | Parametros de configuracion global del sitio en formato clave-valor. Soporta tipos texto, numero, booleano y JSON. |
+| 63 | smtp_configs | 12 | id | updated_by (users) | - | Configuraciones de servidores SMTP para envio de correos transaccionales. Soporta multiples cuentas con una activa. |
+| 64 | sanctions | 7 | id | user_id (users), imposed_by (users) | users 1:N sanctions | Sanciones aplicadas a usuarios (suspension, restriccion, baneo) con periodo de vigencia y justificacion. |
+| 65 | reports | 8 | id | reported_by (users), reviewed_by (users) | users 1:N reports (reported_by) | Reportes de contenido inapropiado o usuarios. Referencia generica a cualquier entidad mediante entity_type y entity_id. |
+| 66 | real_estate_properties | 13 | id | product_id (products) | products 1:1 real_estate_properties | Propiedades inmobiliarias publicadas como productos especializados. Incluye tipo, operacion, ubicacion, area y ambientes. |
+
+### 6.15 Tabla de Auditoria
+
+| Nro | Nombre | Campos | PK | FKs | Cardinalidades | Descripcion |
+|-----|--------|--------|----|-----|----------------|-------------|
+| 67 | audit_logs | 9 | id | user_id (users) | - | Registro inmutable de todas las operaciones de creacion, actualizacion y eliminacion en el sistema. Almacena valores anteriores y nuevos en JSONB. |
+
+
+---
+
+## 7. Modelo Fisico
+
+### 7.1 Tipos de Datos Utilizados
+
+| Tipo PostgreSQL | Uso en el Sistema | Ejemplos |
+|-----------------|-------------------|----------|
+| UUID | Claves primarias y claves foraneas en todas las tablas | id UUID PRIMARY KEY DEFAULT uuid_generate_v4() |
+| VARCHAR(n) | Cadenas de texto con longitud limitada: nombres, codigos, correos, tokens, slugs | email VARCHAR(255), slug VARCHAR(300) |
+| TEXT | Cadenas de texto de longitud variable sin limite practico: descripciones, direcciones, respuestas | description TEXT, shipping_address TEXT |
+| INTEGER | Contadores, cantidades, stock, ordenes, metricas | stock INTEGER DEFAULT 0, views_count INTEGER |
+| NUMERIC(p,s) | Valores monetarios y calificaciones con precision exacta | price NUMERIC(12,2), rating NUMERIC(3,2) |
+| BOOLEAN | Banderas de estado y configuracion | is_verified BOOLEAN DEFAULT FALSE |
+| TIMESTAMP | Fechas y horas con precision de microsegundos | created_at TIMESTAMP NOT NULL DEFAULT NOW() |
+| DATE | Fechas sin componente horario | birth_date DATE |
+| JSONB | Datos estructurados variables: metadatos, arrays, configuraciones | validated_services JSONB DEFAULT '[]' |
+
+### 7.2 Extensiones Requeridas
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+```
+
+### 7.3 Configuracion de Base de Datos
+
+| Parametro | Valor | Justificacion |
+|-----------|-------|---------------|
+| Encoding | UTF-8 | Soporte para caracteres internacionales y espanol |
+| LC_COLLATE | es_PE.UTF-8 | Ordenamiento lexicografico para Peru |
+| LC_CTYPE | es_PE.UTF-8 | Clasificacion de caracteres para Peru |
+| TimeZone | America/Lima | Zona horaria oficial de Peru (UTC-5) |
+| Tablespace | pg_default | Tablespace por defecto de PostgreSQL |
+| Connection Limit | 200 | Conexiones concurrentes maximas para la aplicacion |
+| Statement Timeout | 30s | Timeout de consultas para evitar consultas lentas |
+| Idle in Transaction Timeout | 60s | Timeout para transacciones inactivas |
+
+### 7.4 Mapeo de Enumeraciones
+
+El sistema no utiliza tipos ENUM nativos de PostgreSQL. En su lugar, emplea columnas VARCHAR con restricciones CHECK o validacion a nivel de aplicacion para los siguientes dominios:
+
+| Columna | Tabla | Valores Permitidos | Tipo de Restriccion |
+|---------|-------|--------------------|---------------------|
+| status | users | active, inactive, suspended, banned | CHECK |
+| provider | users | email, google, facebook | CHECK |
+| status | seller_profiles | pending, active, suspended, rejected | CHECK |
+| document_type | user_profiles | DNI, CE, PASSPORT | CHECK |
+| verification_status | user_verifications | pending, in_progress, completed, failed | CHECK |
+| payment_status | plan_payments, payment_proofs, auction_guarantee_payments | pending, completed, rejected, refunded | CHECK |
+| publication_status | products | draft, published, under_review, rejected, deleted | CHECK |
+| product_type | products | direct_sale, auction, lot_sale, service | CHECK |
+| listing_type | products | direct_sale, auction, lot_sale, quote | CHECK |
+| condition | products | new, used, refurbished | CHECK |
+| delivery_type | product_sale_conditions, orders | pickup, shipping, digital | CHECK |
+| order_status | orders | pending, confirmed, shipped, delivered, cancelled, disputed | CHECK |
+| item_status | order_items | pending, confirmed, shipped, delivered, cancelled, disputed, returned | CHECK |
+| escrow_status | escrow_records | held, released, refunded | CHECK |
+| dispute_status | disputes | open, under_review, resolved, closed | CHECK |
+| transaction_type | fund_transactions | credit, debit | CHECK |
+| withdrawal_status | withdrawals | pending, approved, completed, rejected | CHECK |
+| auction_status | auctions | pending, active, closed, cancelled | CHECK |
+| lot_sale_status | lot_sales | open, closed, cancelled | CHECK |
+| sanction_type | sanctions | warning, temporary_ban, permanent_ban, restriction | CHECK |
+
+### 7.5 Generacion de Claves Primarias
+
+Todas las claves primarias del sistema se generan utilizando la funcion uuid_generate_v4() de la extension uuid-ossp. Esta estrategia proporciona las siguientes ventajas:
+
+- **Independencia de secuencia centralizada:** Permite generar IDs desde multiples servidores de aplicacion sin coordinacion.
+- **Escalabilidad horizontal:** Compatible con sharding y particionamiento futuro.
+- **Seguridad:** Los UUID v4 son aleatorios, no predecibles secuencialmente.
+- **Portabilidad:** Facilita la migracion de datos entre entornos.
+
+---
+
+## 8. Diagrama Entidad-Relacion (ERD)
+
+### 8.1 Diagrama General por Dominios
+
+```
++============================================================================+
+|                          CLUSTER DE USUARIOS                               |
++============================================================================+
+
+  +----------+       +------------------+       +-------------------+
+  |   roles  |------>|      users       |------>|  user_profiles    |
+  +----------+  1:N  +------------------+   1:1 +-------------------+
+                           |      |
+                           |      +------> +-------------------+
+                           |      1:1     |  seller_profiles   |
+                           |              +-------------------+
+                           |
+                           |      +-------------------+
+                           +------> social_accounts    |
+                           |  1:N +-------------------+
+                           |
+                           |      +-------------------+
+                           +------> remember_tokens    |
+                           |  1:N +-------------------+
+                           |
+                           |      +-------------------+
+                           +------> password_reset_    |
+                           |  1:N |   tokens           |
+                           |      +-------------------+
+                           |
+                           +------> user_verifications |
+                           |  1:N +-------------------+
+                           |
+                           +------> notifications      |
+                           |  1:N +-------------------+
+                           |
+                           +------> bank_accounts      |
+                              1:N +-------------------+
+
++============================================================================+
+|                    CLUSTER DE ADMINISTRACION                                |
++============================================================================+
+
+  +-------------+     +------------------------+     +-------------+
+  | admin_roles |---->| admin_role_permissions |<----| permissions |
+  +-------------+ 1:N +------------------------+ N:1 +-------------+
+        |
+        | 1:N
+  +-------------+
+  | admin_users |
+  +-------------+
+
++============================================================================+
+|                       CLUSTER DE PRODUCTOS                                 |
++============================================================================+
+
+  +------------+      +-----------------+      +------------------------+
+  | categories |----->|    products     |----->| product_sale_conditions|
+  +------------+  N:1 +-----------------+  1:1 +------------------------+
+                            |
+              +-------------+-------------+------------+
+              |             |             |            |
+        1:N   |       1:N   |       1:N   |      1:N   |
+   +----------+  +----------+  +----------+  +----------+
+   | product  |  | product  |  | product  |  | product  |
+   | _images  |  |_variants |  |  _views  |  |(optional)|
+   +----------+  +----------+  +----------+  |   |   |
+                                           +-----+---+
+                                           |         |
+                                   1:1     |   1:1   |
+                               +-----------+ +-----------+
+                               |  auctions  | | lot_sales |
+                               +-----------+ +-----------+
+                                    |              |
+                              1:N   |        1:N   |
+                               +-----------+ +-----------+
+                               |auction_   | |   lot     |
+                               |  bids     | |participants|
+                               +-----------+ +-----------+
+                               |auction_   |
+                               |guarantee_ |
+                               | payments  |
+                               +-----------+
+
+  +-----------------+      +-----------------+
+  | real_estate_    |<-----|    products     |  (herencia/extension)
+  | properties      |  1:1 +-----------------+
+  +-----------------+
+
++============================================================================+
+|                        CLUSTER DE SERVICIOS                                |
++============================================================================+
+
+  +----------+      +----------------+
+  |  users   |----->|   services     |
+  +----------+ 1:N  +----------------+
+                           |
+                     1:N   |
+                    +----------------+
+                    | service_images |
+                    +----------------+
+
++============================================================================+
+|                    CLUSTER DE CARRITO Y FAVORITOS                          |
++============================================================================+
+
+  +----------+      +----------+      +-----------------+
+  |  users   |----->|  carts   |----->|   cart_items    |
+  +----------+  1:1 +----------+  1:N +-----------------+
+       |                                       |
+       |                                  N:1  |
+       |                              +-----------------+
+       |                              |product_variants |
+       |                              +-----------------+
+       |
+       |  1:N    +------------+
+       +-------->| favorites  |
+                 +------------+
+                       |
+                  N:1  |
+                 +------------+
+                 |  products  |
+                 +------------+
+
++============================================================================+
+|                        CLUSTER DE PEDIDOS                                  |
++============================================================================+
+
+  +----------+      +----------+      +--------------+
+  |  users   |----->|  orders  |----->| order_sellers|
+  | (buyer)  | 1:N  +----------+  1:N +--------------+
+  +----------+           |                    |
+                         |               N:1  |
+                   1:N   |              +----------+
+                 +--------------+       |  users   |
+                 | order_items  |       | (seller) |
+                 +--------------+       +----------+
+                        |
+                  1:1   |  1:N
+        +-------------------+-------------------+
+        |                   |                   |
+  +----------------+  +----------+   +-------------------+
+  |escrow_records  |  | payment  |   |delivery_tracking  |
+  +----------------+  | _proofs  |   +-------------------+
+                      +----------+            |
+                                        1:1   |
+                                     +-------------------+
+                                     |delivery_          |
+                                     |confirmations      |
+                                     +-------------------+
+
++============================================================================+
+|                        CLUSTER FINANCIERO                                  |
++============================================================================+
+
+  +----------+      +----------+      +-----------------+
+  |  users   |----->|  funds   |----->|fund_transactions|
+  +----------+  1:1 +----------+  1:N +-----------------+
+       |
+       |  1:N    +--------------+
+       +-------->| withdrawals  |
+                 +--------------+
+                       |
+                  N:1  |
+                 +--------------+
+                 |bank_accounts |
+                 +--------------+
+
++============================================================================+
+|                      CLUSTER DE COTIZACIONES                               |
++============================================================================+
+
+  +----------+      +---------------+      +-------------------+
+  |  users   |----->|quote_requests |<-----|  categories       |
+  |(requester| 1:N  +---------------+  N:1 +-------------------+
+  +----------+           |
+                   1:N   |
+                 +---------------+
+                 |quote_request  |
+                 |   _images     |
+                 +---------------+
+                         |
+                   1:N   |  N:1
+            +----------------+      +----------+
+            |quote_proposals |<-----|  users   |
+            +----------------+  1:N | (seller) |
+                                    +----------+
+
++============================================================================+
+|                      CLUSTER DE DISPUTAS                                   |
++============================================================================+
+
+  +----------------+      +-------------------+
+  |dispute_reasons |----->|     disputes      |<----+-------------------+
+  +----------------+  N:1 +-------------------+ N:1 |dispute_solutions  |
+                                |      |            +-------------------+
+                          1:N   |      |  1:N
+                 +----------------+  +-------------------+
+                 |dispute_messages|  |dispute_evidence   |
+                 +----------------+  +-------------------+
+
+  Referencias adicionales de disputes:
+  - order_id ------> orders
+  - order_item_id -> order_items
+  - product_id ----> products
+  - buyer_id ------> users
+  - seller_id -----> users
+  - admin_reviewed_by -> users
+
++============================================================================+
+|                        CLUSTER DE CHAT                                     |
++============================================================================+
+
+  +----------+      +-------------------+      +--------------+
+  |  users   |----->|chat_conversations |----->|chat_messages |
+  +----------+  N:1 +-------------------+  1:N +--------------+
+       |                      |
+  participant_1       participant_2_id -> users
+                       order_id ----------> orders
+
++============================================================================+
+|                     CLUSTER DE CONFIGURACION                               |
++============================================================================+
+
+  +----------+      +----------+      +----------+
+  |  users   |----->|  badges  |----->|  seller  |
+  |          |      +----------+      |  _badges |
+  +----------+                        +----------+
+       |
+       +------> sanctions
+       |
+       +------> reports
+       |
+       +------> media_files
+
+  Tablas independientes:
+  +----------+  +-------------+  +-------------+  +-------------+
+  |   faqs   |  |   banners   |  |site_settings|  |smtp_configs |
+  +----------+  +-------------+  +-------------+  +-------------+
+
+  +-------------+
+  |complaints   |
+  |   _book     |
+  +-------------+
+
++============================================================================+
+|                     CLUSTER DE AUDITORIA                                   |
++============================================================================+
+
+  +----------+      +------------+
+  |  users   |----->| audit_logs |
+  +----------+  N:1 +------------+
+
+```
+
+### 8.2 Leyenda del Diagrama
+
+| Simbolo | Significado |
+|---------|-------------|
+| ----> | Relacion 1:N (la flecha apunta desde la entidad 1 hacia la entidad N) |
+| <---- | Relacion N:1 (la entidad N referencia a la entidad 1) |
+| 1:1 | Relacion uno a uno |
+| 1:N | Relacion uno a muchos |
+| N:1 | Relacion muchos a uno |
+
+---
+
+
+## 9. Diccionario de Datos
+
+A continuacion se presenta el diccionario de datos completo para las 67 tablas del sistema, detallando cada campo con su tipo, longitud, obligatoriedad, valor por defecto, restricciones y descripcion funcional.
+
+### 9.1 Tabla: roles
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del rol |
+| name | VARCHAR | 50 | SI | - | UNIQUE, NOT NULL | Nombre del rol (ej: buyer, seller, admin) |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada del proposito del rol |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del registro |
+
+### 9.2 Tabla: permissions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del permiso |
+| module | VARCHAR | 100 | SI | - | NOT NULL, UNIQUE(module, action) | Modulo del sistema al que aplica el permiso |
+| action | VARCHAR | 100 | SI | - | NOT NULL, UNIQUE(module, action) | Accion autorizada (create, read, update, delete) |
+| description | TEXT | - | NO | NULL | - | Descripcion del alcance del permiso |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del registro |
+
+### 9.3 Tabla: admin_roles
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del rol administrativo |
+| name | VARCHAR | 100 | SI | - | NOT NULL | Nombre del rol administrativo (ej: moderador, soporte) |
+| description | TEXT | - | NO | NULL | - | Descripcion de las responsabilidades del rol |
+| is_superadmin | BOOLEAN | - | SI | FALSE | NOT NULL | Bandera que indica acceso total al sistema sin restriccion de permisos |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del registro |
+
+### 9.4 Tabla: admin_role_permissions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la asignacion |
+| admin_role_id | UUID | - | SI | - | FK -> admin_roles(id), NOT NULL, UNIQUE(admin_role_id, permission_id) | Rol administrativo al que se asigna el permiso |
+| permission_id | UUID | - | SI | - | FK -> permissions(id), NOT NULL, UNIQUE(admin_role_id, permission_id) | Permiso asignado al rol |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion de la asignacion |
+
+### 9.5 Tabla: admin_users
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la asignacion administrativa |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que recibe el rol administrativo |
+| admin_role_id | UUID | - | SI | - | FK -> admin_roles(id), NOT NULL | Rol administrativo asignado |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado de la asignacion administrativa |
+| created_by | UUID | - | SI | - | FK -> users(id), NOT NULL | Administrador que realizo la asignacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de asignacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de ultima actualizacion |
+
+### 9.6 Tabla: users
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del usuario |
+| role_id | UUID | - | SI | - | FK -> roles(id), NOT NULL | Rol base del usuario en el sistema |
+| email | VARCHAR | 255 | SI | - | UNIQUE, NOT NULL | Correo electronico del usuario, utilizado para login |
+| password_hash | TEXT | - | SI | - | NOT NULL | Hash bcrypt de la contrasena del usuario |
+| phone | VARCHAR | 20 | NO | NULL | - | Numero de telefono celular |
+| provider | VARCHAR | 20 | SI | email | NOT NULL, CHECK(provider IN (email,google,facebook)) | Proveedor de autenticacion |
+| is_verified | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si el correo electronico ha sido verificado |
+| verification_code | VARCHAR | 10 | NO | NULL | - | Codigo de verificacion de 6 digitos enviado al correo |
+| verification_expires_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de expiracion del codigo de verificacion |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive,suspended,banned)) | Estado actual del usuario en la plataforma |
+| referral_code | VARCHAR | 20 | NO | NULL | UNIQUE | Codigo unico de referido generado para el usuario |
+| referred_by | UUID | - | NO | NULL | FK -> users(id) | Usuario que refirio a este usuario (auto-referencia) |
+| accepted_terms | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si el usuario acepto los terminos y condiciones |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de registro |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de ultima actualizacion |
+
+### 9.7 Tabla: social_accounts
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del registro |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario propietario de la cuenta social |
+| provider | VARCHAR | 20 | SI | - | NOT NULL, UNIQUE(provider, provider_id) | Proveedor OAuth (google, facebook, etc.) |
+| provider_id | VARCHAR | 255 | SI | - | NOT NULL, UNIQUE(provider, provider_id) | Identificador del usuario en el proveedor OAuth |
+| provider_data | JSONB | - | NO | NULL | - | Datos adicionales proporcionados por el proveedor OAuth |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de vinculacion |
+
+### 9.8 Tabla: remember_tokens
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del token |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario propietario del token de sesion persistente |
+| token | VARCHAR | 255 | SI | - | UNIQUE, NOT NULL | Token criptografico de sesion |
+| expires_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha y hora de expiracion del token |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del token |
+
+### 9.9 Tabla: password_reset_tokens
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del token |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que solicito el restablecimiento |
+| token | VARCHAR | 255 | SI | - | UNIQUE, NOT NULL | Token criptografico de un solo uso |
+| expires_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha y hora de expiracion del token |
+| used | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si el token ya fue utilizado |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del token |
+
+### 9.10 Tabla: user_profiles
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del perfil |
+| user_id | UUID | - | SI | - | FK -> users(id), UNIQUE, NOT NULL | Usuario propietario del perfil (relacion 1:1) |
+| first_name | VARCHAR | 100 | NO | NULL | - | Nombres del usuario |
+| last_name | VARCHAR | 100 | NO | NULL | - | Apellidos del usuario |
+| birth_date | DATE | - | NO | NULL | - | Fecha de nacimiento |
+| document_type | VARCHAR | 20 | SI | DNI | NOT NULL, CHECK(document_type IN (DNI,CE,PASSPORT)) | Tipo de documento de identidad |
+| document_number | VARCHAR | 20 | NO | NULL | - | Numero de documento de identidad |
+| avatar_url | TEXT | - | NO | NULL | - | URL de la imagen de perfil del usuario |
+| address | TEXT | - | NO | NULL | - | Direccion fisica del usuario |
+| profile_alias | VARCHAR | 100 | NO | NULL | - | Alias o nombre publico del perfil |
+| how_found_us | VARCHAR | 100 | NO | NULL | - | Medio por el cual el usuario conocio la plataforma |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del perfil |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de ultima actualizacion |
+
+### 9.11 Tabla: seller_profiles
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del perfil de vendedor |
+| user_id | UUID | - | SI | - | FK -> users(id), UNIQUE, NOT NULL | Usuario propietario del perfil de vendedor (relacion 1:1) |
+| company_name | VARCHAR | 200 | NO | NULL | - | Nombre comercial de la empresa o negocio |
+| ruc | VARCHAR | 20 | NO | NULL | - | Numero de RUC (Registro Unico de Contribuyentes) |
+| razon_social | VARCHAR | 200 | NO | NULL | - | Razon social registrada en SUNAT |
+| seller_type | VARCHAR | 50 | NO | NULL | - | Tipo de vendedor (persona natural, empresa, etc.) |
+| rating | NUMERIC | 3,2 | SI | 0 | NOT NULL, CHECK(rating >= 0 AND rating <= 5) | Calificacion promedio del vendedor (0.00 - 5.00) |
+| validated_services | JSONB | - | SI | [] | NOT NULL | Servicios validados por la plataforma para este vendedor |
+| sales_count | INTEGER | - | SI | 0 | NOT NULL, CHECK(sales_count >= 0) | Cantidad total de ventas realizadas |
+| seniority_days | INTEGER | - | SI | 0 | NOT NULL, CHECK(seniority_days >= 0) | Dias de antiguedad como vendedor en la plataforma |
+| status | VARCHAR | 20 | SI | pending | NOT NULL, CHECK(status IN (pending,active,suspended,rejected)) | Estado del perfil de vendedor |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de creacion del perfil |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de ultima actualizacion |
+
+### 9.12 Tabla: user_verifications
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la verificacion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario sujeto a verificacion |
+| verification_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de verificacion (identity, document, biometric, ruc) |
+| verification_status | VARCHAR | 20 | SI | pending | NOT NULL, CHECK(status IN (pending,in_progress,completed,failed)) | Estado del proceso de verificacion |
+| provider | VARCHAR | 50 | SI | apiperudev | NOT NULL | Proveedor del servicio de verificacion |
+| request_payload | JSONB | - | NO | NULL | - | Datos enviados al proveedor de verificacion |
+| response_payload | JSONB | - | NO | NULL | - | Respuesta recibida del proveedor de verificacion |
+| verified_data | JSONB | - | NO | NULL | - | Datos verificados y normalizados |
+| verified_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora en que se completo la verificacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de inicio de la verificacion |
+
+### 9.13 Tabla: plans
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del plan |
+| name | VARCHAR | 100 | SI | - | NOT NULL | Nombre del plan (ej: Basico, Premium, Enterprise) |
+| price | NUMERIC | 10,2 | SI | - | NOT NULL, CHECK(price >= 0) | Precio del plan en la moneda especificada |
+| currency | VARCHAR | 10 | SI | PEN | NOT NULL | Codigo de moneda (PEN, USD) |
+| short_description | TEXT | - | NO | NULL | - | Descripcion resumida del plan |
+| icon | VARCHAR | 100 | NO | NULL | - | Identificador del icono asociado al plan |
+| is_most_chosen | BOOLEAN | - | SI | FALSE | NOT NULL | Bandera que destaca el plan mas popular |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion en la interfaz |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado del plan |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.14 Tabla: plan_features
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la caracteristica |
+| plan_id | UUID | - | SI | - | FK -> plans(id), NOT NULL | Plan al que pertenece la caracteristica |
+| feature | TEXT | - | SI | - | NOT NULL | Descripcion de la caracteristica incluida |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.15 Tabla: seller_plans
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la suscripcion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor suscrito al plan |
+| plan_id | UUID | - | SI | - | FK -> plans(id), NOT NULL | Plan contratado |
+| status | VARCHAR | 20 | SI | pending_payment | NOT NULL | Estado de la suscripcion |
+| starts_at | TIMESTAMP | - | NO | NULL | - | Fecha de inicio de vigencia |
+| ends_at | TIMESTAMP | - | NO | NULL | - | Fecha de fin de vigencia |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de contratacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.16 Tabla: plan_payments
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del pago |
+| seller_plan_id | UUID | - | SI | - | FK -> seller_plans(id), NOT NULL | Suscripcion a la que corresponde el pago |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que realiza el pago |
+| amount | NUMERIC | 10,2 | SI | - | NOT NULL, CHECK(amount > 0) | Monto pagado |
+| payment_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado del pago |
+| proof_url | TEXT | - | NO | NULL | - | URL del comprobante de pago |
+| reviewed_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que reviso el comprobante |
+| reviewed_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de revision |
+| rejection_reason | TEXT | - | NO | NULL | - | Motivo de rechazo del comprobante |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.17 Tabla: categories
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la categoria |
+| parent_id | UUID | - | NO | NULL | FK -> categories(id) | Categoria padre para jerarquia de subcategorias |
+| name | VARCHAR | 100 | SI | - | NOT NULL | Nombre de la categoria |
+| slug | VARCHAR | 150 | SI | - | UNIQUE, NOT NULL | Slug unico para URLs amigables |
+| icon | VARCHAR | 100 | NO | NULL | - | Identificador del icono de la categoria |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado de la categoria |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.18 Tabla: products
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del producto |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor propietario del producto |
+| category_id | UUID | - | SI | - | FK -> categories(id), NOT NULL | Categoria a la que pertenece el producto |
+| title | VARCHAR | 255 | SI | - | NOT NULL | Titulo del producto |
+| slug | VARCHAR | 300 | SI | - | UNIQUE, NOT NULL | Slug unico para URL del producto |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada del producto |
+| product_type | VARCHAR | 50 | SI | direct_sale | NOT NULL | Tipo de producto (direct_sale, auction, lot_sale) |
+| listing_type | VARCHAR | 50 | SI | direct_sale | NOT NULL | Tipo de listado en el marketplace |
+| brand | VARCHAR | 100 | NO | NULL | - | Marca del producto |
+| model | VARCHAR | 100 | NO | NULL | - | Modelo del producto |
+| year | INTEGER | - | NO | NULL | - | Ano de fabricacion |
+| condition | VARCHAR | 50 | NO | NULL | CHECK(condition IN (new,used,refurbished)) | Condicion del producto |
+| price | NUMERIC | 12,2 | NO | NULL | CHECK(price >= 0) | Precio actual del producto |
+| price_before | NUMERIC | 12,2 | NO | NULL | CHECK(price_before >= 0) | Precio anterior (para mostrar descuento) |
+| product_code | VARCHAR | 50 | NO | NULL | - | Codigo interno del producto |
+| volume_discount | NUMERIC | 5,2 | NO | NULL | CHECK(volume_discount >= 0 AND volume_discount <= 100) | Descuento por volumen en porcentaje |
+| global_discount | NUMERIC | 5,2 | NO | NULL | CHECK(global_discount >= 0 AND global_discount <= 100) | Descuento global en porcentaje |
+| video_url | TEXT | - | NO | NULL | - | URL del video demostrativo del producto |
+| views_count | INTEGER | - | SI | 0 | NOT NULL, CHECK(views_count >= 0) | Contador de visualizaciones |
+| wishlist_count | INTEGER | - | SI | 0 | NOT NULL, CHECK(wishlist_count >= 0) | Contador de veces agregado a favoritos |
+| warranty | VARCHAR | 100 | NO | NULL | - | Informacion de garantia |
+| publication_status | VARCHAR | 20 | SI | draft | NOT NULL | Estado de publicacion |
+| approved_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que aprobo la publicacion |
+| approved_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de aprobacion |
+| rejection_reason | TEXT | - | NO | NULL | - | Motivo de rechazo de la publicacion |
+| deleted_at | TIMESTAMP | - | NO | NULL | - | Fecha de borrado logico (soft delete) |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.19 Tabla: product_sale_conditions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de las condiciones |
+| product_id | UUID | - | SI | - | FK -> products(id), UNIQUE, NOT NULL | Producto asociado (relacion 1:1) |
+| payment_methods | JSONB | - | SI | [] | NOT NULL | Metodos de pago aceptados |
+| delivery_type | VARCHAR | 50 | NO | NULL | - | Tipo de entrega (pickup, shipping, digital) |
+| shipping_cost | NUMERIC | 10,2 | NO | NULL | CHECK(shipping_cost >= 0) | Costo de envio |
+| delivery_time | VARCHAR | 100 | NO | NULL | - | Tiempo estimado de entrega |
+| accepts_changes | BOOLEAN | - | SI | FALSE | NOT NULL | Acepta cambios o devoluciones |
+| accepts_returns | BOOLEAN | - | SI | FALSE | NOT NULL | Acepta devoluciones |
+| image_policy | TEXT | - | NO | NULL | - | Politica de imagenes del producto |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.20 Tabla: product_images
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la imagen |
+| product_id | UUID | - | SI | - | FK -> products(id), NOT NULL | Producto al que pertenece la imagen |
+| image_url | TEXT | - | SI | - | NOT NULL | URL de la imagen almacenada |
+| is_primary | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si es la imagen principal del producto |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion en la galeria |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga de la imagen |
+
+### 9.21 Tabla: product_variants
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la variante |
+| product_id | UUID | - | SI | - | FK -> products(id), NOT NULL | Producto al que pertenece la variante |
+| sku | VARCHAR | 100 | NO | NULL | - | Codigo SKU de la variante |
+| variant_name | VARCHAR | 100 | NO | NULL | - | Nombre de la variante (ej: Color, Talla) |
+| variant_value | VARCHAR | 100 | NO | NULL | - | Valor de la variante (ej: Rojo, XL) |
+| stock | INTEGER | - | SI | 0 | NOT NULL, CHECK(stock >= 0) | Cantidad disponible en inventario |
+| price | NUMERIC | 12,2 | NO | NULL | CHECK(price >= 0) | Precio especifico de la variante |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.22 Tabla: product_views
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la visualizacion |
+| product_id | UUID | - | SI | - | FK -> products(id), NOT NULL | Producto visualizado |
+| user_id | UUID | - | NO | NULL | FK -> users(id) | Usuario que visualizo (si esta autenticado) |
+| ip_address | VARCHAR | 45 | NO | NULL | - | Direccion IP del visitante |
+| viewed_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de la visualizacion |
+
+### 9.23 Tabla: services
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del servicio |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor que ofrece el servicio |
+| title | VARCHAR | 255 | SI | - | NOT NULL | Titulo del servicio |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada del servicio |
+| company_name | VARCHAR | 200 | NO | NULL | - | Nombre de la empresa que ofrece el servicio |
+| image_url | TEXT | - | NO | NULL | - | URL de la imagen principal del servicio |
+| price | NUMERIC | 12,2 | NO | NULL | CHECK(price >= 0) | Precio del servicio |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado del servicio |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.24 Tabla: service_images
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la imagen |
+| service_id | UUID | - | SI | - | FK -> services(id), NOT NULL | Servicio al que pertenece la imagen |
+| image_url | TEXT | - | SI | - | NOT NULL | URL de la imagen |
+| is_primary | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si es la imagen principal |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga |
+
+### 9.25 Tabla: carts
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del carrito |
+| user_id | UUID | - | SI | - | FK -> users(id), UNIQUE, NOT NULL | Usuario propietario del carrito (1:1) |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion del carrito |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima modificacion |
+
+### 9.26 Tabla: cart_items
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del item |
+| cart_id | UUID | - | SI | - | FK -> carts(id), NOT NULL | Carrito al que pertenece el item |
+| product_variant_id | UUID | - | SI | - | FK -> product_variants(id), NOT NULL | Variante de producto agregada |
+| quantity | INTEGER | - | SI | 1 | NOT NULL, CHECK(quantity > 0) | Cantidad solicitada |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de adicion al carrito |
+
+### 9.27 Tabla: favorites
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del favorito |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL, UNIQUE(user_id, product_id) | Usuario que marco como favorito |
+| product_id | UUID | - | SI | - | FK -> products(id), NOT NULL, UNIQUE(user_id, product_id) | Producto marcado como favorito |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha en que se marco como favorito |
+
+### 9.28 Tabla: bank_accounts
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la cuenta |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario propietario de la cuenta bancaria |
+| account_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de cuenta (ahorros, corriente, etc.) |
+| bank_name | VARCHAR | 100 | SI | - | NOT NULL | Nombre del banco |
+| currency | VARCHAR | 10 | SI | PEN | NOT NULL | Moneda de la cuenta |
+| account_number | VARCHAR | 50 | SI | - | NOT NULL | Numero de cuenta bancaria |
+| account_holder | VARCHAR | 200 | SI | - | NOT NULL | Nombre del titular de la cuenta |
+| is_default | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si es la cuenta por defecto |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado de la cuenta vinculada |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de registro |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.29 Tabla: orders
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la orden |
+| buyer_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Comprador que genero la orden |
+| order_number | VARCHAR | 50 | SI | - | UNIQUE, NOT NULL | Numero de orden legible (ej: ORD-20260001) |
+| total_amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(total_amount >= 0) | Monto total de la orden |
+| shipping_address | TEXT | - | NO | NULL | - | Direccion de envio |
+| shipping_cost | NUMERIC | 10,2 | SI | 0 | NOT NULL, CHECK(shipping_cost >= 0) | Costo total de envio |
+| payment_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado del pago de la orden |
+| order_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado general de la orden |
+| delivery_type | VARCHAR | 50 | NO | NULL | - | Tipo de entrega seleccionado |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion de la orden |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.30 Tabla: order_sellers
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del registro |
+| order_id | UUID | - | SI | - | FK -> orders(id), NOT NULL | Orden a la que pertenece |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor asociado a este segmento de la orden |
+| seller_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado del segmento de la orden para este vendedor |
+| subtotal | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(subtotal >= 0) | Subtotal correspondiente a este vendedor |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.31 Tabla: order_items
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del item |
+| order_id | UUID | - | SI | - | FK -> orders(id), NOT NULL | Orden a la que pertenece el item |
+| product_id | UUID | - | SI | - | FK -> products(id), NOT NULL | Producto comprado |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor del producto |
+| quantity | INTEGER | - | SI | 1 | NOT NULL, CHECK(quantity > 0) | Cantidad comprada |
+| product_title_snapshot | VARCHAR | 255 | NO | NULL | - | Titulo del producto al momento de la compra |
+| variant_snapshot | JSONB | - | NO | NULL | - | Datos de la variante al momento de la compra |
+| seller_snapshot | JSONB | - | NO | NULL | - | Datos del vendedor al momento de la compra |
+| unit_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(unit_price >= 0) | Precio unitario al momento de la compra |
+| subtotal | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(subtotal >= 0) | Subtotal (unit_price * quantity) |
+| item_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado del item individual |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.32 Tabla: payment_proofs
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del comprobante |
+| order_id | UUID | - | SI | - | FK -> orders(id), NOT NULL | Orden a la que corresponde el pago |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que subio el comprobante |
+| bank_account_id | UUID | - | NO | NULL | FK -> bank_accounts(id) | Cuenta bancaria de destino del pago |
+| proof_url | TEXT | - | SI | - | NOT NULL | URL del comprobante de pago |
+| amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(amount > 0) | Monto declarado en el comprobante |
+| status | VARCHAR | 20 | SI | pending_review | NOT NULL | Estado de revision del comprobante |
+| reviewed_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que reviso el comprobante |
+| reviewed_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de revision |
+| rejection_reason | TEXT | - | NO | NULL | - | Motivo de rechazo del comprobante |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga del comprobante |
+
+### 9.33 Tabla: escrow_records
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del registro escrow |
+| order_id | UUID | - | SI | - | FK -> orders(id), UNIQUE, NOT NULL | Orden asociada al escrow (1:1) |
+| escrow_status | VARCHAR | 20 | SI | held | NOT NULL, CHECK(status IN (held,released,refunded)) | Estado de los fondos en garantia |
+| amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(amount >= 0) | Monto retenido en garantia |
+| released_at | TIMESTAMP | - | NO | NULL | - | Fecha de liberacion de fondos al vendedor |
+| dispute_status | VARCHAR | 20 | SI | none | NOT NULL | Estado de disputa asociada al escrow |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.34 Tabla: funds
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la billetera |
+| user_id | UUID | - | SI | - | FK -> users(id), UNIQUE, NOT NULL | Usuario propietario de la billetera (1:1) |
+| available_balance | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(available_balance >= 0) | Saldo disponible para retiro |
+| pending_balance | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(pending_balance >= 0) | Saldo pendiente de liberacion (escrow) |
+| disputed_balance | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(disputed_balance >= 0) | Saldo en disputa |
+| total_earned | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(total_earned >= 0) | Total acumulado de ganancias historicas |
+| total_withdrawn | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(total_withdrawn >= 0) | Total acumulado de retiros realizados |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion de saldos |
+
+### 9.35 Tabla: fund_transactions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la transaccion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario propietario de la transaccion |
+| type | VARCHAR | 20 | SI | - | NOT NULL, CHECK(type IN (credit,debit)) | Tipo de movimiento (credito o debito) |
+| amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(amount > 0) | Monto de la transaccion |
+| balance_after | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(balance_after >= 0) | Saldo resultante despues de la transaccion |
+| reference_type | VARCHAR | 50 | NO | NULL | - | Tipo de entidad de referencia (order, withdrawal, dispute) |
+| reference_id | UUID | - | NO | NULL | - | Identificador de la entidad de referencia |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada de la transaccion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de la transaccion |
+
+### 9.36 Tabla: withdrawals
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del retiro |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que solicita el retiro |
+| bank_account_id | UUID | - | SI | - | FK -> bank_accounts(id), NOT NULL | Cuenta bancaria de destino |
+| amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(amount > 0) | Monto a retirar |
+| status | VARCHAR | 20 | SI | pending | NOT NULL, CHECK(status IN (pending,approved,completed,rejected)) | Estado de la solicitud de retiro |
+| confirmed_at | TIMESTAMP | - | NO | NULL | - | Fecha de confirmacion del retiro |
+| rejection_reason | TEXT | - | NO | NULL | - | Motivo de rechazo de la solicitud |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de solicitud |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.37 Tabla: delivery_tracking
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del registro de seguimiento |
+| order_item_id | UUID | - | SI | - | FK -> order_items(id), NOT NULL | Item de orden al que pertenece el seguimiento |
+| status | VARCHAR | 30 | SI | - | NOT NULL | Estado actual del envio |
+| notes | TEXT | - | NO | NULL | - | Notas adicionales del seguimiento |
+| updated_by | UUID | - | NO | NULL | FK -> users(id) | Usuario que realizo la actualizacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha del registro de seguimiento |
+
+### 9.38 Tabla: delivery_confirmations
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la confirmacion |
+| order_item_id | UUID | - | SI | - | FK -> order_items(id), UNIQUE, NOT NULL | Item de orden confirmado (1:1) |
+| buyer_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Comprador que confirma la recepcion |
+| confirmation_status | VARCHAR | 30 | SI | - | NOT NULL | Estado de la confirmacion |
+| observations | TEXT | - | NO | NULL | - | Observaciones del comprador sobre la recepcion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de confirmacion |
+
+### 9.39 Tabla: auctions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la subasta |
+| product_id | UUID | - | SI | - | FK -> products(id), UNIQUE, NOT NULL | Producto asociado a la subasta (1:1) |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor que crea la subasta |
+| starting_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(starting_price >= 0) | Precio de salida de la subasta |
+| base_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(base_price >= 0) | Precio base o precio de reserva |
+| current_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(current_price >= 0) | Precio actual de la subasta (puja mas alta) |
+| minimum_increment | NUMERIC | 12,2 | SI | 0 | NOT NULL, CHECK(minimum_increment >= 0) | Incremento minimo entre pujas |
+| guarantee_required | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(guarantee_required >= 0) | Monto de garantia requerido para participar |
+| starts_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha y hora de inicio de la subasta |
+| ends_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha y hora de finalizacion |
+| status | VARCHAR | 20 | SI | pending | NOT NULL, CHECK(status IN (pending,active,closed,cancelled)) | Estado de la subasta |
+| winner_id | UUID | - | NO | NULL | FK -> users(id) | Ganador de la subasta |
+| winner_notified_at | TIMESTAMP | - | NO | NULL | - | Fecha de notificacion al ganador |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.40 Tabla: auction_bids
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la puja |
+| auction_id | UUID | - | SI | - | FK -> auctions(id), NOT NULL | Subasta en la que se realiza la puja |
+| bidder_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que realiza la puja |
+| bid_amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(bid_amount > 0) | Monto de la puja |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora exacta de la puja |
+
+### 9.41 Tabla: auction_guarantee_payments
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del pago de garantia |
+| auction_id | UUID | - | SI | - | FK -> auctions(id), NOT NULL | Subasta asociada |
+| bidder_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Postor que paga la garantia |
+| amount | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(amount > 0) | Monto pagado como garantia |
+| payment_status | VARCHAR | 20 | SI | pending | NOT NULL | Estado del pago de garantia |
+| proof_url | TEXT | - | NO | NULL | - | URL del comprobante de pago |
+| refunded | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si la garantia fue reembolsada |
+| refunded_at | TIMESTAMP | - | NO | NULL | - | Fecha de reembolso de la garantia |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.42 Tabla: lot_sales
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la venta por lote |
+| product_id | UUID | - | SI | - | FK -> products(id), UNIQUE, NOT NULL | Producto asociado (1:1) |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor que crea la venta por lote |
+| lot_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(lot_price >= 0) | Precio total del lote |
+| individual_price | NUMERIC | 12,2 | SI | - | NOT NULL, CHECK(individual_price >= 0) | Precio individual por unidad |
+| min_quantity | INTEGER | - | SI | - | NOT NULL, CHECK(min_quantity > 0) | Cantidad minima de participantes requerida |
+| current_participants | INTEGER | - | SI | 0 | NOT NULL, CHECK(current_participants >= 0) | Cantidad actual de participantes |
+| closes_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha y hora de cierre del lote |
+| status | VARCHAR | 20 | SI | open | NOT NULL, CHECK(status IN (open,closed,cancelled)) | Estado de la venta por lote |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.43 Tabla: lot_participants
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del participante |
+| lot_sale_id | UUID | - | SI | - | FK -> lot_sales(id), NOT NULL, UNIQUE(lot_sale_id, buyer_id) | Venta por lote en la que participa |
+| buyer_id | UUID | - | SI | - | FK -> users(id), NOT NULL, UNIQUE(lot_sale_id, buyer_id) | Comprador participante |
+| quantity | INTEGER | - | SI | - | NOT NULL, CHECK(quantity > 0) | Cantidad solicitada por el participante |
+| guarantee_paid | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si pago la garantia de participacion |
+| guarantee_amount | NUMERIC | 12,2 | NO | NULL | CHECK(guarantee_amount >= 0) | Monto de garantia pagado |
+| status | VARCHAR | 20 | SI | pending | NOT NULL | Estado de la participacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de registro de participacion |
+
+### 9.44 Tabla: quote_requests
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la solicitud |
+| requester_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que solicita la cotizacion |
+| title | VARCHAR | 255 | SI | - | NOT NULL | Titulo de la solicitud de cotizacion |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada de lo solicitado |
+| category_id | UUID | - | NO | NULL | FK -> categories(id) | Categoria de la solicitud |
+| status | VARCHAR | 20 | SI | open | NOT NULL, CHECK(status IN (open,closed,cancelled)) | Estado de la solicitud |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.45 Tabla: quote_request_images
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la imagen |
+| quote_request_id | UUID | - | SI | - | FK -> quote_requests(id), NOT NULL | Solicitud de cotizacion asociada |
+| image_url | TEXT | - | SI | - | NOT NULL | URL de la imagen adjunta |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga |
+
+### 9.46 Tabla: quote_proposals
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la propuesta |
+| quote_request_id | UUID | - | SI | - | FK -> quote_requests(id), NOT NULL | Solicitud a la que responde la propuesta |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor que envia la propuesta |
+| proposal_text | TEXT | - | NO | NULL | - | Texto descriptivo de la propuesta |
+| proposed_amount | NUMERIC | 12,2 | NO | NULL | CHECK(proposed_amount >= 0) | Monto propuesto |
+| delivery_time | VARCHAR | 100 | NO | NULL | - | Tiempo estimado de entrega |
+| status | VARCHAR | 20 | SI | sent | NOT NULL | Estado de la propuesta |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de envio |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.47 Tabla: reviews
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la resena |
+| order_id | UUID | - | NO | NULL | FK -> orders(id) | Orden asociada a la resena |
+| order_item_id | UUID | - | NO | NULL | FK -> order_items(id) | Item de orden asociado |
+| reviewer_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que escribe la resena |
+| reviewed_user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que recibe la resena |
+| product_id | UUID | - | NO | NULL | FK -> products(id) | Producto resenado |
+| rating | INTEGER | - | SI | - | NOT NULL, CHECK(rating >= 1 AND rating <= 5) | Calificacion de 1 a 5 estrellas |
+| comment | TEXT | - | NO | NULL | - | Comentario de la resena |
+| photos | JSONB | - | SI | [] | NOT NULL | URLs de fotos adjuntas a la resena |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de publicacion de la resena |
+
+### 9.48 Tabla: dispute_reasons
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del motivo |
+| name | VARCHAR | 200 | SI | - | NOT NULL | Nombre del motivo de disputa |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada del motivo |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado del motivo |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.49 Tabla: dispute_solutions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la solucion |
+| name | VARCHAR | 200 | SI | - | NOT NULL | Nombre de la solucion predefinida |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada de la solucion |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado de la solucion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.50 Tabla: disputes
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la disputa |
+| order_id | UUID | - | NO | NULL | FK -> orders(id) | Orden asociada a la disputa |
+| order_item_id | UUID | - | NO | NULL | FK -> order_items(id) | Item de orden asociado |
+| product_id | UUID | - | NO | NULL | FK -> products(id) | Producto en disputa |
+| buyer_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Comprador que inicia la disputa |
+| seller_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Vendedor involucrado |
+| reason_type | VARCHAR | 100 | SI | - | NOT NULL | Tipo de motivo de la disputa |
+| reason_id | UUID | - | NO | NULL | FK -> dispute_reasons(id) | Motivo predefinido seleccionado |
+| description | TEXT | - | NO | NULL | - | Descripcion detallada del problema |
+| evidence | JSONB | - | SI | [] | NOT NULL | URLs de evidencias adjuntas |
+| requested_solution | VARCHAR | 100 | NO | NULL | - | Solucion solicitada por el comprador |
+| requested_solution_id | UUID | - | NO | NULL | FK -> dispute_solutions(id) | Solucion predefinida solicitada |
+| dispute_status | VARCHAR | 20 | SI | open | NOT NULL | Estado actual de la disputa |
+| seller_response | TEXT | - | NO | NULL | - | Respuesta del vendedor |
+| seller_action | VARCHAR | 100 | NO | NULL | - | Accion propuesta por el vendedor |
+| seller_amount | NUMERIC | 12,2 | NO | NULL | CHECK(seller_amount >= 0) | Monto ofrecido por el vendedor |
+| seller_responded_at | TIMESTAMP | - | NO | NULL | - | Fecha de respuesta del vendedor |
+| admin_resolution | TEXT | - | NO | NULL | - | Resolucion final del administrador |
+| admin_action | VARCHAR | 100 | NO | NULL | - | Accion determinada por el administrador |
+| admin_amount | NUMERIC | 12,2 | NO | NULL | CHECK(admin_amount >= 0) | Monto determinado por el administrador |
+| admin_reviewed_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que resolvio la disputa |
+| admin_reviewed_at | TIMESTAMP | - | NO | NULL | - | Fecha de revision administrativa |
+| resolved_at | TIMESTAMP | - | NO | NULL | - | Fecha de resolucion final |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de apertura de la disputa |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.51 Tabla: dispute_messages
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del mensaje |
+| dispute_id | UUID | - | SI | - | FK -> disputes(id), NOT NULL | Disputa a la que pertenece el mensaje |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que envia el mensaje |
+| message | TEXT | - | SI | - | NOT NULL | Contenido del mensaje |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora del mensaje |
+
+### 9.52 Tabla: dispute_evidence
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la evidencia |
+| dispute_id | UUID | - | SI | - | FK -> disputes(id), NOT NULL | Disputa a la que pertenece la evidencia |
+| uploaded_by | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que subio el archivo |
+| file_url | TEXT | - | SI | - | NOT NULL | URL del archivo de evidencia |
+| file_type | VARCHAR | 50 | NO | NULL | - | Tipo de archivo (image, video, document, pdf) |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga |
+
+### 9.53 Tabla: complaints_book
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del reclamo |
+| first_name | VARCHAR | 100 | SI | - | NOT NULL | Nombres del reclamante |
+| last_name | VARCHAR | 100 | SI | - | NOT NULL | Apellidos del reclamante |
+| document_number | VARCHAR | 20 | SI | - | NOT NULL | Numero de documento de identidad |
+| address | TEXT | - | SI | - | NOT NULL | Direccion del reclamante |
+| phone | VARCHAR | 20 | SI | - | NOT NULL | Telefono de contacto |
+| email | VARCHAR | 255 | SI | - | NOT NULL | Correo electronico de contacto |
+| description | TEXT | - | SI | - | NOT NULL | Descripcion detallada del reclamo |
+| evidence | JSONB | - | SI | [] | NOT NULL | URLs de evidencias adjuntas |
+| status | VARCHAR | 20 | SI | pending | NOT NULL | Estado de la reclamacion |
+| admin_response | TEXT | - | NO | NULL | - | Respuesta del administrador |
+| responded_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que respondio |
+| responded_at | TIMESTAMP | - | NO | NULL | - | Fecha de respuesta |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.54 Tabla: notifications
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la notificacion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario destinatario de la notificacion |
+| type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de notificacion (order_update, message, system, etc.) |
+| title | VARCHAR | 255 | SI | - | NOT NULL | Titulo de la notificacion |
+| message | TEXT | - | SI | - | NOT NULL | Cuerpo del mensaje |
+| entity_type | VARCHAR | 50 | NO | NULL | - | Tipo de entidad relacionada (order, product, dispute) |
+| entity_id | UUID | - | NO | NULL | - | Identificador de la entidad relacionada |
+| action_url | VARCHAR | 500 | NO | NULL | - | URL de accion al hacer clic en la notificacion |
+| is_read | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si la notificacion fue leida |
+| read_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de lectura |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion de la notificacion |
+
+### 9.55 Tabla: chat_conversations
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la conversacion |
+| participant_1_id | UUID | - | SI | - | FK -> users(id), NOT NULL, UNIQUE(participant_1_id, participant_2_id, order_id) | Primer participante |
+| participant_2_id | UUID | - | SI | - | FK -> users(id), NOT NULL, UNIQUE(participant_1_id, participant_2_id, order_id) | Segundo participante |
+| order_id | UUID | - | NO | NULL | FK -> orders(id), UNIQUE(participant_1_id, participant_2_id, order_id) | Orden asociada |
+| last_message_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora del ultimo mensaje |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion de la conversacion |
+
+### 9.56 Tabla: chat_messages
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del mensaje |
+| conversation_id | UUID | - | SI | - | FK -> chat_conversations(id), NOT NULL | Conversacion a la que pertenece el mensaje |
+| sender_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que envio el mensaje |
+| message | TEXT | - | SI | - | NOT NULL | Contenido del mensaje |
+| is_read | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si el mensaje fue leido por el destinatario |
+| read_at | TIMESTAMP | - | NO | NULL | - | Fecha y hora de lectura |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora de envio |
+
+### 9.57 Tabla: badges
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la insignia |
+| name | VARCHAR | 100 | SI | - | NOT NULL | Nombre de la insignia |
+| icon | VARCHAR | 100 | NO | NULL | - | Identificador del icono de la insignia |
+| description | TEXT | - | NO | NULL | - | Descripcion de los criterios para obtener la insignia |
+| criteria | JSONB | - | NO | NULL | - | Criterios cuantificables en formato JSON |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.58 Tabla: seller_badges
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la asignacion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL, UNIQUE(user_id, badge_id) | Vendedor que recibe la insignia |
+| badge_id | UUID | - | SI | - | FK -> badges(id), NOT NULL, UNIQUE(user_id, badge_id) | Insignia otorgada |
+| awarded_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de otorgamiento |
+
+### 9.59 Tabla: faqs
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la FAQ |
+| category | VARCHAR | 100 | SI | - | NOT NULL | Categoria de la pregunta frecuente |
+| question | TEXT | - | SI | - | NOT NULL | Texto de la pregunta |
+| answer | TEXT | - | SI | - | NOT NULL | Texto de la respuesta |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado de la FAQ |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.60 Tabla: media_files
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del archivo |
+| uploaded_by | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que subio el archivo |
+| entity_type | VARCHAR | 50 | NO | NULL | - | Tipo de entidad asociada |
+| entity_id | UUID | - | NO | NULL | - | Identificador de la entidad asociada |
+| file_type | VARCHAR | 50 | NO | NULL | - | Tipo de archivo (image, video, document) |
+| file_url | TEXT | - | SI | - | NOT NULL | URL del archivo almacenado |
+| file_size | INTEGER | - | NO | NULL | CHECK(file_size >= 0) | Tamano del archivo en bytes |
+| metadata | JSONB | - | NO | NULL | - | Metadatos adicionales del archivo |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de carga |
+
+### 9.61 Tabla: banners
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del banner |
+| title | VARCHAR | 255 | SI | - | NOT NULL | Titulo del banner |
+| subtitle | VARCHAR | 255 | NO | NULL | - | Subtitulo del banner |
+| image_url | TEXT | - | SI | - | NOT NULL | URL de la imagen del banner |
+| redirect_url | TEXT | - | NO | NULL | - | URL de redireccion al hacer clic |
+| button_text | VARCHAR | 100 | NO | NULL | - | Texto del boton de accion |
+| position | INTEGER | - | SI | 1 | NOT NULL | Posicion del banner en la pagina |
+| sort_order | INTEGER | - | SI | 0 | NOT NULL | Orden de presentacion entre banners |
+| status | VARCHAR | 20 | SI | active | NOT NULL, CHECK(status IN (active,inactive)) | Estado del banner |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.62 Tabla: site_settings
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la configuracion |
+| setting_key | VARCHAR | 100 | SI | - | UNIQUE, NOT NULL | Clave unica de configuracion |
+| setting_value | TEXT | - | SI | - | NOT NULL | Valor de la configuracion |
+| setting_type | VARCHAR | 20 | SI | text | NOT NULL | Tipo de dato del valor (text, number, boolean, json) |
+| description | TEXT | - | NO | NULL | - | Descripcion de la configuracion |
+| updated_by | UUID | - | NO | NULL | FK -> users(id) | Usuario que actualizo la configuracion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+
+### 9.63 Tabla: smtp_configs
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la configuracion SMTP |
+| host | VARCHAR | 255 | SI | - | NOT NULL | Direccion del servidor SMTP |
+| port | INTEGER | - | SI | - | NOT NULL, CHECK(port > 0 AND port <= 65535) | Puerto del servidor SMTP |
+| username | VARCHAR | 255 | SI | - | NOT NULL | Nombre de usuario para autenticacion SMTP |
+| password_encrypted | TEXT | - | SI | - | NOT NULL | Contrasena cifrada con AES-256-GCM |
+| encryption | VARCHAR | 20 | SI | tls | NOT NULL, CHECK(encryption IN (tls,ssl,none)) | Tipo de cifrado de conexion |
+| from_address | VARCHAR | 255 | SI | - | NOT NULL | Direccion de correo remitente |
+| from_name | VARCHAR | 255 | SI | - | NOT NULL | Nombre del remitente |
+| is_active | BOOLEAN | - | SI | FALSE | NOT NULL | Indica si esta configuracion esta activa |
+| updated_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que actualizo la configuracion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.64 Tabla: sanctions
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la sancion |
+| user_id | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario sancionado |
+| reason | TEXT | - | SI | - | NOT NULL | Motivo de la sancion |
+| sanction_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de sancion (warning, temporary_ban, permanent_ban, restriction) |
+| starts_at | TIMESTAMP | - | SI | - | NOT NULL | Fecha de inicio de la sancion |
+| ends_at | TIMESTAMP | - | NO | NULL | - | Fecha de fin de la sancion (NULL si es permanente) |
+| imposed_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que impuso la sancion |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de imposicion |
+
+### 9.65 Tabla: reports
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del reporte |
+| reported_by | UUID | - | SI | - | FK -> users(id), NOT NULL | Usuario que realiza el reporte |
+| entity_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de entidad reportada (product, user, service, review) |
+| entity_id | UUID | - | SI | - | NOT NULL | Identificador de la entidad reportada |
+| reason | TEXT | - | SI | - | NOT NULL | Motivo del reporte |
+| status | VARCHAR | 20 | SI | pending | NOT NULL, CHECK(status IN (pending,reviewed,dismissed,actioned)) | Estado del reporte |
+| reviewed_by | UUID | - | NO | NULL | FK -> users(id) | Administrador que reviso el reporte |
+| reviewed_at | TIMESTAMP | - | NO | NULL | - | Fecha de revision |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion del reporte |
+
+### 9.66 Tabla: real_estate_properties
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico de la propiedad |
+| product_id | UUID | - | SI | - | FK -> products(id), UNIQUE, NOT NULL | Producto asociado (1:1) |
+| property_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de propiedad (casa, departamento, terreno, oficina) |
+| operation_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de operacion (venta, alquiler, alquiler temporal) |
+| address | TEXT | - | SI | - | NOT NULL | Direccion completa de la propiedad |
+| district | VARCHAR | 100 | NO | NULL | - | Distrito de ubicacion |
+| city | VARCHAR | 100 | NO | NULL | - | Ciudad de ubicacion |
+| area_m2 | NUMERIC | 10,2 | NO | NULL | CHECK(area_m2 > 0) | Area en metros cuadrados |
+| bedrooms | INTEGER | - | NO | NULL | CHECK(bedrooms >= 0) | Cantidad de dormitorios |
+| bathrooms | INTEGER | - | NO | NULL | CHECK(bathrooms >= 0) | Cantidad de banos |
+| parking_spaces | INTEGER | - | NO | NULL | CHECK(parking_spaces >= 0) | Cantidad de estacionamientos |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de creacion |
+| updated_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha de ultima actualizacion |
+
+### 9.67 Tabla: audit_logs
+
+| Campo | Tipo | Longitud | Obligatorio | Valor Default | Restricciones | Descripcion |
+|-------|------|----------|-------------|---------------|---------------|-------------|
+| id | UUID | - | SI | uuid_generate_v4() | PRIMARY KEY | Identificador unico del registro de auditoria |
+| user_id | UUID | - | NO | NULL | FK -> users(id) | Usuario que realizo la accion (NULL para acciones del sistema) |
+| action | VARCHAR | 100 | SI | - | NOT NULL | Accion realizada (CREATE, UPDATE, DELETE, LOGIN, etc.) |
+| entity_type | VARCHAR | 50 | SI | - | NOT NULL | Tipo de entidad afectada |
+| entity_id | UUID | - | NO | NULL | - | Identificador de la entidad afectada |
+| old_values | JSONB | - | NO | NULL | - | Valores anteriores al cambio (para UPDATE y DELETE) |
+| new_values | JSONB | - | NO | NULL | - | Valores nuevos despues del cambio (para CREATE y UPDATE) |
+| ip_address | VARCHAR | 45 | NO | NULL | - | Direccion IP del cliente |
+| user_agent | TEXT | - | NO | NULL | - | User-Agent del cliente HTTP |
+| created_at | TIMESTAMP | - | SI | NOW() | NOT NULL | Fecha y hora del evento auditado |
+
+
+---
+
+## 10. Relaciones entre Tablas
+
+### 10.1 Relaciones Uno a Uno (1:1)
+
+| Tabla A | Tabla B | Campo de Union | Descripcion |
+|---------|---------|----------------|-------------|
+| users | user_profiles | user_id (UNIQUE) | Cada usuario tiene exactamente un perfil extendido |
+| users | seller_profiles | user_id (UNIQUE) | Cada usuario puede tener opcionalmente un perfil de vendedor |
+| users | carts | user_id (UNIQUE) | Cada usuario tiene un unico carrito de compras |
+| users | funds | user_id (UNIQUE) | Cada vendedor tiene una unica billetera virtual |
+| users | admin_users | user_id | Un usuario puede tener a lo sumo una asignacion administrativa |
+| products | product_sale_conditions | product_id (UNIQUE) | Cada producto tiene condiciones de venta unicas |
+| products | auctions | product_id (UNIQUE) | Un producto puede ser subastado (relacion opcional) |
+| products | lot_sales | product_id (UNIQUE) | Un producto puede venderse por lote (relacion opcional) |
+| products | real_estate_properties | product_id (UNIQUE) | Extension para propiedades inmobiliarias |
+| orders | escrow_records | order_id (UNIQUE) | Cada orden tiene un registro escrow unico |
+| order_items | delivery_confirmations | order_item_id (UNIQUE) | Cada item entregado tiene una confirmacion unica |
+
+### 10.2 Relaciones Uno a Muchos (1:N)
+
+| Tabla Padre | Tabla Hija | Campo FK | Cardinalidad |
+|-------------|------------|----------|--------------|
+| roles | users | role_id | 1:N |
+| users | social_accounts | user_id | 1:N |
+| users | remember_tokens | user_id | 1:N |
+| users | password_reset_tokens | user_id | 1:N |
+| users | user_verifications | user_id | 1:N |
+| users | products | user_id | 1:N |
+| users | services | user_id | 1:N |
+| users | orders (como buyer) | buyer_id | 1:N |
+| users | orders (como seller via order_sellers) | seller_id | 1:N |
+| users | reviews (como reviewer) | reviewer_id | 1:N |
+| users | reviews (como reviewed) | reviewed_user_id | 1:N |
+| users | notifications | user_id | 1:N |
+| users | favorites | user_id | 1:N |
+| users | bank_accounts | user_id | 1:N |
+| users | withdrawals | user_id | 1:N |
+| users | fund_transactions | user_id | 1:N |
+| users | sanctions | user_id | 1:N |
+| users | reports (como reported_by) | reported_by | 1:N |
+| users | media_files | uploaded_by | 1:N |
+| users | seller_badges | user_id | 1:N |
+| users | auction_bids | bidder_id | 1:N |
+| users | auction_guarantee_payments | bidder_id | 1:N |
+| users | lot_participants | buyer_id | 1:N |
+| users | quote_requests | requester_id | 1:N |
+| users | quote_proposals | seller_id | 1:N |
+| admin_roles | admin_role_permissions | admin_role_id | 1:N |
+| admin_roles | admin_users | admin_role_id | 1:N |
+| permissions | admin_role_permissions | permission_id | 1:N |
+| plans | plan_features | plan_id | 1:N |
+| plans | seller_plans | plan_id | 1:N |
+| seller_plans | plan_payments | seller_plan_id | 1:N |
+| categories | products | category_id | 1:N |
+| products | product_images | product_id | 1:N |
+| products | product_variants | product_id | 1:N |
+| products | product_views | product_id | 1:N |
+| products | order_items | product_id | 1:N |
+| products | favorites | product_id | 1:N |
+| products | reviews | product_id | 1:N |
+| services | service_images | service_id | 1:N |
+| carts | cart_items | cart_id | 1:N |
+| product_variants | cart_items | product_variant_id | 1:N |
+| orders | order_items | order_id | 1:N |
+| orders | order_sellers | order_id | 1:N |
+| orders | payment_proofs | order_id | 1:N |
+| orders | chat_conversations | order_id | 1:N |
+| order_items | delivery_tracking | order_item_id | 1:N |
+| auctions | auction_bids | auction_id | 1:N |
+| auctions | auction_guarantee_payments | auction_id | 1:N |
+| lot_sales | lot_participants | lot_sale_id | 1:N |
+| quote_requests | quote_request_images | quote_request_id | 1:N |
+| quote_requests | quote_proposals | quote_request_id | 1:N |
+| disputes | dispute_messages | dispute_id | 1:N |
+| disputes | dispute_evidence | dispute_id | 1:N |
+| chat_conversations | chat_messages | conversation_id | 1:N |
+| bank_accounts | withdrawals | bank_account_id | 1:N |
+| bank_accounts | payment_proofs | bank_account_id | 1:N |
+
+### 10.3 Relaciones Muchos a Muchos (N:N)
+
+El sistema no implementa relaciones N:N directas. Todas las asociaciones de muchos a muchos se implementan mediante tablas de cruce (junction tables):
+
+| Tabla de Cruce | Entidad A | Entidad B | Restriccion UNIQUE |
+|----------------|-----------|-----------|-------------------|
+| admin_role_permissions | admin_roles | permissions | (admin_role_id, permission_id) |
+| favorites | users | products | (user_id, product_id) |
+| seller_badges | users | badges | (user_id, badge_id) |
+| lot_participants | lot_sales | users | (lot_sale_id, buyer_id) |
+| chat_conversations | users (p1) | users (p2) | (participant_1_id, participant_2_id, order_id) |
+| order_sellers | orders | users | - |
+
+### 10.4 Relaciones de Auto-Referencia
+
+| Tabla | Campo | Descripcion |
+|-------|-------|-------------|
+| categories | parent_id | Jerarquia de categorias: una categoria puede tener una categoria padre y multiples subcategorias |
+| users | referred_by | Sistema de referidos: un usuario puede ser referido por otro usuario existente |
+
+---
+
+## 11. Reglas de Integridad
+
+### 11.1 Integridad Referencial
+
+Todas las claves foraneas del sistema utilizan la politica ON DELETE RESTRICT por defecto para prevenir la eliminacion accidental de registros referenciados. Las excepciones documentadas son:
+
+| Tabla Hija | Columna FK | Tabla Padre | Politica ON DELETE | Justificacion |
+|------------|------------|-------------|--------------------|---------------|
+| user_profiles | user_id | users | CASCADE | El perfil debe eliminarse si el usuario es eliminado |
+| seller_profiles | user_id | users | CASCADE | El perfil de vendedor se elimina con el usuario |
+| social_accounts | user_id | users | CASCADE | Cuentas sociales se eliminan con el usuario |
+| product_images | product_id | products | CASCADE | Imagenes se eliminan con el producto |
+| product_variants | product_id | products | CASCADE | Variantes se eliminan con el producto |
+| product_sale_conditions | product_id | products | CASCADE | Condiciones se eliminan con el producto |
+| cart_items | cart_id | carts | CASCADE | Items se eliminan con el carrito |
+| order_items | order_id | orders | CASCADE | Items se eliminan con la orden |
+| plan_features | plan_id | plans | CASCADE | Caracteristicas se eliminan con el plan |
+| service_images | service_id | services | CASCADE | Imagenes se eliminan con el servicio |
+| auction_bids | auction_id | auctions | CASCADE | Pujas se eliminan con la subasta |
+| dispute_messages | dispute_id | disputes | CASCADE | Mensajes se eliminan con la disputa |
+| chat_messages | conversation_id | chat_conversations | CASCADE | Mensajes se eliminan con la conversacion |
+| notifications | user_id | users | CASCADE | Notificaciones se eliminan con el usuario |
+| fund_transactions | user_id | users | CASCADE | Transacciones se eliminan con el usuario |
+
+En el resto de relaciones se utiliza RESTRICT para evitar eliminaciones accidentales de datos de negocio criticos como pedidos, pagos, disputas y registros de auditoria.
+
+### 11.2 Restricciones de Unicidad (UNIQUE)
+
+| Tabla | Columnas | Nombre de Restriccion | Descripcion |
+|-------|----------|----------------------|-------------|
+| roles | name | uk_roles_name | Nombres de roles unicos |
+| permissions | module, action | uk_permissions_module_action | Combinacion modulo-accion unica |
+| admin_role_permissions | admin_role_id, permission_id | uk_admin_role_permissions | Asignacion unica de permiso a rol |
+| users | email | uk_users_email | Correo electronico unico por usuario |
+| users | referral_code | uk_users_referral_code | Codigo de referido unico |
+| social_accounts | provider, provider_id | uk_social_accounts_provider | Cuenta social unica por proveedor |
+| user_profiles | user_id | uk_user_profiles_user_id | Un perfil por usuario |
+| seller_profiles | user_id | uk_seller_profiles_user_id | Un perfil de vendedor por usuario |
+| categories | slug | uk_categories_slug | Slug unico para URLs |
+| products | slug | uk_products_slug | Slug unico para URL de producto |
+| product_sale_conditions | product_id | uk_product_sale_conditions_product_id | Condiciones unicas por producto |
+| favorites | user_id, product_id | uk_favorites_user_product | Favorito unico por usuario y producto |
+| carts | user_id | uk_carts_user_id | Un carrito por usuario |
+| orders | order_number | uk_orders_order_number | Numero de orden unico |
+| escrow_records | order_id | uk_escrow_records_order_id | Un registro escrow por orden |
+| funds | user_id | uk_funds_user_id | Una billetera por usuario |
+| auctions | product_id | uk_auctions_product_id | Una subasta por producto |
+| lot_sales | product_id | uk_lot_sales_product_id | Una venta por lote por producto |
+| lot_participants | lot_sale_id, buyer_id | uk_lot_participants_lot_buyer | Participante unico por lote |
+| chat_conversations | participant_1_id, participant_2_id, order_id | uk_chat_conversations_participants | Conversacion unica por participantes |
+| seller_badges | user_id, badge_id | uk_seller_badges_user_badge | Insignia unica por vendedor |
+| delivery_confirmations | order_item_id | uk_delivery_confirmations_item | Una confirmacion por item |
+| real_estate_properties | product_id | uk_real_estate_properties_product_id | Una propiedad por producto |
+| site_settings | setting_key | uk_site_settings_key | Clave de configuracion unica |
+
+### 11.3 Restricciones CHECK
+
+| Tabla | Columna | Condicion | Descripcion |
+|-------|---------|-----------|-------------|
+| reviews | rating | rating >= 1 AND rating <= 5 | Calificacion en escala 1-5 estrellas |
+| seller_profiles | rating | rating >= 0 AND rating <= 5 | Calificacion promedio entre 0 y 5 |
+| products | price | price >= 0 | Precio no negativo |
+| products | volume_discount | >= 0 AND <= 100 | Descuento por volumen como porcentaje |
+| products | global_discount | >= 0 AND <= 100 | Descuento global como porcentaje |
+| products | views_count | >= 0 | Contador no negativo |
+| orders | total_amount | >= 0 | Monto total no negativo |
+| order_items | quantity | > 0 | Cantidad positiva |
+| order_items | unit_price | >= 0 | Precio unitario no negativo |
+| fund_transactions | amount | > 0 | Monto de transaccion positivo |
+| funds | available_balance | >= 0 | Saldo no negativo |
+| withdrawals | amount | > 0 | Monto de retiro positivo |
+| auctions | starting_price | >= 0 | Precio inicial no negativo |
+| auctions | minimum_increment | >= 0 | Incremento no negativo |
+| auction_bids | bid_amount | > 0 | Monto de puja positivo |
+| lot_sales | min_quantity | > 0 | Cantidad minima positiva |
+| lot_participants | quantity | > 0 | Cantidad solicitada positiva |
+| cart_items | quantity | > 0 | Cantidad positiva |
+| smtp_configs | port | > 0 AND <= 65535 | Puerto TCP valido |
+| real_estate_properties | area_m2 | > 0 | Area positiva |
+| media_files | file_size | >= 0 | Tamano de archivo no negativo |
+
+### 11.4 Restricciones NOT NULL en Campos Criticos
+
+Todos los campos de tipo FOREIGN KEY son NOT NULL excepto en los siguientes casos donde se permite NULL para soportar relaciones opcionales:
+
+- categories.parent_id: La categoria raiz no tiene padre
+- products.approved_by: Producto puede no estar aprobado aun
+- orders.shipping_address: Productos digitales no requieren direccion
+- payment_proofs.bank_account_id: Pago puede no estar asociado a cuenta
+- escrow_records.released_at: Solo se completa al liberar fondos
+- auctions.winner_id: Solo se completa al finalizar la subasta
+- disputes.resolved_at: Solo se completa al resolver la disputa
+
+### 11.5 Valores por Defecto
+
+Todos los valores por defecto documentados en el diccionario de datos (Seccion 9) se implementan a nivel de base de datos mediante la clausula DEFAULT en la definicion de columna. Los valores monetarios, contadores y acumuladores siempre se inicializan en 0. Los estados de flujo se inicializan en su valor inicial del ciclo de vida correspondiente.
+
+---
+
+## 12. Indices y Optimizacion
+
+### 12.1 Indices del Sistema
+
+Todos los indices son de tipo BTREE (comportamiento por defecto en PostgreSQL), el cual es optimo para consultas de igualdad, rango y ordenamiento.
+
+| Tabla | Nombre del Indice | Columnas | Tipo | Justificacion |
+|-------|-------------------|----------|------|---------------|
+| users | idx_users_email | email | BTREE | Busqueda por correo en login |
+| users | idx_users_role_id | role_id | BTREE | Filtrado de usuarios por rol |
+| users | idx_users_status | status | BTREE | Filtrado y conteo por estado |
+| users | idx_users_referral_code | referral_code | BTREE | Busqueda por codigo de referido |
+| user_profiles | idx_user_profiles_document_number | document_number | BTREE | Busqueda por documento de identidad |
+| seller_profiles | idx_seller_profiles_ruc | ruc | BTREE | Busqueda de vendedores por RUC |
+| seller_profiles | idx_seller_profiles_status | status | BTREE | Filtrado de vendedores por estado |
+| social_accounts | idx_social_accounts_provider | provider, provider_id | BTREE | Busqueda de cuentas sociales vinculadas |
+| products | idx_products_user_id | user_id | BTREE | Productos de un vendedor especifico |
+| products | idx_products_category_id | category_id | BTREE | Productos por categoria |
+| products | idx_products_publication_status | publication_status | BTREE | Filtrado por estado de publicacion |
+| products | idx_products_slug | slug | BTREE | Busqueda por URL amigable |
+| products | idx_products_listing_type | listing_type | BTREE | Filtrado por tipo de listado |
+| products | idx_products_product_type | product_type | BTREE | Filtrado por tipo de producto |
+| products | idx_products_brand | brand | BTREE | Busqueda por marca |
+| products | idx_products_product_code | product_code | BTREE | Busqueda por codigo interno |
+| products | idx_products_deleted_at | deleted_at | BTREE | Filtrado de soft delete |
+| orders | idx_orders_buyer_id | buyer_id | BTREE | Ordenes de un comprador |
+| orders | idx_orders_order_status | order_status | BTREE | Filtrado por estado de orden |
+| orders | idx_orders_payment_status | payment_status | BTREE | Filtrado por estado de pago |
+| orders | idx_orders_order_number | order_number | BTREE | Busqueda por numero de orden |
+| order_items | idx_order_items_order_id | order_id | BTREE | Items de una orden especifica |
+| order_items | idx_order_items_seller_id | seller_id | BTREE | Items vendidos por un vendedor |
+| order_items | idx_order_items_item_status | item_status | BTREE | Filtrado por estado del item |
+| order_sellers | idx_order_sellers_seller_id | seller_id | BTREE | Segmentos de orden por vendedor |
+| cart_items | idx_cart_items_cart_id | cart_id | BTREE | Items de un carrito especifico |
+| auctions | idx_auctions_ends_at | ends_at | BTREE | Subastas proximas a finalizar |
+| auctions | idx_auctions_status | status | BTREE | Filtrado por estado de subasta |
+| auctions | idx_auctions_seller_id | seller_id | BTREE | Subastas de un vendedor |
+| auction_bids | idx_auction_bids_auction_id | auction_id | BTREE | Pujas de una subasta |
+| auction_bids | idx_auction_bids_bidder_id | bidder_id | BTREE | Pujas realizadas por un usuario |
+| lot_sales | idx_lot_sales_status | status | BTREE | Filtrado por estado de lote |
+| lot_sales | idx_lot_sales_closes_at | closes_at | BTREE | Lotes proximos a cerrar |
+| lot_participants | idx_lot_participants_lot_sale_id | lot_sale_id | BTREE | Participantes de un lote |
+| reviews | idx_reviews_reviewed_user_id | reviewed_user_id | BTREE | Resenas recibidas por un usuario |
+| reviews | idx_reviews_product_id | product_id | BTREE | Resenas de un producto |
+| reviews | idx_reviews_order_id | order_id | BTREE | Resenas de una orden |
+| disputes | idx_disputes_buyer_id | buyer_id | BTREE | Disputas iniciadas por comprador |
+| disputes | idx_disputes_seller_id | seller_id | BTREE | Disputas contra un vendedor |
+| disputes | idx_disputes_dispute_status | dispute_status | BTREE | Filtrado por estado de disputa |
+| notifications | idx_notifications_user_id | user_id | BTREE | Notificaciones de un usuario |
+| notifications | idx_notifications_is_read | user_id, is_read | BTREE | Notificaciones no leidas de un usuario |
+| fund_transactions | idx_fund_transactions_user_id | user_id | BTREE | Transacciones de un usuario |
+| fund_transactions | idx_fund_transactions_reference | reference_type, reference_id | BTREE | Transacciones por referencia |
+| withdrawals | idx_withdrawals_user_id | user_id | BTREE | Retiros de un usuario |
+| withdrawals | idx_withdrawals_status | status | BTREE | Filtrado por estado de retiro |
+| chat_conversations | idx_chat_conversations_participants | participant_1_id, participant_2_id | BTREE | Conversaciones de un usuario |
+| chat_messages | idx_chat_messages_conversation_id | conversation_id | BTREE | Mensajes de una conversacion |
+| chat_messages | idx_chat_messages_is_read | conversation_id, is_read | BTREE | Mensajes no leidos por conversacion |
+| delivery_tracking | idx_delivery_tracking_order_item_id | order_item_id | BTREE | Seguimiento de un item |
+| seller_plans | idx_seller_plans_user_id | user_id | BTREE | Planes de un vendedor |
+| seller_plans | idx_seller_plans_status | status | BTREE | Filtrado por estado de suscripcion |
+| audit_logs | idx_audit_logs_user_id | user_id | BTREE | Auditoria por usuario |
+| audit_logs | idx_audit_logs_entity | entity_type, entity_id | BTREE | Auditoria por entidad |
+| audit_logs | idx_audit_logs_created_at | created_at | BTREE | Auditoria por rango de fechas |
+| media_files | idx_media_files_entity | entity_type, entity_id | BTREE | Archivos por entidad |
+| favorites | idx_favorites_user_id | user_id | BTREE | Favoritos de un usuario |
+| favorites | idx_favorites_product_id | product_id | BTREE | Productos en favoritos |
+| complaints_book | idx_complaints_book_status | status | BTREE | Filtrado de reclamaciones |
+| faqs | idx_faqs_category | category | BTREE | FAQs por categoria |
+| bank_accounts | idx_bank_accounts_user_id | user_id | BTREE | Cuentas bancarias de un usuario |
+| plans | idx_plans_status | status | BTREE | Planes activos |
+| payment_proofs | idx_payment_proofs_order_id | order_id | BTREE | Comprobantes de una orden |
+| payment_proofs | idx_payment_proofs_status | status | BTREE | Comprobantes por estado de revision |
+
+### 12.2 Estrategia de Optimizacion
+
+- **Indices compuestos:** Se utilizan donde las consultas frecuentemente filtran por multiples columnas (ej: notifications(user_id, is_read), chat_messages(conversation_id, is_read)).
+- **Indices en claves foraneas:** Todas las FK tienen indices para optimizar JOINs.
+- **Indices en columnas de estado:** Permiten consultas de dashboard y administracion.
+- **Indices en columnas de fecha:** Facilitan consultas de rango y reportes periodicos.
+- **VACUUM y ANALYZE:** Se programaran tareas de mantenimiento automatico para actualizar estadisticas del planificador.
+
+### 12.3 Cobertura de Indices
+
+El sistema cuenta con 63 indices que cubren:
+- 100% de claves foraneas
+- 100% de columnas utilizadas en filtros WHERE frecuentes
+- 100% de restricciones UNIQUE
+- Columnas de ordenamiento (sort_order, created_at)
+- Columnas de soft delete (deleted_at)
+
+---
+
+## 13. Procedimientos y Funciones
+
+### 13.1 Triggers
+
+| Trigger | Tabla | Evento | Funcion | Descripcion |
+|---------|-------|--------|---------|-------------|
+| trg_users_updated_at | users | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_user_profiles_updated_at | user_profiles | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_seller_profiles_updated_at | seller_profiles | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_products_updated_at | products | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_product_variants_updated_at | product_variants | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_orders_updated_at | orders | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_order_items_updated_at | order_items | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_auctions_updated_at | auctions | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_lot_sales_updated_at | lot_sales | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_disputes_updated_at | disputes | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+| trg_funds_updated_at | funds | BEFORE UPDATE | set_updated_at() | Actualiza el campo updated_at automaticamente |
+
+La funcion set_updated_at() se define como:
+
+```sql
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### 13.2 Funciones del Sistema
+
+| Funcion | Proposito | Extension |
+|---------|-----------|-----------|
+| uuid_generate_v4() | Generacion de claves primarias UUID version 4 | uuid-ossp |
+| gen_random_uuid() | Generacion alternativa de UUID (PostgreSQL 13+) | pgcrypto |
+| crypt(password, gen_salt('bf')) | Cifrado de contrasenas con bcrypt | pgcrypto |
+| encrypt(data, key, 'aes-gcm') | Cifrado de datos sensibles con AES-256-GCM | pgcrypto |
+
+### 13.3 Vistas
+
+En la fase MVP no se implementan vistas materializadas. Se consideran para fases futuras:
+
+- vw_product_catalog: Vista del catalogo de productos con datos agregados
+- vw_seller_dashboard: Metrica de rendimiento de vendedores
+- vw_order_summary: Resumen de ordenes con datos de comprador y vendedor
+- vw_auction_status: Estado en tiempo real de subastas activas
+
+### 13.4 Procedimientos Almacenados
+
+En la fase MVP no se implementan procedimientos almacenados. La logica de negocio reside en la capa de aplicacion. Se preve su uso en fase 2 para:
+
+- sp_process_escrow_release: Liberacion de fondos al confirmar entrega
+- sp_close_expired_auctions: Cierre automatico de subastas vencidas
+- sp_update_seller_metrics: Actualizacion de metricas de vendedor
+- sp_generate_referral_code: Generacion de codigos de referido unicos
+
+---
+
+## 14. Estrategia de Seguridad
+
+### 14.1 Roles de Base de Datos
+
+| Rol de BD | Privilegios | Uso |
+|-----------|-------------|-----|
+| app_user | SELECT, INSERT, UPDATE, DELETE en tablas de aplicacion | Conexion de la aplicacion backend |
+| app_admin | DDL completo (CREATE, ALTER, DROP) + ejecucion de migraciones | Administracion de esquema y despliegues |
+| readonly | SELECT unicamente en todas las tablas | Reportes, analisis de datos, dashboards |
+
+### 14.2 Cifrado de Datos
+
+| Dato Protegido | Algoritmo | Implementacion | Justificacion |
+|----------------|-----------|----------------|---------------|
+| password_hash (users) | bcrypt | pgcrypto crypt() con gen_salt('bf', 10) | Proteccion de credenciales de usuario |
+| password_encrypted (smtp_configs) | AES-256-GCM | pgcrypto encrypt() con clave maestra configurada en variables de entorno | Proteccion de credenciales SMTP |
+| token (remember_tokens) | SHA-256 hashing + random | Generado criptograficamente en la aplicacion | Tokens de sesion seguros |
+| token (password_reset_tokens) | SHA-256 hashing + random | Generado criptograficamente en la aplicacion | Tokens de restablecimiento de un solo uso |
+
+### 14.3 Row-Level Security (RLS)
+
+No se implementa Row-Level Security en la fase MVP. La autorizacion a nivel de fila se maneja en la capa de aplicacion mediante el sistema RBAC. Se evalua su implementacion en fase 2 para:
+
+- Aislamiento de datos entre vendedores
+- Restriccion de acceso a datos personales
+- Segmentacion de datos por region
+
+### 14.4 Auditoria
+
+La tabla audit_logs proporciona un registro inmutable de todas las operaciones criticas del sistema:
+
+- CREATE: Registra la entidad creada con sus valores iniciales (new_values)
+- UPDATE: Registra valores anteriores (old_values) y nuevos (new_values)
+- DELETE: Registra valores anteriores (old_values) antes de la eliminacion
+- LOGIN: Registra inicios de sesion con IP y User-Agent
+- ACCIONES ADMINISTRATIVAS: Registra aprobaciones, rechazos, sanciones y revisiones
+
+### 14.5 Proteccion contra Inyeccion SQL
+
+- Todas las consultas utilizan parametros bind (prepared statements) desde la aplicacion
+- No se construyen consultas SQL mediante concatenacion de strings
+- El ORM de la aplicacion implementa escaping automatico de parametros
+
+---
+
+## 15. Estrategia de Respaldo y Recuperacion
+
+### 15.1 Politica de Backups
+
+| Tipo de Backup | Frecuencia | Destino | Retencion |
+|----------------|------------|---------|-----------|
+| Backup completo (pg_dump) | Diario (02:00 America/Lima) | Cloudflare R2 | 30 dias |
+| Backup de schema unicamente | Semanal (lunes) | Cloudflare R2 | 90 dias |
+| Backup pre-deploy | Antes de cada migracion de esquema | Cloudflare R2 | 60 dias |
+
+### 15.2 Comando de Backup
+
+```bash
+pg_dump -h $DB_HOST -U $DB_USER -d lotifyx \
+  -F c -b -v -f lotifyx_$(date +%Y%m%d_%H%M%S).dump
+```
+
+### 15.3 Procedimiento de Restauracion
+
+```bash
+# 1. Verificar que el entorno de destino esta limpio
+psql -h $DB_HOST -U $DB_ADMIN -d postgres -c "DROP DATABASE IF EXISTS lotifyx;"
+psql -h $DB_HOST -U $DB_ADMIN -d postgres -c "CREATE DATABASE lotifyx;"
+
+# 2. Restaurar backup completo
+pg_restore -h $DB_HOST -U $DB_ADMIN -d lotifyx \
+  -v --no-owner --no-privileges lotifyx_YYYYMMDD_HHMMSS.dump
+
+# 3. Verificar integridad
+psql -h $DB_HOST -U $DB_ADMIN -d lotifyx -c "
+  SELECT schemaname, relname, n_live_tup
+  FROM pg_stat_user_tables
+  ORDER BY n_live_tup DESC;
+"
+```
+
+### 15.4 Point-in-Time Recovery (PITR)
+
+No se implementa PITR en la fase MVP. Se requiere configurar WAL archiving y replicacion de streaming para habilitar esta capacidad en fase 2.
+
+### 15.5 Plan de Recuperacion ante Desastres
+
+| Escenario | RPO (Recovery Point Objective) | RTO (Recovery Time Objective) | Procedimiento |
+|-----------|-------------------------------|------------------------------|---------------|
+| Falla de servidor unico | < 24 horas | < 4 horas | Restauracion desde backup mas reciente en nueva instancia |
+| Corrupcion de datos | < 24 horas | < 4 horas | Restauracion desde backup y verificacion de integridad |
+| Perdida total de infraestructura | < 24 horas | < 8 horas | Provisionar nueva infraestructura y restaurar backup |
+
+---
+
+## 16. Reglas de Nomenclatura
+
+### 16.1 Nombres de Tablas
+
+- **Formato:** snake_case, plural en ingles
+- **Ejemplos:** users, products, order_items, chat_conversations
+- **Tablas de cruce:** {entidad_a}_{entidad_b} (ej: seller_badges, admin_role_permissions)
+- **Tablas de configuracion:** nombre descriptivo en plural (ej: site_settings, smtp_configs)
+
+### 16.2 Nombres de Columnas
+
+- **Formato:** snake_case, descriptivo
+- **Clave primaria:** id (en todas las tablas)
+- **Clave foranea:** {tabla_referenciada_singular}_id (ej: user_id, category_id, product_id)
+- **Fechas de auditoria:** created_at, updated_at
+- **Fecha de borrado logico:** deleted_at
+- **Fechas de accion:** {verbo}_{preposicion}_at (ej: approved_at, verified_at, released_at, resolved_at)
+- **Banderas booleanas:** is_{adjetivo} (ej: is_verified, is_active, is_read, is_primary)
+- **Contadores:** {sustantivo}_count (ej: views_count, sales_count)
+
+### 16.3 Nombres de Restricciones
+
+| Tipo | Patron | Ejemplo |
+|------|--------|---------|
+| Primary Key | pk_{tabla} | pk_users |
+| Foreign Key | fk_{tabla}_{columna} | fk_products_user_id |
+| Unique | uk_{tabla}_{columna(s)} | uk_users_email |
+| Check | ck_{tabla}_{columna} | ck_reviews_rating |
+| Index | idx_{tabla}_{columnas} | idx_products_slug |
+
+### 16.4 Estandares Generales
+
+- **Idioma:** Todos los nombres de tablas, columnas y restricciones en ingles
+- **Separador:** Guion bajo (snake_case) exclusivamente, sin camelCase ni guiones
+- **Sin prefijos:** No se utilizan prefijos como tbl_, v_, sp_ en tablas
+- **Sin abreviaturas:** Nombres completos y descriptivos (quantity, no qty)
+- **Consistencia:** El mismo concepto usa el mismo nombre en todas las tablas (created_at en las 67 tablas)
+
+---
+
+## 17. Consideraciones de Escalabilidad
+
+### 17.1 Estrategia de Claves UUID v4
+
+La adopcion de UUID v4 como clave primaria en todas las tablas proporciona las siguientes ventajas para la escalabilidad:
+
+- **Escalabilidad horizontal:** Permite sharding sin conflictos de secuencias
+- **Generacion descentralizada:** Multiples servidores de aplicacion generan IDs sin coordinacion
+- **Independencia del servidor:** No depende de secuencias del motor de base de datos
+- **Migracion simplificada:** Facilita replicacion y sincronizacion entre entornos
+
+### 17.2 Particionamiento (Futuro)
+
+Se preve implementar particionamiento por rango de fecha en las siguientes tablas:
+
+| Tabla | Criterio de Particion | Prioridad |
+|-------|----------------------|-----------|
+| audit_logs | created_at (mensual) | Alta |
+| notifications | created_at (mensual) | Alta |
+| chat_messages | created_at (mensual) | Media |
+| fund_transactions | created_at (trimestral) | Media |
+| product_views | viewed_at (mensual) | Baja |
+
+### 17.3 Sharding
+
+No se implementa sharding en la fase MVP. Se evalua para fase 3 basado en los siguientes criterios:
+
+- Volumen de datos supera capacidad de una unica instancia
+- Latencia de consultas excede SLAs establecidos
+- Necesidad de aislamiento geografico de datos
+
+### 17.4 Read Replicas
+
+Se contempla la implementacion de replicas de lectura en fase 2 para:
+
+- Separar carga de consultas analiticas (reportes, dashboards)
+- Mejorar rendimiento de busquedas de catalogo
+- Distribuir carga de consultas en horas pico
+
+### 17.5 ElasticSearch (Futuro)
+
+Para la fase 2 se evalua la integracion con ElasticSearch para:
+
+- Busqueda de texto completo en productos (titulo, descripcion, marca)
+- Busqueda con filtros facetados (categoria, precio, condicion)
+- Autocompletado de busquedas
+- Relevancia y ranking de resultados
+
+### 17.6 Estrategia de Conexiones
+
+| Componente | Pool Size Recomendado | Timeout |
+|------------|----------------------|---------|
+| Aplicacion Backend | 20-50 conexiones por instancia | Statement: 30s |
+| Tareas Programadas (Cron) | 5 conexiones dedicadas | Statement: 60s |
+| Reportes y Analytics (readonly) | 5 conexiones | Statement: 120s |
+| Total Maximo (postgresql.conf) | 200 | Idle: 60s |
+
+---
+
+## 18. Scripts de Creacion
+
+### 18.1 Archivo Principal DDL
+
+El script completo de creacion de la base de datos se encuentra en el archivo schema.sql, el cual contiene:
+
+- 67 sentencias CREATE TABLE con todas las restricciones documentadas
+- 63 sentencias CREATE INDEX
+- Sentencias CREATE EXTENSION para uuid-ossp y pgcrypto
+- Datos semilla (seed data) para tablas de configuracion
+- Definiciones de triggers y funciones de soporte
+
+### 18.2 Extensiones Requeridas
+
+```sql
+-- Habilitar extensiones necesarias
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Verificar extensiones instaladas
+SELECT extname, extversion FROM pg_extension
+WHERE extname IN ('uuid-ossp', 'pgcrypto');
+```
+
+### 18.3 Funcion de Actualizacion de Timestamps
+
+```sql
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### 18.4 Datos Semilla - Roles
+
+```sql
+INSERT INTO roles (name, description) VALUES
+('buyer', 'Usuario comprador. Puede buscar productos, realizar compras, participar en subastas.'),
+('seller', 'Usuario vendedor. Puede publicar productos, servicios y gestionar ventas.'),
+('admin', 'Usuario con acceso al panel administrativo y funcionalidades de moderacion.')
+ON CONFLICT (name) DO NOTHING;
+```
+
+### 18.5 Datos Semilla - Permisos
+
+```sql
+INSERT INTO permissions (module, action, description) VALUES
+('users', 'read', 'Ver lista de usuarios y perfiles'),
+('users', 'update', 'Modificar datos de usuarios'),
+('users', 'suspend', 'Suspender o banear usuarios'),
+('products', 'read', 'Ver catalogo de productos'),
+('products', 'approve', 'Aprobar productos publicados'),
+('products', 'reject', 'Rechazar productos publicados'),
+('products', 'delete', 'Eliminar productos (soft delete)'),
+('services', 'read', 'Ver catalogo de servicios'),
+('services', 'manage', 'Gestionar servicios publicados'),
+('orders', 'read', 'Ver listado de ordenes'),
+('orders', 'manage', 'Gestionar ordenes y estados'),
+('payments', 'review', 'Revisar comprobantes de pago'),
+('payments', 'confirm', 'Confirmar pagos recibidos'),
+('disputes', 'read', 'Ver disputas activas'),
+('disputes', 'resolve', 'Resolver disputas como administrador'),
+('banners', 'manage', 'Gestionar banners promocionales'),
+('faqs', 'manage', 'Gestionar preguntas frecuentes'),
+('settings', 'manage', 'Gestionar configuraciones del sitio'),
+('reports', 'review', 'Revisar reportes de contenido'),
+('sanctions', 'impose', 'Imponer sanciones a usuarios'),
+('chat', 'moderate', 'Moderar conversaciones de chat'),
+('withdrawals', 'approve', 'Aprobar solicitudes de retiro'),
+('quotations', 'manage', 'Gestionar solicitudes de cotizacion'),
+('audit', 'read', 'Consultar registros de auditoria')
+ON CONFLICT (module, action) DO NOTHING;
+```
+
+### 18.6 Datos Semilla - Roles Administrativos
+
+```sql
+INSERT INTO admin_roles (name, description, is_superadmin) VALUES
+('superadmin', 'Acceso total al sistema. Sin restriccion de permisos.', TRUE),
+('moderator', 'Moderador de contenido. Puede aprobar/rechazar productos y revisar reportes.', FALSE),
+('support', 'Soporte al cliente. Gestiona disputas, reclamaciones y consultas.', FALSE),
+('finance', 'Finanzas. Revisa pagos, aprueba retiros y gestiona fondos.', FALSE)
+ON CONFLICT DO NOTHING;
+```
+
+### 18.7 Datos Semilla - Motivos de Disputa
+
+```sql
+INSERT INTO dispute_reasons (name, description, sort_order) VALUES
+('producto_no_recibido', 'El comprador no ha recibido el producto despues del tiempo estimado de entrega.', 1),
+('producto_danado', 'El producto fue recibido con danos fisicos o defectos de fabricacion.', 2),
+('producto_no_coincide', 'El producto recibido no coincide con la descripcion o imagenes de la publicacion.', 3),
+('producto_incompleto', 'El producto fue recibido incompleto, faltan piezas o accesorios.', 4),
+('cargo_no_reconocido', 'El comprador desconoce un cargo realizado a su orden.', 5),
+('problema_envio', 'Problemas relacionados con la direccion de envio, costo de envio o empresa transportista.', 6),
+('otro', 'Otro motivo no contemplado en las categorias anteriores.', 99)
+ON CONFLICT DO NOTHING;
+```
+
+### 18.8 Datos Semilla - Soluciones de Disputa
+
+```sql
+INSERT INTO dispute_solutions (name, description, sort_order) VALUES
+('reembolso_total', 'Devolucion del 100% del monto pagado por el comprador.', 1),
+('reembolso_parcial', 'Devolucion parcial del monto acordada entre las partes.', 2),
+('reenvio_producto', 'El vendedor envia un producto de reemplazo sin costo adicional.', 3),
+('devolucion_producto', 'El comprador devuelve el producto y recibe reembolso al confirmar recepcion.', 4),
+('compensacion', 'El vendedor ofrece una compensacion monetaria o descuento.', 5),
+('reparacion', 'El vendedor cubre el costo de reparacion del producto danado.', 6),
+('otro', 'Otra solucion acordada entre las partes.', 99)
+ON CONFLICT DO NOTHING;
+```
+
+### 18.9 Datos Semilla - Planes
+
+```sql
+INSERT INTO plans (name, price, currency, short_description, icon, is_most_chosen, sort_order) VALUES
+('Free', 0.00, 'PEN', 'Plan gratuito para comenzar a vender en Lotifyx.', 'free-plan', FALSE, 1),
+('Starter', 29.90, 'PEN', 'Plan basico con funcionalidades esenciales para vendedores.', 'starter-plan', FALSE, 2),
+('Pro', 79.90, 'PEN', 'Plan profesional con herramientas avanzadas y mayor exposicion.', 'pro-plan', TRUE, 3),
+('Enterprise', 199.90, 'PEN', 'Plan empresarial para grandes volumenes de venta y soporte dedicado.', 'enterprise-plan', FALSE, 4)
+ON CONFLICT DO NOTHING;
+```
+
+### 18.10 Reemplazo de Tipos ENUM
+
+El sistema no utiliza tipos ENUM nativos de PostgreSQL. Todas las enumeraciones se implementan mediante:
+
+1. **Columnas VARCHAR** con restricciones CHECK a nivel de base de datos (ver Seccion 7.4)
+2. **Validacion a nivel de aplicacion** para mensajes de error amigables
+3. **Documentacion de valores permitidos** en el diccionario de datos (Seccion 9)
+
+Esta decision de diseno se fundamenta en:
+
+- Mayor flexibilidad para agregar valores sin ALTER TABLE
+- Compatibilidad con herramientas de migracion y ORMs
+- Evitar el acoplamiento a tipos propietarios de PostgreSQL
+- Facilitar la migracion futura a otros motores de base de datos si fuera necesario
+
+---
+
+## 19. Matriz de Trazabilidad
+
+La siguiente matriz establece la relacion entre los modulos funcionales del sistema, las tablas de base de datos que los implementan y los requerimientos funcionales correspondientes.
+
+| Modulo | Entidades (Tablas) | Requerimientos Funcionales |
+|--------|-------------------|---------------------------|
+| Gestion de Usuarios | users, user_profiles, social_accounts, remember_tokens, password_reset_tokens | RF-001: Registro de usuario con email y contrasena. RF-002: Autenticacion con proveedor OAuth (Google, Facebook). RF-003: Sesion persistente con opcion Recordarme. RF-004: Restablecimiento de contrasena por correo. RF-005: Verificacion de correo electronico. RF-006: Sistema de referidos con codigo unico. RF-007: Gestion de estado de cuenta (active, suspended, banned). RF-008: Perfil de usuario con datos personales. |
+| Roles y Permisos | roles, permissions, admin_roles, admin_role_permissions, admin_users | RF-009: Control de acceso basado en roles (RBAC). RF-010: Roles predefinidos (buyer, seller, admin). RF-011: Permisos atomicos por modulo y accion. RF-012: Roles administrativos configurables. RF-013: Asignacion de permisos a roles administrativos. RF-014: Superadmin con acceso total sin restriccion de permisos. RF-015: Auditoria de asignaciones de roles administrativos. |
+| Verificacion de Identidad | user_verifications, users, user_profiles, seller_profiles | RF-016: Verificacion de identidad via RENIEC/APIPERU. RF-017: Verificacion biometrica. RF-018: Validacion de RUC ante SUNAT. RF-019: Historial de verificaciones por usuario. RF-020: Almacenamiento de datos verificados en JSONB. |
+| Perfil de Vendedor | seller_profiles, users, user_profiles | RF-021: Registro de perfil de vendedor con RUC y razon social. RF-022: Tipo de vendedor configurable. RF-023: Sistema de calificacion por estrellas (0-5). RF-024: Metricas de rendimiento (ventas, antiguedad). RF-025: Validacion de servicios ofrecidos. RF-026: Estado de perfil de vendedor (pending, active, suspended). |
+| Planes y Suscripciones | plans, plan_features, seller_plans, plan_payments | RF-027: Catalogo de planes de suscripcion. RF-028: Caracteristicas detalladas por plan. RF-029: Contratacion de plan por vendedor. RF-030: Pago de suscripcion con comprobante. RF-031: Revision administrativa de pagos de plan. RF-032: Periodo de vigencia con fechas de inicio y fin. RF-033: Plan destacado como mas elegido. |
+| Categorias | categories | RF-034: Taxonomia jerarquica de categorias. RF-035: Subcategorias ilimitadas via parent_id. RF-036: Slugs unicos para URLs amigables. RF-037: Iconos por categoria. RF-038: Activacion/desactivacion de categorias. |
+| Productos | products, product_sale_conditions, product_images, product_variants, product_views, real_estate_properties | RF-039: Publicacion de productos con datos completos. RF-040: Tipos de producto (venta directa, subasta, lote). RF-041: Tipos de listado configurables. RF-042: Precios con soporte para descuentos. RF-043: Galeria de imagenes con imagen principal. RF-044: Variantes con SKU, stock y precio independiente. RF-045: Condiciones de venta (metodos de pago, envio, politicas). RF-046: Contador de visualizaciones y favoritos. RF-047: Soft delete para productos eliminados. RF-048: Flujo de aprobacion administrativa de publicaciones. RF-049: Extension para propiedades inmobiliarias. |
+| Servicios | services, service_images | RF-050: Publicacion de servicios profesionales. RF-051: Catalogo de servicios con busqueda. RF-052: Imagenes asociadas a servicios. RF-053: Estado de servicio (active, inactive). |
+| Carrito de Compras | carts, cart_items, product_variants | RF-054: Carrito unico por usuario autenticado. RF-055: Adicion de productos por variante especifica. RF-056: Control de cantidades en carrito. RF-057: Persistencia de carrito entre sesiones. |
+| Favoritos | favorites | RF-058: Lista de deseos por usuario. RF-059: Marcado/desmarcado de productos como favoritos. RF-060: Restriccion de favorito unico por usuario y producto. |
+| Pedidos | orders, order_sellers, order_items, payment_proofs, escrow_records | RF-061: Generacion de ordenes de compra. RF-062: Soporte multi-vendedor en una misma orden. RF-063: Numero de orden unico y legible. RF-064: Snapshot de producto, variante y vendedor al momento de compra. RF-065: Estados de orden y pago independientes. RF-066: Subida de comprobantes de pago. RF-067: Revision administrativa de comprobantes. RF-068: Sistema escrow de proteccion de fondos. RF-069: Liberacion de fondos al confirmar entrega. |
+| Seguimiento de Envios | delivery_tracking, delivery_confirmations, order_items | RF-070: Historial de estados de envio por item. RF-071: Confirmacion de recepcion por comprador. RF-072: Notas y observaciones de seguimiento. RF-073: Asignacion de responsable de actualizacion de estado. |
+| Pagos y Finanzas | payment_proofs, escrow_records, funds, fund_transactions, withdrawals, bank_accounts | RF-074: Billetera virtual con saldos (disponible, pendiente, disputado). RF-075: Registro contable de todas las transacciones. RF-076: Referencia a entidad origen en cada transaccion. RF-077: Solicitud de retiro de fondos a cuenta bancaria. RF-078: Aprobacion administrativa de retiros. RF-079: Vinculacion de cuentas bancarias. RF-080: Cuenta bancaria por defecto. RF-081: Metricas historicas de ganancias y retiros. |
+| Subastas | auctions, auction_bids, auction_guarantee_payments, products | RF-082: Configuracion de subasta con precio base e incremento minimo. RF-083: Periodo de vigencia con inicio y fin programado. RF-084: Sistema de pujas con registro de monto y fecha exacta. RF-085: Garantia de participacion reembolsable. RF-086: Determinacion automatica de ganador al cierre. RF-087: Notificacion a ganador de subasta. RF-088: Reembolso de garantias a no ganadores. |
+| Ventas por Lote | lot_sales, lot_participants, products | RF-089: Configuracion de venta por lote con precio escalonado. RF-090: Cantidad minima de participantes requerida. RF-091: Registro de participantes con cantidad solicitada. RF-092: Garantia de participacion en lote. RF-093: Cierre de lote por fecha o por completitud. |
+| Cotizaciones | quote_requests, quote_request_images, quote_proposals | RF-094: Solicitud de cotizacion con descripcion y categoria. RF-095: Imagenes adjuntas a la solicitud. RF-096: Propuestas de vendedores con precio y tiempo de entrega. RF-097: Estados de solicitud (open, closed, cancelled). RF-098: Negociacion directa comprador-vendedor. |
+| Resenas | reviews | RF-099: Calificacion de 1 a 5 estrellas. RF-100: Comentario y fotos en resenas. RF-101: Resena asociada a orden, item o producto. RF-102: Resenas entre usuarios (comprador a vendedor y viceversa). |
+| Disputas | disputes, dispute_reasons, dispute_solutions, dispute_messages, dispute_evidence | RF-103: Apertura de disputa con motivo predefinido. RF-104: Soluciones predefinidas seleccionables. RF-105: Mensajeria interna durante la disputa. RF-106: Adjuntar evidencias documentales. RF-107: Respuesta del vendedor con accion y monto propuesto. RF-108: Resolucion administrativa final. RF-109: Estados de disputa (open, under_review, resolved, closed). |
+| Libro de Reclamaciones | complaints_book | RF-110: Registro de reclamacion con datos del reclamante. RF-111: Adjuntar evidencias al reclamo. RF-112: Respuesta administrativa con fecha y responsable. RF-113: Cumplimiento normativo INDECOPI. |
+| Chat | chat_conversations, chat_messages | RF-114: Conversacion entre dos participantes. RF-115: Vinculacion opcional a una orden. RF-116: Mensajes con estado de lectura. RF-117: Ultimo mensaje registrado en la conversacion. RF-118: Conversacion unica por participantes y orden. |
+| Notificaciones | notifications | RF-119: Notificaciones por tipo (order, message, system, dispute). RF-120: Referencia a entidad notificada. RF-121: URL de accion al hacer clic. RF-122: Estado de lectura con fecha. RF-123: Filtrado de notificaciones no leidas por usuario. |
+| Insignias | badges, seller_badges | RF-124: Catalogo de insignias configurables. RF-125: Criterios cuantificables en JSON. RF-126: Otorgamiento de insignias a vendedores. RF-127: Insignia unica por usuario. |
+| FAQs | faqs | RF-128: Preguntas frecuentes por categoria. RF-129: Orden de presentacion configurable. RF-130: Activacion/desactivacion de FAQs. |
+| Multimedia | media_files | RF-131: Registro centralizado de archivos subidos. RF-132: Metadatos de archivo (tamano, tipo). RF-133: Asociacion generica a cualquier entidad. |
+| Banners | banners | RF-134: Gestion de banners promocionales. RF-135: Posicion y orden de presentacion. RF-136: URL de redireccion y texto de boton. RF-137: Estado de banner (active, inactive). |
+| Configuracion del Sitio | site_settings | RF-138: Parametros en formato clave-valor. RF-139: Soporte para tipos texto, numero, booleano y JSON. RF-140: Registro de quien modifico cada configuracion. |
+| Correo Electronico | smtp_configs | RF-141: Configuracion de servidor SMTP. RF-142: Credenciales cifradas con AES-256-GCM. RF-143: Soporte para TLS/SSL. RF-144: Multiples configuraciones con una activa. |
+| Moderacion | sanctions, reports | RF-145: Sanciones a usuarios con tipo y periodo. RF-146: Reportes de contenido inapropiado. RF-147: Referencia generica a cualquier entidad reportada. RF-148: Flujo de revision de reportes. |
+| Auditoria | audit_logs | RF-149: Registro inmutable de todas las operaciones. RF-150: Valores anteriores y nuevos en formato JSONB. RF-151: Trazabilidad de cambios con usuario, IP y User-Agent. RF-152: Consulta de auditoria por entidad y rango de fechas. |
+
+### 19.1 Resumen de Cobertura
+
+| Metrica | Valor |
+|---------|-------|
+| Total de modulos funcionales | 30 |
+| Total de requerimientos funcionales | 152 |
+| Total de tablas | 67 |
+| Total de indices | 63 |
+| Tablas con soft delete | 1 (products) |
+| Relaciones 1:1 | 11 |
+| Relaciones 1:N | 52 |
+| Tablas de cruce N:N | 6 |
+| Relaciones de auto-referencia | 2 (categories, users) |
+| Campos con cifrado | 3 (password_hash, password_encrypted, token) |
+| Triggers de actualizacion automatica | 11 |
+
+---
+
+## Firmas de Aprobacion
+
+| Rol | Nombre | Fecha | Firma |
+|-----|--------|-------|-------|
+| Arquitecto de Software | _______________ | _______________ | _______________ |
+| Lider Tecnico Backend | _______________ | _______________ | _______________ |
+| DBA / Ingeniero de Datos | _______________ | _______________ | _______________ |
+| Lider de Seguridad | _______________ | _______________ | _______________ |
+| Product Owner | _______________ | _______________ | _______________ |
+
+---

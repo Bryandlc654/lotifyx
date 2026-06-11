@@ -481,8 +481,9 @@ export async function deleteBackingLogo(id: string): Promise<void> {
 // ─── Plans ───────────────────────────────────────────────────
 
 export interface Plan {
-  id: string; name: string; price: number; ads_count: number;
-  featured_count: number; note: string; order_index: number; is_active: boolean;
+  id: string; name: string; description: string; price: number;
+  max_products: number; max_featured: number; duration_days: number;
+  icon: string; is_active: boolean; order_index: number;
 }
 
 export async function getPlans(): Promise<Plan[]> {
@@ -491,7 +492,7 @@ export async function getPlans(): Promise<Plan[]> {
   return res.json();
 }
 
-export async function createPlan(dto: { name: string; price: number; ads_count: number; featured_count?: number; note?: string }): Promise<Plan> {
+export async function createPlan(dto: { name: string; description?: string; price: number; max_products: number; max_featured?: number; duration_days?: number }): Promise<Plan> {
   const res = await authFetch(`${API_URL}/plans`, { method: "POST", body: JSON.stringify(dto) });
   if (!res.ok) throw new Error((await res.json().catch(()=>({message:"Error"}))).message);
   return res.json();

@@ -14,6 +14,7 @@ export default function SettingsPage() {
     smtp_user: "",
     smtp_pass: "",
     topbar_text: "",
+    apiperu_token: "",
   });
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function SettingsPage() {
         smtp_user: data.smtp_user || "",
         smtp_pass: data.smtp_pass || "",
         topbar_text: data.topbar_text || "",
+        apiperu_token: data.apiperu_token || "",
       }))
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
@@ -69,23 +71,29 @@ export default function SettingsPage() {
         </div>
 
         {/* SMTP */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6 max-w-2xl">
+        <div className="bg-white rounded-xl border border-gray-100 p-6 max-w-2xl mb-6">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">SMTP</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Host" value={form.smtp_host} onChange={v => setForm({...form, smtp_host: v})} placeholder="smtp.gmail.com" />
             <Field label="Puerto" value={form.smtp_port} onChange={v => setForm({...form, smtp_port: v})} placeholder="587" />
             <Field label="Usuario" value={form.smtp_user} onChange={v => setForm({...form, smtp_user: v})} placeholder="correo@gmail.com" />
             <Field label="Contraseña" value={form.smtp_pass} onChange={v => setForm({...form, smtp_pass: v})} placeholder="App password" type="password" />
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-8 py-2.5 text-sm font-semibold text-white hover:from-[#7428F0] hover:to-[#1EA8E8] transition-all shadow-sm disabled:opacity-60"
-          >
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </button>
         </div>
+
+        {/* API Peru */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6 max-w-2xl mb-6">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">API Peru Dev</h2>
+          <Field label="Token" value={form.apiperu_token} onChange={v => setForm({...form, apiperu_token: v})} placeholder="token_apiperu..." type="password" />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-8 py-2.5 text-sm font-semibold text-white hover:from-[#7428F0] hover:to-[#1EA8E8] transition-all shadow-sm disabled:opacity-60"
+        >
+          {saving ? "Guardando..." : "Guardar cambios"}
+        </button>
       </div>
     </AdminLayout>
   );

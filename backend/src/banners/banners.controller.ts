@@ -17,8 +17,8 @@ import { diskStorage } from "multer";
 import { extname } from "path";
 import { BannersService } from "./banners.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 @Controller("banners")
 export class BannersController {
@@ -29,9 +29,9 @@ export class BannersController {
     return this.bannersService.findAll();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("banners.write")
   @Post()
-  @Roles("superadmin")
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
     FileInterceptor("image", {
@@ -56,9 +56,9 @@ export class BannersController {
     return this.bannersService.create(title, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("banners.write")
   @Put(":id")
-  @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
     FileInterceptor("image", {
@@ -88,9 +88,9 @@ export class BannersController {
     return this.bannersService.update(id, title, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("banners.delete")
   @Delete(":id")
-  @Roles("superadmin")
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) {
     return this.bannersService.remove(id);

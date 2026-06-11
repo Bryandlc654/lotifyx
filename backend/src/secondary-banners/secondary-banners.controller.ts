@@ -7,8 +7,8 @@ import { diskStorage } from "multer";
 import { extname } from "path";
 import { SecondaryBannersService } from "./secondary-banners.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 const storage = diskStorage({
   destination: "./uploads",
@@ -25,8 +25,8 @@ export class SecondaryBannersController {
     return this.service.findAll();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("secondary_banners.write")
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor("image", { storage }))
@@ -34,8 +34,8 @@ export class SecondaryBannersController {
     return this.service.create(dto, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("secondary_banners.write")
   @Put(":id")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor("image", { storage }))
@@ -43,8 +43,8 @@ export class SecondaryBannersController {
     return this.service.update(id, dto, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("secondary_banners.delete")
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) { return this.service.remove(id); }

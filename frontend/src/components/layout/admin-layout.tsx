@@ -11,24 +11,25 @@ interface AdminLayoutProps {
 }
 
 const modules = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/gestores", label: "Gestores", icon: UserCog },
-  { href: "/admin/users", label: "Usuarios", icon: Users },
-  { href: "/admin/categories", label: "Categorías", icon: FolderTree },
-  { href: "/admin/banners", label: "Banners", icon: Image },
-  { href: "/admin/secondary-banners", label: "Banners Promo", icon: PanelTop },
-  { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck },
-  { href: "/admin/plans", label: "Planes", icon: CreditCard },
-  { href: "/admin/rbac", label: "RBAC", icon: Shield },
-  { href: "/admin/marquees", label: "Logos", icon: Star },
-  { href: "/admin/testimonials", label: "Testimonios", icon: MessageSquare },
-  { href: "/admin/settings", label: "Configuración", icon: Settings },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, permission: null },
+  { href: "/admin/gestores", label: "Gestores", icon: UserCog, permission: "users" },
+  { href: "/admin/users", label: "Usuarios", icon: Users, permission: "users" },
+  { href: "/admin/categories", label: "Categorías", icon: FolderTree, permission: "categories" },
+  { href: "/admin/banners", label: "Banners", icon: Image, permission: "banners" },
+  { href: "/admin/secondary-banners", label: "Banners Promo", icon: PanelTop, permission: "secondary_banners" },
+  { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck, permission: "backing" },
+  { href: "/admin/plans", label: "Planes", icon: CreditCard, permission: "plans" },
+  { href: "/admin/rbac", label: "RBAC", icon: Shield, permission: "rbac" },
+  { href: "/admin/marquees", label: "Logos", icon: Star, permission: "marquees" },
+  { href: "/admin/testimonials", label: "Testimonios", icon: MessageSquare, permission: "testimonials" },
+  { href: "/admin/settings", label: "Configuración", icon: Settings, permission: "settings" },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [userPerms, setUserPerms] = useState<string[]>([]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -38,14 +39,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       .then((data) => {
         const u = data.user as any;
         const isAdmin = u?.role?.is_admin || u?.role?.name === "superadmin";
-        if (!isAdmin) {
-          router.push("/perfil");
-          return;
-        }
+        if (!isAdmin) { router.push("/perfil"); return; }
+
+        // Extract permission names from role
+        const perms = (u?.role?.rolePermissions || [])
+          .filter((rp: any) => rp.permission)
+          .map((rp: any) => rp.permission.name);
+        const modulePerms = Array.from(new Set(perms.map((p: string) => p.split(".")[0])));
+
         setUser(u);
+        setUserPerms(modulePerms as string[]);
       })
       .catch(() => { removeTokens(); router.push("/login"); });
   }, [router]);
+
+  // Filter modules by permissions (superadmin sees all)
+  // Superadmin sees all modules; other roles see only their permitted modules
+  const isSuperadmin = user?.role?.name === "superadmin";
+  const visibleModules = modules.filter(m => !m.permission || isSuperadmin || userPerms.includes(m.permission));
 
   const handleLogout = async () => {
     await logoutUser();
@@ -107,7 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {modules.map((mod) => (
+          {visibleModules.map((mod) => (
             <Link
               key={mod.href}
               href={mod.href}

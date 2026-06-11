@@ -7,8 +7,8 @@ import { diskStorage } from "multer";
 import { extname } from "path";
 import { CategoriesService } from "./categories.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 const storage = diskStorage({
   destination: "./uploads",
@@ -27,8 +27,8 @@ export class CategoriesController {
   @Get(":id")
   findOne(@Param("id") id: string) { return this.service.findOne(id); }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("categories.write")
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor("icon", { storage }))
@@ -36,8 +36,8 @@ export class CategoriesController {
     return this.service.create(dto, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("categories.write")
   @Put(":id")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor("icon", { storage }))
@@ -45,8 +45,8 @@ export class CategoriesController {
     return this.service.update(id, dto, file);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("categories.delete")
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) { return this.service.remove(id); }

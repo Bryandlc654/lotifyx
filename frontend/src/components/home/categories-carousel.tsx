@@ -7,7 +7,7 @@ import { getCategories, Category } from "@/lib/api";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const VISIBLE = 4;
 
-export function CategoriesCarousel() {
+export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrows = true, compact = false }: { showTitle?: boolean; bgWhite?: boolean; showArrows?: boolean; compact?: boolean }) {
   const [cats, setCats] = useState<Category[]>([]);
   const [current, setCurrent] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -59,11 +59,13 @@ export function CategoriesCarousel() {
   const displayItems = [...cats, ...cats, ...cats];
 
   return (
-    <section className="bg-white py-12 sm:py-16">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-left mb-8">
-          <h2 className="text-[32px] font-bold text-gray-900 leading-tight">Categorías</h2>
-        </div>
+    <section className={bgWhite ? "bg-white py-12 sm:py-16" : "py-0"}>
+      <div className={bgWhite ? "max-w-7xl mx-auto px-6" : ""}>
+        {showTitle && (
+          <div className="text-left mb-8">
+            <h2 className="text-[32px] font-bold text-gray-900 leading-tight">Categorías</h2>
+          </div>
+        )}
 
         <div className="relative">
           <div className="overflow-hidden">
@@ -79,22 +81,22 @@ export function CategoriesCarousel() {
                 return (
                   <div
                     key={`${cat.id}-${i}`}
-                    className="flex items-center gap-5 py-2 flex-shrink-0"
-                    style={{ width: `${100 / VISIBLE}%` }}
+                    className="flex items-center gap-4 bg-white rounded-xl px-4 py-3 flex-shrink-0 mx-2"
+                    style={{ width: `calc(${100 / VISIBLE}% - 16px)` }}
                   >
                     {imgSrc ? (
-                      <img src={imgSrc} alt={cat.name} className="w-[85px] h-[85px] object-contain flex-shrink-0" />
+                      <img src={imgSrc} alt={cat.name} className={compact ? "w-10 h-10 object-contain flex-shrink-0" : "w-[85px] h-[85px] object-contain flex-shrink-0"} />
                     ) : (
-                      <div className="w-[85px] h-[85px] rounded-lg bg-gray-100 flex-shrink-0" />
+                      <div className={compact ? "w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0" : "w-[85px] h-[85px] rounded-lg bg-gray-100 flex-shrink-0"} />
                     )}
-                    <span className="text-[20px] text-[#344054] line-clamp-2 leading-tight">{cat.name}</span>
+                    <span className={compact ? "text-sm text-[#344054] line-clamp-2 leading-tight" : "text-[20px] text-[#344054] line-clamp-2 leading-tight"}>{cat.name}</span>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {total > VISIBLE && (
+          {showArrows && total > VISIBLE && (
             <>
               <button onClick={prev}
                 className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-white shadow-md border border-gray-100 text-gray-500 hover:text-gray-700 transition-colors">

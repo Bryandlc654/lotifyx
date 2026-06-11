@@ -3,8 +3,8 @@ import {
 } from "@nestjs/common";
 import { TestimonialsService } from "./testimonials.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 @Controller("testimonials")
 export class TestimonialsController {
@@ -13,32 +13,32 @@ export class TestimonialsController {
   @Get()
   findAll() { return this.service.findAll(); }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("testimonials.write")
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: { stars: number; text: string; name: string; cargo: string }) {
     return this.service.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("testimonials.write")
   @Put("reorder")
   @HttpCode(HttpStatus.OK)
   reorder(@Body("ids") ids: string[]) {
     return this.service.reorder(ids);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("testimonials.write")
   @Put(":id")
   @HttpCode(HttpStatus.OK)
   update(@Param("id") id: string, @Body() dto: any) {
     return this.service.update(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("superadmin")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("testimonials.delete")
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) {

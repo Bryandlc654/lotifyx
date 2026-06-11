@@ -93,225 +93,136 @@ export function RegistrationForm() {
     }
   };
 
-  if (registeredEmail) {
-    return (
-      <div className="space-y-5">
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-            <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+  return (
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Datos personales */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <Input label="Nombre" {...register("nombre")} error={errors.nombre?.message} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input label="Apellidos" {...register("apellidos")} error={errors.apellidos?.message} />
+            </div>
           </div>
-          <h3 className="font-semibold text-green-800">Revisa tu correo</h3>
-          <p className="text-sm text-green-600 mt-1">
-            Enviamos un código de verificación a{" "}
-            <span className="font-medium">{registeredEmail}</span>
-          </p>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <Input label="DNI" maxLength={8} inputMode="numeric" {...register("dni")} error={errors.dni?.message} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input label="Fecha de nacimiento" type="date" {...register("fechaNacimiento")} error={errors.fechaNacimiento?.message} />
+            </div>
+          </div>
+          <Input label="Teléfono" maxLength={9} inputMode="numeric" {...register("telefono")} error={errors.telefono?.message} />
+          <Input label="Correo electrónico" type="email" {...register("correo")} error={errors.correo?.message} />
+          <Input label="Contraseña" isPassword {...register("contrasena")} error={errors.contrasena?.message} />
+          <Select label="¿Qué quieres hacer en Lotifyx?" options={["Quiero vender", "Quiero comprar"]} {...register("accountType")} error={errors.accountType?.message} />
+        </section>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            Código de verificación
-          </label>
-          <input
-            type="text"
-            value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-            maxLength={6}
-            inputMode="numeric"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-center text-lg tracking-[0.5em] font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500 transition-colors"
+        {/* Datos de empresa */}
+        <section>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <Input label="RUC" maxLength={11} inputMode="numeric" {...register("ruc")} error={errors.ruc?.message} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input label="Razón social (Opcional)" {...register("razonSocial")} error={errors.razonSocial?.message} />
+            </div>
+          </div>
+        </section>
+
+        {/* Información adicional */}
+        <section className="space-y-4">
+          <Input label="Código de referidos (opcional)" maxLength={20} {...register("codigoReferidos")} error={errors.codigoReferidos?.message} />
+          <Select label="¿Cómo nos encontraste?" options={COMO_NOS_ENCONTRASTE_OPTIONS} {...register("comoNosEncontraste")} error={errors.comoNosEncontraste?.message} />
+        </section>
+
+        <div>
+          <Checkbox
+            label={<span>Al crear una cuenta significa que aceptas los{" "}<a href="#" className="text-primary-600 hover:text-primary-700 underline underline-offset-2" onClick={(e) => e.preventDefault()}>Términos y condiciones</a>{" "}y nuestra{" "}<a href="#" className="text-primary-600 hover:text-primary-700 underline underline-offset-2" onClick={(e) => e.preventDefault()}>Política de privacidad</a></span>}
+            checked={!!aceptaTerminos}
+            {...register("aceptaTerminos")}
+            error={errors.aceptaTerminos?.message}
           />
         </div>
 
-        <Button
-          type="button"
-          onClick={handleVerify}
-          loading={verifying}
-          className="w-full"
-        >
-          {verifying ? "Verificando..." : "Verificar cuenta"}
+        <Button type="submit" loading={isSubmitting} className="w-full">
+          {isSubmitting ? "Registrando..." : "Crear cuenta"}
         </Button>
 
-        <p className="text-center text-xs text-gray-400">
-          ¿No recibiste el código?{" "}
-          <button
-            type="button"
-            onClick={() => setRegisteredEmail("")}
-            className="text-primary-600 hover:text-primary-700 font-medium"
-          >
-            Volver al registro
+        <div className="space-y-3">
+          <button type="button" className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <img src="/google.svg" alt="Google" className="h-5 w-5" />
+            Sign up with Google
           </button>
+          <button type="button" className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <img src="/facebook.svg" alt="Facebook" className="h-5 w-5" />
+            Sign in with Facebook
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-gray-400">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
         </p>
-      </div>
-    );
-  }
+      </form>
 
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Datos personales */}
-      <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Nombre"
-              {...register("nombre")}
-              error={errors.nombre?.message}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Apellidos"
-              {...register("apellidos")}
-              error={errors.apellidos?.message}
-            />
-          </div>
-        </div>
+      {/* Verification Modal */}
+      {registeredEmail && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRegisteredEmail("")} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-green-800">Revisa tu correo</h3>
+              <p className="text-sm text-green-600 mt-1">
+                Enviamos un código de verificación a{" "}
+                <span className="font-medium">{registeredEmail}</span>
+              </p>
+            </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 min-w-0">
-            <Input
-              label="DNI"
-              maxLength={8}
-              inputMode="numeric"
-              {...register("dni")}
-              error={errors.dni?.message}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Fecha de nacimiento"
-              type="date"
-              {...register("fechaNacimiento")}
-              error={errors.fechaNacimiento?.message}
-            />
-          </div>
-        </div>
+            <div className="flex flex-col gap-1.5 mb-4">
+              <label className="text-sm font-medium text-gray-700">
+                Código de verificación
+              </label>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                maxLength={6}
+                inputMode="numeric"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-center text-lg tracking-[0.5em] font-mono text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500 transition-colors"
+              />
+            </div>
 
-        <Input
-          label="Teléfono"
-          maxLength={9}
-          inputMode="numeric"
-          {...register("telefono")}
-          error={errors.telefono?.message}
-        />
+            <Button
+              type="button"
+              onClick={handleVerify}
+              loading={verifying}
+              className="w-full"
+            >
+              {verifying ? "Verificando..." : "Verificar cuenta"}
+            </Button>
 
-        <Input
-          label="Correo electrónico"
-          type="email"
-          {...register("correo")}
-          error={errors.correo?.message}
-        />
-
-        <Input
-          label="Contraseña"
-          isPassword
-          {...register("contrasena")}
-          error={errors.contrasena?.message}
-        />
-
-        <Select
-          label="¿Qué quieres hacer en Lotifyx?"
-          options={["Quiero vender", "Quiero comprar"]}
-          {...register("accountType")}
-          error={errors.accountType?.message}
-        />
-      </section>
-
-      {/* Datos de empresa */}
-      <section>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 min-w-0">
-            <Input
-              label="RUC"
-              maxLength={11}
-              inputMode="numeric"
-              {...register("ruc")}
-              error={errors.ruc?.message}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input
-              label="Razón social (Opcional)"
-              {...register("razonSocial")}
-              error={errors.razonSocial?.message}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Información adicional */}
-      <section className="space-y-4">
-        <Input
-          label="Código de referidos (opcional)"
-          maxLength={20}
-          {...register("codigoReferidos")}
-          error={errors.codigoReferidos?.message}
-        />
-
-        <Select
-          label="¿Cómo nos encontraste?"
-          options={COMO_NOS_ENCONTRASTE_OPTIONS}
-          {...register("comoNosEncontraste")}
-          error={errors.comoNosEncontraste?.message}
-        />
-      </section>
-
-      <div>
-        <Checkbox
-          label={
-            <span>
-              Al crear una cuenta significa que aceptas los{" "}
-              <a
-                href="#"
-                className="text-primary-600 hover:text-primary-700 underline underline-offset-2"
-                onClick={(e) => e.preventDefault()}
+            <p className="text-center text-xs text-gray-400 mt-4">
+              ¿No recibiste el código?{" "}
+              <button
+                type="button"
+                onClick={() => setRegisteredEmail("")}
+                className="text-primary-600 hover:text-primary-700 font-medium"
               >
-                Términos y condiciones
-              </a>{" "}
-              y nuestra{" "}
-              <a
-                href="#"
-                className="text-primary-600 hover:text-primary-700 underline underline-offset-2"
-                onClick={(e) => e.preventDefault()}
-              >
-                Política de privacidad
-              </a>
-            </span>
-          }
-          checked={!!aceptaTerminos}
-          {...register("aceptaTerminos")}
-          error={errors.aceptaTerminos?.message}
-        />
-      </div>
-
-      <Button type="submit" loading={isSubmitting} className="w-full">
-        {isSubmitting ? "Registrando..." : "Crear cuenta"}
-      </Button>
-
-      <div className="space-y-3">
-        <button
-          type="button"
-          className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <img src="/google.svg" alt="Google" className="h-5 w-5" />
-          Sign up with Google
-        </button>
-        <button
-          type="button"
-          className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <img src="/facebook.svg" alt="Facebook" className="h-5 w-5" />
-          Sign in with Facebook
-        </button>
-      </div>
-
-      <p className="text-center text-xs text-gray-400">
-        ¿Ya tienes cuenta?{" "}
-        <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-          Iniciar sesión
-        </Link>
-      </p>
-    </form>
+                Volver
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

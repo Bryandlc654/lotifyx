@@ -29,7 +29,13 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    this.transporter = nodemailer.createTransport({ host, port, secure: false, auth: { user, pass } });
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+    console.log(`[MailService] Transporter configurado: ${host}:${port} (secure: ${port === 465})`);
   }
 
   async sendVerificationCode(to: string, code: string, name: string) {
