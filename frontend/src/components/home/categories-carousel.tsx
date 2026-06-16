@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { getCategories, Category } from "@/lib/api";
+import { getCategories, Category, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const VISIBLE = 4;

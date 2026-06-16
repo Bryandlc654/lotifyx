@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getBanners, Banner } from "@/lib/api";
+import { getBanners, Banner, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const INTERVAL = 5000;
@@ -48,7 +48,7 @@ export function BannerCarousel() {
             }`}
           >
             <img
-              src={banner.image_url.startsWith("http") ? banner.image_url : `${API_URL}${banner.image_url}`}
+              src={getImageUrl(banner.image_url)}
               alt={banner.title}
               className="w-full h-full object-cover"
             />

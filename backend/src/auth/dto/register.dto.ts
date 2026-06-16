@@ -18,8 +18,8 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: "La contrasena es obligatoria" })
   @MinLength(8, { message: "La contrasena debe tener al menos 8 caracteres" })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: "La contrasena debe contener mayúscula, minúscula y número",
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/, {
+    message: "La contrasena debe contener mayúscula, minúscula, número y carácter especial",
   })
   contrasena: string;
 

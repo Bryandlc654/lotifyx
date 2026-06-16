@@ -126,7 +126,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException("El correo ya está registrado");
+      throw new ConflictException("Este correo electrónico ya se encuentra registrado. Si olvidaste tu contraseña, puedes recuperarla.");
     }
 
     if (dto.ruc) {
@@ -170,7 +170,7 @@ export class AuthService {
         password_hash: hashedPassword,
         phone: dto.telefono,
         role_id: roleId,
-        status: "active",
+        status: dto.accountType === "Quiero vender" ? "pending_approval" : "pending_verification",
         referral_code: this.generateReferralCode(),
         referred_by: referredBy,
         is_verified: false,
@@ -186,7 +186,7 @@ export class AuthService {
         request_payload: { email: dto.correo },
         response_payload: {
           code: verificationCode,
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         },
       });
 
@@ -207,10 +207,20 @@ export class AuthService {
 
       await this.profileRepository.save(profile);
 
+      // Create virtual wallet for non-seller users
+      if (dto.accountType !== "Quiero vender") {
+        this.userRepository.query(
+          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance) VALUES ($1, 0, 0, 0) ON CONFLICT (user_id) DO NOTHING`,
+          [savedUser.id]
+        ).catch(() => {});
+      }
+
       // Enviar email (no bloquea el registro si falla)
       this.mailService
         .sendVerificationCode(dto.correo, verificationCode, dto.nombre)
-        .catch(() => {});
+        .catch((err) => {
+          console.error("[MailService] Error al enviar correo de verificación:", err.message);
+        });
 
       return {
         message: "Registro exitoso. Revisa tu correo para verificar tu cuenta.",
@@ -229,6 +239,7 @@ export class AuthService {
   async verifyEmail(dto: VerifyEmailDto) {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
+      relations: ["profile", "role"],
     });
 
     if (!user) {
@@ -236,7 +247,13 @@ export class AuthService {
     }
 
     if (user.is_verified) {
-      return { message: "La cuenta ya está verificada" };
+      const tokens = await this.generateTokens(user);
+      const { password_hash: _, ...result } = user;
+      return {
+        message: "La cuenta ya está verificada",
+        ...tokens,
+        user: result,
+      };
     }
 
     const verification = await this.verificationRepository.findOne({
@@ -269,9 +286,19 @@ export class AuthService {
     await this.verificationRepository.save(verification);
 
     user.is_verified = true;
+    if (user.status === "pending_verification") {
+      user.status = "active";
+    }
     await this.userRepository.save(user);
 
-    return { message: "Cuenta verificada exitosamente. Ya puedes iniciar sesión." };
+    const tokens = await this.generateTokens(user);
+    const { password_hash: _, ...result } = user;
+
+    return {
+      message: "Cuenta verificada exitosamente",
+      ...tokens,
+      user: result,
+    };
   }
 
   // ─── Login ────────────────────────────────────────────────
@@ -400,6 +427,126 @@ export class AuthService {
 
   async selectPlan(userId: string, planId: string) {
     await this.profileRepository.update({ user_id: userId }, { plan_id: planId });
+    await this.userRepository.query(
+      `INSERT INTO seller_plans (user_id, plan_id, status, payment_status, starts_at, ends_at)
+       SELECT $1, $2, 'active', 'pending', NOW(), NOW() + (COALESCE(duration_days, 30) || ' days')::INTERVAL FROM plans WHERE id = $2`,
+      [userId, planId]
+    );
     return { message: "Plan activado exitosamente" };
+  }
+
+  async saveBankAccount(userId: string, dto: { bank_name: string; account_number: string }) {
+    const result = await this.userRepository.query(
+      `INSERT INTO bank_accounts (user_id, bank_name, account_number) VALUES ($1, $2, $3) RETURNING *`,
+      [userId, dto.bank_name, dto.account_number]
+    );
+    return result[0];
+  }
+
+  async submitPayment(userId: string, dto: { operation_number: string; amount: number }) {
+    const sp = await this.userRepository.query(
+      `SELECT id FROM seller_plans WHERE user_id = $1 AND payment_status = 'pending' ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+    const sellerPlanId = sp[0]?.id;
+
+    await this.userRepository.query(
+      `INSERT INTO plan_payments (seller_plan_id, user_id, amount, payment_proof, status) VALUES ($1, $2, $3, $4, 'pending')`,
+      [sellerPlanId, userId, dto.amount, dto.operation_number]
+    );
+
+    await this.userRepository.update(userId, { status: "pending_approval" });
+
+    return { message: "Comprobante enviado. Tu cuenta está pendiente de aprobación." };
+  }
+
+  async resendVerification(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ["profile"],
+    });
+
+    if (!user) {
+      return { message: "Si el correo existe, recibirás un nuevo código." };
+    }
+
+    if (user.is_verified) {
+      return { message: "La cuenta ya está verificada." };
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await this.verificationRepository.save(
+      this.verificationRepository.create({
+        user_id: user.id,
+        verification_type: "email",
+        verification_status: "pending",
+        request_payload: { email },
+        response_payload: {
+          code,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+      })
+    );
+
+    this.mailService.sendVerificationCode(email, code, user.profile?.first_name || "").catch(() => {});
+
+    return { message: "Si el correo existe, recibirás un nuevo código de verificación." };
+  }
+
+  // ─── Password Recovery ──────────────────────────────────
+
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ["profile"],
+    });
+
+    if (!user) {
+      return { message: "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña." };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    await this.userRepository.query(
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+      [user.id, token]
+    );
+
+    this.mailService
+      .sendPasswordReset(email, token, user.profile?.first_name || "")
+      .catch((err) => console.error("[MailService] Error al enviar recuperación:", err.message));
+
+    return { message: "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña." };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    // Validate password strength
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException("La contraseña debe tener al menos 8 caracteres");
+    }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/.test(newPassword)) {
+      throw new BadRequestException("La contraseña debe contener mayúscula, minúscula, número y carácter especial");
+    }
+
+    const resetToken = await this.userRepository.query(
+      `SELECT user_id FROM password_reset_tokens WHERE token = $1 AND used = false AND expires_at > NOW()`,
+      [token]
+    );
+
+    if (!resetToken[0]) {
+      throw new BadRequestException("El enlace ha expirado o ya fue utilizado. Solicita uno nuevo.");
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const hash = await bcrypt.hash(newPassword, salt);
+
+    await this.userRepository.update(resetToken[0].user_id, { password_hash: hash });
+    await this.userRepository.query(
+      `UPDATE password_reset_tokens SET used = true WHERE token = $1`,
+      [token]
+    );
+
+    return { message: "Contraseña actualizada exitosamente. Ya puedes iniciar sesión." };
   }
 }

@@ -148,22 +148,6 @@ export default function PerfilPage() {
                 />
               </div>
             </section>
-
-            {/* Código de referido */}
-            <section className="pt-6 border-t border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Código de Referido
-              </h2>
-              <div className="inline-flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2.5">
-                <Hash className="h-4 w-4 text-primary-500" />
-                <span className="text-sm font-mono font-medium text-gray-700">
-                  {profile.referral_code || "—"}
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Comparte este código para invitar a otros usuarios.
-              </p>
-            </section>
           </div>
         </div>
       </main>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMarquees, Marquee } from "@/lib/api";
+import { getMarquees, Marquee, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -23,7 +23,7 @@ export function MarqueeLogos() {
         {[...items, ...items].map((item, i) => (
           <img
             key={`${item.id}-${i}`}
-            src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`}
+            src={getImageUrl(item.image_url)}
             alt={item.name}
             className="h-12 sm:h-14 w-auto object-contain flex-shrink-0"
           />

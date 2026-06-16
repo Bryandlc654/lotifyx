@@ -62,4 +62,29 @@ export class MailService implements OnModuleInit {
       `,
     });
   }
+
+  async sendPasswordReset(to: string, token: string, name: string) {
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+    await this.transporter.sendMail({
+      from: `"Lotifyx" <${this.config.get("SMTP_FROM_EMAIL", "noreply@lotifyx.com")}>`,
+      to,
+      subject: "Recupera tu contraseña - Lotifyx",
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#8234FE;margin:0 0 8px">Recupera tu contraseña, ${name}</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón para crear una nueva:
+          </p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#8234FE,#26BEFE);color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Restablecer contraseña</a>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;">
+            Este enlace expira en 1 hora. Si no solicitaste este cambio, ignora este mensaje.
+          </p>
+        </div>
+      `,
+    });
+  }
 }

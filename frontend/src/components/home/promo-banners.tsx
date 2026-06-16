@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getSecondaryBanners, SecondaryBanner } from "@/lib/api";
+import { getSecondaryBanners, SecondaryBanner, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -19,7 +19,7 @@ function BannerCard({ b }: { b: SecondaryBanner }) {
         )}
       </div>
       <div className="flex-1">
-        <img src={b.image_url.startsWith("http") ? b.image_url : `${API_URL}${b.image_url}`}
+                  <img src={getImageUrl(b.image_url)}
           alt={b.title} className="w-full h-full object-cover rounded-2xl" />
       </div>
     </a>
@@ -96,7 +96,7 @@ function Promo1Slider({ items }: { items: SecondaryBanner[] }) {
           <div key={b.id}
             className={`transition-opacity duration-700 ${i === current ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"}`}>
             <a href={b.link_url || "#"} target={b.link_url ? "_blank" : undefined} className="block">
-              <img src={b.image_url.startsWith("http") ? b.image_url : `${API_URL}${b.image_url}`}
+        <img src={getImageUrl(b.image_url)}
                 alt={b.title} className="w-full h-[350px] object-cover" />
               {b.button_text && (
                 <div className="absolute bottom-10 left-1/2 translate-x-2">

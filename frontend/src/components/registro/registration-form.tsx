@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -20,8 +21,10 @@ import {
 export function RegistrationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const router = useRouter();
 
   const {
     register,
@@ -40,6 +43,7 @@ export function RegistrationForm() {
       telefono: "",
       correo: "",
       contrasena: "",
+      confirmarContrasena: "",
       ruc: "",
       razonSocial: "",
       codigoReferidos: "",
@@ -73,6 +77,23 @@ export function RegistrationForm() {
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+      await res.json();
+      toast.success("Código reenviado. Revisa tu correo.");
+    } catch {
+      toast.error("Error al reenviar");
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleVerify = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
       toast.error("Ingresa el código de 6 dígitos");
@@ -80,13 +101,22 @@ export function RegistrationForm() {
     }
     setVerifying(true);
     try {
-      await verifyEmail(registeredEmail, verificationCode);
-      toast.success("¡Cuenta verificada! Ya puedes iniciar sesión.");
+      const res = await verifyEmail(registeredEmail, verificationCode);
+      toast.success("¡Cuenta verificada!");
       setRegisteredEmail("");
       setVerificationCode("");
+
+      // Check account type and redirect
+      if (res.user?.profile?.account_type === "Quiero vender" && !res.user?.profile?.plan_id) {
+        router.push("/planes");
+      } else if (res.accessToken) {
+        // Buyers go to login
+        router.push("/login");
+      } else {
+        router.push("/login");
+      }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Error al verificar";
+      const message = err instanceof Error ? err.message : "Error al verificar";
       toast.error(message);
     } finally {
       setVerifying(false);
@@ -117,6 +147,7 @@ export function RegistrationForm() {
           <Input label="Teléfono" maxLength={9} inputMode="numeric" {...register("telefono")} error={errors.telefono?.message} />
           <Input label="Correo electrónico" type="email" {...register("correo")} error={errors.correo?.message} />
           <Input label="Contraseña" isPassword {...register("contrasena")} error={errors.contrasena?.message} />
+          <Input label="Confirmar contraseña" isPassword {...register("confirmarContrasena")} error={errors.confirmarContrasena?.message} />
           <Select label="¿Qué quieres hacer en Lotifyx?" options={["Quiero vender", "Quiero comprar"]} {...register("accountType")} error={errors.accountType?.message} />
         </section>
 
@@ -212,6 +243,15 @@ export function RegistrationForm() {
 
             <p className="text-center text-xs text-gray-400 mt-4">
               ¿No recibiste el código?{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                {resending ? "Reenviando..." : "Reenviar código"}
+              </button>
+              {" · "}
               <button
                 type="button"
                 onClick={() => setRegisteredEmail("")}

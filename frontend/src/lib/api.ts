@@ -1,4 +1,10 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
+const UPLOADS_URL = API_URL.replace(/\/api$/, "");
+
+export function getImageUrl(path: string): string {
+  if (path.startsWith("http")) return path;
+  return `${UPLOADS_URL}${path}`;
+}
 
 // ─── Token helpers ───────────────────────────────────────────
 
@@ -183,6 +189,12 @@ export async function verifyEmail(email: string, code: string) {
   if (!res.ok) {
     const msg = data.message || "Error al verificar";
     throw new Error(Array.isArray(msg) ? msg.join(", ") : msg);
+  }
+
+  if (data.accessToken && data.refreshToken) {
+    setTokens(data.accessToken, data.refreshToken);
+  } else if (data.token) {
+    setTokens(data.token, "");
   }
 
   return data;

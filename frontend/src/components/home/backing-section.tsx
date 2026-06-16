@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { getBackingLogos, BackingLogo } from "@/lib/api";
+import { getBackingLogos, BackingLogo, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const VISIBLE = 4;
@@ -46,7 +46,7 @@ export function BackingSection() {
               {displayItems.map((b, i) => (
                 <div key={`${b.id}-${i}`} className="flex-shrink-0 flex items-center justify-center"
                   style={{ width: `${100 / VISIBLE}%` }}>
-                  <img src={b.image_url.startsWith("http") ? b.image_url : `${API_URL}${b.image_url}`}
+                  <img src={getImageUrl(b.image_url)}
                     alt={b.name} className="h-10 sm:h-12 object-contain" />
                 </div>
               ))}

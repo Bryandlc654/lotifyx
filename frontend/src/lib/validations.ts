@@ -36,9 +36,10 @@ export const registroSchema = z
       .string()
       .min(8, "La contraseña debe tener al menos 8 caracteres")
       .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-        "Debe contener mayúscula, minúscula y número"
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/,
+        "Debe contener mayúscula, minúscula, número y carácter especial"
       ),
+    confirmarContrasena: z.string(),
     ruc: z
       .string()
       .regex(/^\d{11}$/, "El RUC debe tener 11 dígitos")
@@ -65,6 +66,10 @@ export const registroSchema = z
       }),
     }),
   })
+  .refine(
+    (data) => data.contrasena === data.confirmarContrasena,
+    { message: "Las contraseñas no coinciden", path: ["confirmarContrasena"] }
+  )
   .refine(
     (data) => {
       if (!data.fechaNacimiento) return true;

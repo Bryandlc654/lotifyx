@@ -20,7 +20,7 @@ async function bootstrap() {
 
   // ─── CORS ──────────────────────────────────
   app.enableCors({
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000", "https://devspro.xyz", "https://www.devspro.xyz"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   });
@@ -35,7 +35,9 @@ async function bootstrap() {
     })
   );
 
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("api", {
+    exclude: ["uploads/(.*)"],
+  });
 
   const port = process.env.APP_PORT || 4000;
   await app.listen(port);

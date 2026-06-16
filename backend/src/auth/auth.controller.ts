@@ -94,9 +94,41 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post("resend-verification")
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body("email") email: string) {
+    return this.authService.resendVerification(email);
+  }
+
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body("email") email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: { token: string; password: string }) {
+    return this.authService.resetPassword(dto.token, dto.password);
+  }
+  @UseGuards(JwtAuthGuard)
   @Post("select-plan")
   @HttpCode(HttpStatus.OK)
   selectPlan(@Req() req, @Body("plan_id") planId: string) {
     return this.authService.selectPlan(req.user.id, planId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("bank-account")
+  @HttpCode(HttpStatus.CREATED)
+  saveBankAccount(@Req() req, @Body() dto: { bank_name: string; account_number: string }) {
+    return this.authService.saveBankAccount(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("submit-payment")
+  @HttpCode(HttpStatus.OK)
+  submitPayment(@Req() req, @Body() dto: { operation_number: string; amount: number }) {
+    return this.authService.submitPayment(req.user.id, dto);
   }
 }
