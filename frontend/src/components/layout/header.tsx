@@ -18,6 +18,7 @@ interface UserData {
 
 const NAV_LINKS = [
   { href: "/", label: "Inicio" },
+  { href: "/contacto", label: "Contacto" },
   { href: "/registro", label: "Registro" },
 ];
 
@@ -30,7 +31,7 @@ export function Header() {
   const [lastScrollY, setLastScrollY] = useState(0);
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
     fetch(`${apiUrl}/settings`)
       .then(r => r.json())
       .then(d => { if (d.topbar_text) setTopBarText(d.topbar_text); })

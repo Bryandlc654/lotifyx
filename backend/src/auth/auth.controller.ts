@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   Get,
   Body,
   HttpCode,
@@ -8,7 +9,12 @@ import {
   UseGuards,
   Req,
   Res,
+  UseInterceptors,
+  UploadedFile,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { diskStorage } from "multer";
+import { extname } from "path";
 import { Throttle } from "@nestjs/throttler";
 import { AuthGuard } from "@nestjs/passport";
 import { Response } from "express";
@@ -87,10 +93,29 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async getProfile(@Req() req) {
     const user = await this.authService.getProfile(req.user.id);
-    return {
-      message: "Perfil obtenido exitosamente",
-      user,
-    };
+    return { message: "Perfil obtenido exitosamente", user };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put("me")
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(@Req() req, @Body() dto: any) {
+    return this.authService.updateProfile(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("avatar")
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor("avatar", {
+    storage: diskStorage({
+      destination: "./uploads",
+      filename: (_req, file, cb) => { cb(null, `avatar-${Date.now()}-${Math.round(Math.random()*1e9)}${extname(file.originalname)}`); },
+    }),
+  }))
+  async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    const url = `/uploads/${file.filename}`;
+    await this.authService.updateProfile(req.user.id, { avatar_url: url });
+    return { url };
   }
 
   @UseGuards(JwtAuthGuard)

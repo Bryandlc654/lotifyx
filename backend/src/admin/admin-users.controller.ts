@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, HttpCode, HttpStatus,
 } from "@nestjs/common";
 import { AdminUsersService } from "./admin-users.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -32,6 +32,11 @@ export class AdminUsersController {
   @RequirePermission("users.write")
   @HttpCode(HttpStatus.OK)
   update(@Param("id") id: string, @Body() dto: any) { return this.service.update(id, dto); }
+
+  @Patch(":id/toggle-active")
+  @RequirePermission("users.write")
+  @HttpCode(HttpStatus.OK)
+  toggleActive(@Param("id") id: string) { return this.service.toggleActive(id); }
 
   @Delete(":id")
   @RequirePermission("users.delete")

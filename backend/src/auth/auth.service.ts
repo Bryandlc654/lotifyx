@@ -328,6 +328,12 @@ export class AuthService {
       );
     }
 
+    if (user.status !== "active") {
+      throw new UnauthorizedException(
+        "Tu cuenta no está habilitada. Contacta al administrador."
+      );
+    }
+
     const { password_hash: _, ...result } = user;
     const tokens = await this.generateTokens(user);
 
@@ -421,6 +427,28 @@ export class AuthService {
 
     const { password_hash: _, ...result } = user;
     return result;
+  }
+
+  async updateProfile(userId: string, dto: any) {
+    if (dto.password) {
+      const salt = await bcrypt.genSalt(12);
+      await this.userRepository.update(userId, { password_hash: await bcrypt.hash(dto.password, salt) });
+    }
+    if (dto.email || dto.phone) {
+      await this.userRepository.update(userId, {
+        ...(dto.email ? { email: dto.email } : {}),
+        ...(dto.phone ? { phone: dto.phone } : {}),
+      });
+    }
+    const profileFields: any = {};
+    if (dto.first_name !== undefined) profileFields.first_name = dto.first_name;
+    if (dto.last_name !== undefined) profileFields.last_name = dto.last_name;
+    if (dto.profile_alias !== undefined) profileFields.profile_alias = dto.profile_alias;
+    if (dto.avatar_url !== undefined) profileFields.avatar_url = dto.avatar_url;
+    if (Object.keys(profileFields).length > 0) {
+      await this.profileRepository.update({ user_id: userId }, profileFields);
+    }
+    return this.getProfile(userId);
   }
 
   // ─── Select Plan ─────────────────────────────────────────

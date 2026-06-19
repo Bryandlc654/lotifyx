@@ -177,6 +177,13 @@ export async function getProfile() {
   return data;
 }
 
+export async function updateProfile(dto: any) {
+  const res = await authFetch(`${API_URL}/auth/me`, { method: "PUT", body: JSON.stringify(dto) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Error al actualizar perfil");
+  return data;
+}
+
 export async function verifyEmail(email: string, code: string) {
   const res = await fetch(`${API_URL}/auth/verify-email`, {
     method: "POST",
@@ -405,6 +412,12 @@ export async function deleteAdminUser(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar usuario");
 }
 
+export async function toggleUserActive(id: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/users/${id}/toggle-active`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al cambiar estado");
+  return res.json();
+}
+
 export async function getAdminRoles(): Promise<{ id: string; name: string }[]> {
   const res = await authFetch(`${API_URL}/admin/users/roles`);
   if (!res.ok) throw new Error("Error al obtener roles");
@@ -436,6 +449,38 @@ export async function updateCategory(id: string, dto: { name: string; slug: stri
 export async function deleteCategory(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/categories/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar categoría");
+}
+
+// ─── Category Fields ─────────────────────────────────────────
+
+export interface CategoryField {
+  id: string; category_id: string; name: string; label: string; type: string;
+  required: boolean; options: string[] | null; order_index: number;
+}
+export async function getCategoryFields(categoryId?: string): Promise<CategoryField[]> {
+  const qs = categoryId ? `?category_id=${categoryId}` : "";
+  const res = await fetch(`${API_URL}/category-fields${qs}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+export async function getCategoryFieldsAdmin(): Promise<CategoryField[]> {
+  const res = await authFetch(`${API_URL}/category-fields/admin`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+export async function createCategoryField(dto: { category_id: string; name: string; label: string; type: string; required?: boolean; options?: string[] }): Promise<CategoryField> {
+  const res = await authFetch(`${API_URL}/category-fields`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+export async function updateCategoryField(id: string, dto: Partial<CategoryField>): Promise<CategoryField> {
+  const res = await authFetch(`${API_URL}/category-fields/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+export async function deleteCategoryField(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/category-fields/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error");
 }
 
 // ─── Secondary Banners ───────────────────────────────────────
@@ -521,6 +566,24 @@ export async function deletePlan(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar plan");
 }
 
+// ─── FAQs ────────────────────────────────────────────────────
+
+export interface Faq { id: string; category: string; question: string; answer: string; is_active: boolean; order_index: number; }
+export async function getFaqs(category?: string): Promise<Faq[]> { const qs = category ? `?category=${encodeURIComponent(category)}` : ""; const res = await fetch(`${API_URL}/faqs${qs}`); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function getFaqsAdmin(): Promise<Faq[]> { const res = await authFetch(`${API_URL}/faqs/admin`); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function createFaq(dto: { category: string; question: string; answer: string }): Promise<Faq> { const res = await authFetch(`${API_URL}/faqs`, { method: "POST", body: JSON.stringify(dto) }); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function updateFaq(id: string, dto: Partial<Faq>): Promise<Faq> { const res = await authFetch(`${API_URL}/faqs/${id}`, { method: "PUT", body: JSON.stringify(dto) }); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function deleteFaq(id: string): Promise<void> { const res = await authFetch(`${API_URL}/faqs/${id}`, { method: "DELETE" }); if (!res.ok) throw new Error("Error"); }
+
+// ─── FAQ Categories ──────────────────────────────────────────
+
+export interface FaqCategory { id: string; name: string; slug: string; description: string; order_index: number; is_active: boolean; }
+export async function getFaqCategories(): Promise<FaqCategory[]> { const res = await fetch(`${API_URL}/faq-categories`); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function getFaqCategoriesAdmin(): Promise<FaqCategory[]> { const res = await authFetch(`${API_URL}/faq-categories/admin`); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function createFaqCategory(dto: { name: string; slug?: string; description?: string }): Promise<FaqCategory> { const res = await authFetch(`${API_URL}/faq-categories`, { method: "POST", body: JSON.stringify(dto) }); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function updateFaqCategory(id: string, dto: Partial<FaqCategory>): Promise<FaqCategory> { const res = await authFetch(`${API_URL}/faq-categories/${id}`, { method: "PUT", body: JSON.stringify(dto) }); if (!res.ok) throw new Error("Error"); return res.json(); }
+export async function deleteFaqCategory(id: string): Promise<void> { const res = await authFetch(`${API_URL}/faq-categories/${id}`, { method: "DELETE" }); if (!res.ok) throw new Error("Error"); }
+
 // ─── RBAC ────────────────────────────────────────────────────
 
 export interface RoleWithPerms {
@@ -569,6 +632,29 @@ export async function revokePermission(rpId: string): Promise<void> {
 
 export async function seedPermissions(): Promise<void> {
   const res = await authFetch(`${API_URL}/admin/rbac/seed`, { method: "POST" });
+  if (!res.ok) throw new Error("Error");
+}
+
+// ─── Leads ────────────────────────────────────────────────────
+
+export interface Lead {
+  id: string; first_name: string; last_name: string; email: string; phone: string; message: string; created_at: string;
+}
+
+export async function getLeads(): Promise<Lead[]> {
+  const res = await authFetch(`${API_URL}/leads`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createLead(dto: { first_name: string; last_name: string; email: string; phone?: string; message: string }): Promise<Lead> {
+  const res = await fetch(`${API_URL}/leads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function deleteLead(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/leads/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error");
 }
 

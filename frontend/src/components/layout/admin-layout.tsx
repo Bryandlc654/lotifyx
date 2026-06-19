@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ const modules = [
   { href: "/admin/gestores", label: "Gestores", icon: UserCog, permission: "users" },
   { href: "/admin/users", label: "Usuarios", icon: Users, permission: "users" },
   { href: "/admin/categories", label: "Categorías", icon: FolderTree, permission: "categories" },
+  { href: "/admin/category-fields", label: "Campos", icon: List, permission: "category_fields" },
   { href: "/admin/banners", label: "Banners", icon: Image, permission: "banners" },
   { href: "/admin/secondary-banners", label: "Banners Promo", icon: PanelTop, permission: "secondary_banners" },
   { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck, permission: "backing" },
@@ -22,6 +23,9 @@ const modules = [
   { href: "/admin/rbac", label: "RBAC", icon: Shield, permission: "rbac" },
   { href: "/admin/marquees", label: "Logos", icon: Star, permission: "marquees" },
   { href: "/admin/testimonials", label: "Testimonios", icon: MessageSquare, permission: "testimonials" },
+  { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, permission: "faqs" },
+  { href: "/admin/faq-categories", label: "Categorías FAQ", icon: Tags, permission: "faq_categories" },
+  { href: "/admin/leads", label: "Leads", icon: Mail, permission: "leads" },
   { href: "/admin/settings", label: "Configuración", icon: Settings, permission: "settings" },
 ];
 

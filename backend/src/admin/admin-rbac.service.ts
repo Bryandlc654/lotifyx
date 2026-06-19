@@ -105,6 +105,17 @@ export class AdminRbacService {
       { name: "secondary_banners.delete", description: "Eliminar banners promo", module: "secondary_banners" },
       { name: "rbac.read", description: "Ver roles y permisos", module: "rbac" },
       { name: "rbac.write", description: "Gestionar roles y permisos", module: "rbac" },
+      { name: "faqs.read", description: "Ver FAQs", module: "faqs" },
+      { name: "faqs.write", description: "Crear/editar FAQs", module: "faqs" },
+      { name: "faqs.delete", description: "Eliminar FAQs", module: "faqs" },
+      { name: "leads.read", description: "Ver leads", module: "leads" },
+      { name: "leads.delete", description: "Eliminar leads", module: "leads" },
+      { name: "faq_categories.read", description: "Ver categorías FAQ", module: "faq_categories" },
+      { name: "faq_categories.write", description: "Crear/editar categorías FAQ", module: "faq_categories" },
+      { name: "faq_categories.delete", description: "Eliminar categorías FAQ", module: "faq_categories" },
+      { name: "category_fields.read", description: "Ver campos de categoría", module: "category_fields" },
+      { name: "category_fields.write", description: "Crear/editar campos de categoría", module: "category_fields" },
+      { name: "category_fields.delete", description: "Eliminar campos de categoría", module: "category_fields" },
     ];
 
     let created = 0;

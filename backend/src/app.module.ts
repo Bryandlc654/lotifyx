@@ -15,9 +15,13 @@ import { SettingsModule } from "./settings/settings.module";
 import { TestimonialsModule } from "./testimonials/testimonials.module";
 import { AdminModule } from "./admin/admin.module";
 import { CategoriesModule } from "./categories/categories.module";
+import { CategoryFieldsModule } from "./category-fields/category-fields.module";
 import { SecondaryBannersModule } from "./secondary-banners/secondary-banners.module";
 import { BackingModule } from "./backing/backing.module";
 import { PlansModule } from "./plans/plans.module";
+import { FaqsModule } from "./faqs/faqs.module";
+import { FaqCategoriesModule } from "./faq-categories/faq-categories.module";
+import { LeadsModule } from "./leads/leads.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -39,6 +43,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "uploads"),
       serveRoot: "/uploads",
+      serveStaticOptions: { index: false },
     }),
 
     // ─── JWT ────────────────────────────────
@@ -65,6 +70,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
         database: config.get<string>("DB_DATABASE", "lotifyx"),
         autoLoadEntities: true,
         synchronize: config.get<string>("NODE_ENV") !== "production",
+        extra: { client_encoding: "UTF8" },
       }),
     }),
 
@@ -76,9 +82,13 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     TestimonialsModule,
     AdminModule,
     CategoriesModule,
+    CategoryFieldsModule,
     SecondaryBannersModule,
     BackingModule,
     PlansModule,
+    FaqsModule,
+    FaqCategoriesModule,
+    LeadsModule,
   ],
 
   // ─── Global rate limit guard ──────────────

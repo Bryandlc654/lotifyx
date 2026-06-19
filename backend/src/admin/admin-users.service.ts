@@ -136,6 +136,16 @@ export class AdminUsersService {
     return this.findOne(id);
   }
 
+  async toggleActive(id: string) {
+    if (!isUUID(id)) throw new NotFoundException("Usuario no encontrado");
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException("Usuario no encontrado");
+    const newStatus = user.status === "disabled" ? "active" : "disabled";
+    await this.userRepo.update(id, { status: newStatus });
+    const updated = await this.findOne(id);
+    return { ...updated, status: newStatus };
+  }
+
   async remove(id: string) {
     if (!isUUID(id)) throw new NotFoundException("Usuario no encontrado");
     const user = await this.userRepo.findOne({ where: { id } });

@@ -40,14 +40,14 @@ const footerLinks = [
       { label: "¿Cómo vender?", href: "#" },
       { label: "Centro de ayuda", href: "#" },
       { label: "Soporte", href: "#" },
-      { label: "Preguntas frecuentes", href: "#" },
+      { label: "Preguntas frecuentes", href: "/faqs" },
     ],
   },
   {
     title: "Legal",
     links: [
-      { label: "Términos", href: "#" },
-      { label: "Privacidad", href: "#" },
+      { label: "Términos", href: "/terminos" },
+      { label: "Privacidad", href: "/privacidad" },
       { label: "Cookies", href: "#" },
     ],
   },

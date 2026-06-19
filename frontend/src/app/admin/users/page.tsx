@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import {
   getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser,
-  getAdminRoles, AdminUser,
+  getAdminRoles, toggleUserActive, AdminUser,
 } from "@/lib/api";
-import { Search, Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminUsersPage() {
@@ -118,8 +118,8 @@ export default function AdminUsersPage() {
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
             <option value="">Todos los estados</option>
             <option value="active">Activo</option>
-            <option value="inactive">Inactivo</option>
-            <option value="suspended">Suspendido</option>
+            <option value="disabled">Deshabilitado</option>
+            <option value="pending_approval">Pendiente</option>
           </select>
         </div>
 
@@ -166,14 +166,20 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           u.status === "active" ? "bg-green-100 text-green-700" :
-                          u.status === "suspended" ? "bg-red-100 text-red-700" :
+                          u.status === "disabled" ? "bg-red-100 text-red-700" :
+                          u.status === "pending_approval" ? "bg-yellow-100 text-yellow-700" :
                           "bg-gray-100 text-gray-600"
                         }`}>
-                          {u.status}
+                          {u.status === "pending_approval" ? "Pendiente" : u.status}
                         </span>
                         {!u.is_verified && <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">Sin verificar</span>}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right flex items-center justify-end gap-0.5">
+                        <button onClick={async () => { try { await toggleUserActive(u.id); toast.success(u.status === "disabled" ? "Usuario habilitado" : "Usuario deshabilitado"); load(); } catch { toast.error("Error"); } }}
+                          className={`p-1.5 rounded ${u.status === "disabled" ? "text-green-500 hover:bg-green-50" : "text-orange-500 hover:bg-orange-50"}`}
+                          title={u.status === "disabled" ? "Habilitar" : "Deshabilitar"}>
+                          {u.status === "disabled" ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                        </button>
                         <button onClick={() => openEdit(u)} className="p-1.5 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
                         <button onClick={() => setDeleteModal({ open: true, user: u })} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                       </td>
