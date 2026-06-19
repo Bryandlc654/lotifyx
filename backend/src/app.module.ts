@@ -22,6 +22,8 @@ import { PlansModule } from "./plans/plans.module";
 import { FaqsModule } from "./faqs/faqs.module";
 import { FaqCategoriesModule } from "./faq-categories/faq-categories.module";
 import { LeadsModule } from "./leads/leads.module";
+import { UploadsModule } from "./uploads/uploads.module";
+import { ProductsModule } from "./products/products.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -52,7 +54,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>("JWT_SECRET"),
-        signOptions: { expiresIn: "15m" },
+        signOptions: { expiresIn: "2h" },
       }),
       global: true,
     }),
@@ -89,6 +91,8 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     FaqsModule,
     FaqCategoriesModule,
     LeadsModule,
+    UploadsModule,
+    ProductsModule,
   ],
 
   // ─── Global rate limit guard ──────────────

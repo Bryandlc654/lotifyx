@@ -116,6 +116,10 @@ export class AdminRbacService {
       { name: "category_fields.read", description: "Ver campos de categoría", module: "category_fields" },
       { name: "category_fields.write", description: "Crear/editar campos de categoría", module: "category_fields" },
       { name: "category_fields.delete", description: "Eliminar campos de categoría", module: "category_fields" },
+      { name: "products.read", description: "Ver productos", module: "products" },
+      { name: "products.write", description: "Crear/editar productos", module: "products" },
+      { name: "products.delete", description: "Eliminar productos", module: "products" },
+      { name: "products.approve", description: "Aprobar/rechazar productos", module: "products" },
     ];
 
     let created = 0;

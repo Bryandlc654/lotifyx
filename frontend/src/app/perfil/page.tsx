@@ -109,6 +109,12 @@ export default function PerfilPage() {
             Editar Perfil
           </button>
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-productos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Productos
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/ofrecer")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Ofrecer

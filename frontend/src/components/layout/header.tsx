@@ -18,8 +18,8 @@ interface UserData {
 
 const NAV_LINKS = [
   { href: "/", label: "Inicio" },
+  { href: "/categorias", label: "Categorías" },
   { href: "/contacto", label: "Contacto" },
-  { href: "/registro", label: "Registro" },
 ];
 
 export function Header() {

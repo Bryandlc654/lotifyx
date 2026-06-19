@@ -6,7 +6,7 @@ import { getCategoryFieldsAdmin, createCategoryField, updateCategoryField, delet
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
 
-const FIELD_TYPES = ["text", "textarea", "number", "image", "select"];
+const FIELD_TYPES = ["text", "textarea", "number", "image", "select", "gallery"];
 
 function flattenCats(cats: Category[]): Category[] {
   const flat: Category[] = [];

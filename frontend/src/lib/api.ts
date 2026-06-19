@@ -1,3 +1,5 @@
+import { emitSessionExpired } from "./session";
+
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
 const UPLOADS_URL = API_URL.replace(/\/api$/, "");
 
@@ -49,7 +51,6 @@ async function refreshAccessToken(): Promise<string | null> {
     });
 
     if (!res.ok) {
-      removeTokens();
       return null;
     }
 
@@ -70,8 +71,9 @@ async function authFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = getAccessToken();
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
@@ -83,6 +85,9 @@ async function authFetch(
     if (newToken) {
       headers.Authorization = `Bearer ${newToken}`;
       res = await fetch(url, { ...options, headers });
+    } else {
+      removeTokens();
+      emitSessionExpired();
     }
   }
 
@@ -483,6 +488,102 @@ export async function deleteCategoryField(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error");
 }
 
+export async function uploadGallery(files: FileList | File[]): Promise<string[]> {
+  const fd = new FormData();
+  Array.from(files).forEach(f => fd.append("files", f));
+  const res = await authFetch(`${UPLOADS_URL}/uploads/gallery`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error("Error al subir imágenes");
+  const data = await res.json();
+  return data.urls;
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await authFetch(`${UPLOADS_URL}/uploads/image`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error("Error al subir imagen");
+  const data = await res.json();
+  return data.url;
+}
+
+// ─── Products ────────────────────────────────────────────────
+
+export interface Product {
+  id: string;
+  sku?: string;
+  user_id: string;
+  category_id: string;
+  title: string;
+  specifications: Record<string, any>;
+  metodo_pago: string;
+  envio_delivery: boolean;
+  envio_courier: boolean;
+  costo_envio: number;
+  tiempo_entrega: string;
+  cambios: string;
+  devoluciones: string;
+  garantia: string;
+  politicas_imagenes: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createProduct(dto: Partial<Product>): Promise<Product> {
+  const res = await authFetch(`${API_URL}/products`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear producto");
+  return res.json();
+}
+
+export async function getMyProducts(): Promise<Product[]> {
+  const res = await authFetch(`${API_URL}/products/mine`);
+  if (!res.ok) throw new Error("Error al obtener productos");
+  return res.json();
+}
+
+export async function getProduct(id: string): Promise<Product> {
+  const res = await fetch(`${API_URL}/products/${id}`);
+  if (!res.ok) throw new Error("Error al obtener producto");
+  return res.json();
+}
+
+export async function updateProduct(id: string, dto: Partial<Product>): Promise<Product> {
+  const res = await authFetch(`${API_URL}/products/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar producto");
+  return res.json();
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/products/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar producto");
+}
+
+export async function getActiveProducts(categoryId?: string): Promise<Product[]> {
+  const qs = categoryId ? `?category_id=${categoryId}` : "";
+  const res = await fetch(`${API_URL}/products${qs}`);
+  if (!res.ok) throw new Error("Error al obtener productos");
+  return res.json();
+}
+
+export async function getAdminProducts(status?: string): Promise<Product[]> {
+  const qs = status ? `?status=${status}` : "";
+  const res = await authFetch(`${API_URL}/admin/products${qs}`);
+  if (!res.ok) throw new Error("Error al obtener productos");
+  return res.json();
+}
+
+export async function approveProduct(id: string): Promise<Product> {
+  const res = await authFetch(`${API_URL}/admin/products/${id}/approve`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al aprobar producto");
+  return res.json();
+}
+
+export async function rejectProduct(id: string): Promise<Product> {
+  const res = await authFetch(`${API_URL}/admin/products/${id}/reject`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al rechazar producto");
+  return res.json();
+}
+
 // ─── Secondary Banners ───────────────────────────────────────
 
 export interface SecondaryBanner {
@@ -682,6 +783,9 @@ async function multipartAuth(url: string, method: string, fields: Record<string,
         headers: { Authorization: `Bearer ${newToken}` },
         body: fd,
       });
+    } else {
+      removeTokens();
+      emitSessionExpired();
     }
   }
 
