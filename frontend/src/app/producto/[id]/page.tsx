@@ -1,18 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getImageUrl, Product, CategoryField } from "@/lib/api";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle } from "lucide-react";
+import { useCart } from "@/lib/cart-context";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
 
 export default function ProductoDetallePage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const { id } = params;
   const [product, setProduct] = useState<Product | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [fields, setFields] = useState<CategoryField[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"descripcion" | "condiciones">("descripcion");
+  const [showCartSuccess, setShowCartSuccess] = useState(false);
+  const cart = useCart();
 
   useEffect(() => {
     if (!id) return;
@@ -66,6 +72,34 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     const s = String(v ?? "");
     return !s.startsWith("/uploads/") && !s.startsWith("[");
   });
+
+  const titleKeys = ["título del producto", "titulo del producto", "title", "nombre del producto"];
+  const priceKeys = ["precio", "price"];
+  const sidebarKeys = ["tipo de producto", "marca", "modelo", "stock"];
+
+  const sidebarSpecs = textEntries.filter(([k]) => {
+    const key = k.toLowerCase().replace(/_/g, " ");
+    return sidebarKeys.some(s => key.includes(s));
+  });
+
+  const textSpecs = textEntries.filter(([k]) => {
+    const key = k.toLowerCase().replace(/_/g, " ");
+    return !titleKeys.some(t => key.includes(t)) && !priceKeys.some(p => key.includes(p)) && !sidebarKeys.some(s => key.includes(s));
+  });
+
+  const priceEntries = textEntries.filter(([k]) => {
+    const key = k.toLowerCase().replace(/_/g, " ");
+    return priceKeys.some(p => key.includes(p));
+  });
+
+  const priceRegular = priceEntries.find(([k]) => {
+    const key = k.toLowerCase();
+    return key.includes("regular") || key.includes("original") || key.includes("antes");
+  });
+  const priceCurrent = priceEntries.find(([k]) => {
+    const key = k.toLowerCase();
+    return !key.includes("regular") && !key.includes("original") && !key.includes("antes");
+  }) || (priceRegular ? priceEntries.find(([k]) => k !== priceRegular[0]) : null);
 
   const allImages: string[] = [];
   imageEntries.forEach(([, v]) => {
@@ -131,18 +165,31 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 </span>
               )}
 
-              <div className="mt-4 space-y-2">
-                {textEntries.map(([k, v]) => {
-                  const val = String(v ?? "");
-                  if (!val) return null;
-                  return (
-                    <div key={k} className="flex gap-2 text-sm">
-                      <span className="text-gray-400 w-32 flex-shrink-0 capitalize">{getFieldLabel(k)}</span>
-                      <span className="text-gray-700 font-medium">{val}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {priceEntries.length > 0 && (
+                <div className="mt-6">
+                  {priceRegular && (
+                    <p className="text-sm text-gray-400 line-through">S/ {Number(priceRegular[1]).toFixed(2)}</p>
+                  )}
+                  <p className={`font-bold text-gray-900 ${priceRegular ? "text-3xl" : "text-2xl mt-4"}`}>
+                    S/ {Number((priceCurrent || priceEntries[0])[1]).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {sidebarSpecs.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {sidebarSpecs.map(([k, v]) => {
+                    const val = String(v ?? "");
+                    if (!val) return null;
+                    return (
+                      <div key={k} className="flex gap-2 text-sm">
+                        <span className="text-gray-400 w-32 flex-shrink-0">{getFieldLabel(k)}</span>
+                        <span className="text-gray-800 font-medium">{val}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="flex items-center gap-6 mt-4">
                 <div className="flex items-center gap-1.5 text-sm text-gray-400">
@@ -157,9 +204,19 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
               <div className="mt-6 flex gap-3">
                 {product.envio_delivery && (
-                  <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-400 px-4 py-3.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all">
+                  <button onClick={() => {
+                    cart.addItem({
+                      id: product.id,
+                      title: product.title,
+                      sku: product.sku,
+                      image: mainImage,
+                      price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
+                      regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
+                    });
+                    setShowCartSuccess(true);
+                  }} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-400 px-4 py-3.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all">
                     <Truck className="h-5 w-5" />
-                    Envío a domicilio
+                    Comprar
                   </button>
                 )}
                 {product.envio_courier && (
@@ -172,50 +229,84 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             </div>
           </div>
 
-          {/* Condiciones de venta */}
-          <div className="mt-8 bg-white rounded-2xl border border-gray-100 p-6 max-w-3xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Condiciones de venta</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Método de pago</span>
-                <p className="text-gray-700 font-medium">{product.metodo_pago || "-"}</p>
-              </div>
-              <div>
-                <span className="text-gray-400">Envío</span>
-                <p className="text-gray-700 font-medium">
-                  {[product.envio_delivery && "Delivery propio", product.envio_courier && "Courier externo"].filter(Boolean).join(", ") || "-"}
-                </p>
-              </div>
-              <div>
-                <span className="text-gray-400">Costo envío</span>
-                <p className="text-gray-700 font-medium">S/ {Number(product.costo_envio).toFixed(2)}</p>
-              </div>
-              <div>
-                <span className="text-gray-400">Tiempo entrega</span>
-                <p className="text-gray-700 font-medium">{product.tiempo_entrega || "-"}</p>
-              </div>
-              {product.cambios && (
-                <div>
-                  <span className="text-gray-400">Cambios</span>
-                  <p className="text-gray-700 font-medium">{product.cambios}</p>
-                </div>
-              )}
-              {product.devoluciones && (
-                <div>
-                  <span className="text-gray-400">Devoluciones</span>
-                  <p className="text-gray-700 font-medium">{product.devoluciones}</p>
-                </div>
-              )}
-              {product.garantia && (
-                <div>
-                  <span className="text-gray-400">Garantía</span>
-                  <p className="text-gray-700 font-medium">{product.garantia}</p>
-                </div>
-              )}
-              {product.politicas_imagenes && (
-                <div className="sm:col-span-2">
-                  <span className="text-gray-400">Políticas de imágenes</span>
-                  <p className="text-gray-700 font-medium">{product.politicas_imagenes}</p>
+          {/* Tabs: Descripción / Condiciones */}
+          <div className="mt-8 bg-white rounded-2xl border border-gray-100 overflow-hidden max-w-3xl">
+            <div className="flex border-b border-gray-100">
+              <button onClick={() => setTab("descripcion")}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${tab === "descripcion" ? "text-purple-600 border-b-2 border-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                Descripción del Producto
+              </button>
+              <button onClick={() => setTab("condiciones")}
+                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${tab === "condiciones" ? "text-purple-600 border-b-2 border-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                Condiciones
+              </button>
+            </div>
+
+            <div className="p-6">
+              {tab === "descripcion" ? (
+                textSpecs.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {textSpecs.map(([k, v]) => {
+                      const val = String(v ?? "");
+                      if (!val) return null;
+                      const isDescription = ["descripción", "descripcion", "description", "descripción general", "descripcion general"].some(d =>
+                        k.toLowerCase().replace(/_/g, " ").includes(d)
+                      );
+                      return (
+                        <div key={k} className={isDescription ? "sm:col-span-2" : ""}>
+                          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{getFieldLabel(k)}</span>
+                          <p className="text-sm text-gray-700 mt-0.5">{val}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">Sin descripción disponible</p>
+                )
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400">Método de pago</span>
+                    <p className="text-gray-700 font-medium">{product.metodo_pago || "-"}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Envío</span>
+                    <p className="text-gray-700 font-medium">
+                      {[product.envio_delivery && "Delivery propio", product.envio_courier && "Courier externo"].filter(Boolean).join(", ") || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Costo envío</span>
+                    <p className="text-gray-700 font-medium">S/ {Number(product.costo_envio).toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Tiempo entrega</span>
+                    <p className="text-gray-700 font-medium">{product.tiempo_entrega || "-"}</p>
+                  </div>
+                  {product.cambios && (
+                    <div>
+                      <span className="text-gray-400">Cambios</span>
+                      <p className="text-gray-700 font-medium">{product.cambios}</p>
+                    </div>
+                  )}
+                  {product.devoluciones && (
+                    <div>
+                      <span className="text-gray-400">Devoluciones</span>
+                      <p className="text-gray-700 font-medium">{product.devoluciones}</p>
+                    </div>
+                  )}
+                  {product.garantia && (
+                    <div>
+                      <span className="text-gray-400">Garantía</span>
+                      <p className="text-gray-700 font-medium">{product.garantia}</p>
+                    </div>
+                  )}
+                  {product.politicas_imagenes && (
+                    <div className="sm:col-span-2">
+                      <span className="text-gray-400">Políticas de imágenes</span>
+                      <p className="text-gray-700 font-medium">{product.politicas_imagenes}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -223,6 +314,60 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
         </div>
       </main>
+
+      {/* Success modal */}
+      {showCartSuccess && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCartSuccess(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-[632px] overflow-hidden p-8" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-end -mt-2 -mr-2">
+              <button onClick={() => setShowCartSuccess(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold" style={{ color: "#151e3f" }}>Producto agregado a tu carrito</h2>
+              <div className="flex items-center gap-2 text-gray-600 mt-1">
+                <svg className="h-5 w-5" style={{ color: "#10b981" }} fill="currentColor" viewBox="0 0 20 20">
+                  <path clipRule="evenodd" fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
+                </svg>
+                <p className="text-sm font-medium">Haz añadido 1 item a tu compra</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="w-32 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                  {mainImage ? (
+                    <img src={getImageUrl(mainImage)} alt={product.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sin img</div>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="font-semibold text-lg leading-snug" style={{ color: "#151e3f" }}>{product.title}</h3>
+                  {product.sku && <p className="text-gray-400 text-sm mt-1">Lot: {product.sku}</p>}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-xl font-bold" style={{ color: "#151e3f" }}>
+                  S/ {Number((priceCurrent || priceEntries[0])?.[1] || 0).toFixed(2)}
+                </div>
+                {priceRegular && (
+                  <div className="text-sm line-through text-gray-400">S/ {Number(priceRegular[1]).toFixed(2)}</div>
+                )}
+              </div>
+            </div>
+
+            <button onClick={() => { setShowCartSuccess(false); router.push("/checkout"); }}
+              className="w-full font-semibold py-4 rounded-xl transition-colors duration-200 text-lg shadow-sm text-white" style={{ backgroundColor: "#6b778d" }}
+              onMouseOver={e => e.currentTarget.style.backgroundColor = "#586375"}
+              onMouseOut={e => e.currentTarget.style.backgroundColor = "#6b778d"}>
+              Ir a pagar
+            </button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </>
   );

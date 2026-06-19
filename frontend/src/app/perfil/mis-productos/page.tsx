@@ -63,12 +63,30 @@ export default function MisProductosPage() {
             Editar Perfil
           </button>
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-compras")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Compras
+            </button>
+          )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-cuentas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Cuentas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-ventas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
             <button onClick={() => router.push("/perfil/mis-productos")}
               className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
               Mis Productos
             </button>
           )}
-          {userRole !== "superadmin" && (
+          {userRole === "vendedor" && (
             <button onClick={() => router.push("/perfil/ofrecer")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Ofrecer
@@ -90,7 +108,7 @@ export default function MisProductosPage() {
               <h1 className="text-2xl font-bold text-gray-900">Mis Productos</h1>
               <p className="text-gray-500 text-sm mt-1">{filtered.length} de {products.length} producto{products.length !== 1 ? "s" : ""}</p>
             </div>
-            {userRole !== "superadmin" && (
+            {userRole === "vendedor" && (
               <button onClick={() => router.push("/perfil/ofrecer")}
                 className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold py-2 px-5 rounded-xl text-sm shadow-md hover:opacity-90 transition-opacity">
                 + Nuevo Producto
@@ -121,7 +139,7 @@ export default function MisProductosPage() {
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h2 className="text-lg font-semibold text-gray-900 mb-1">Aún no tienes productos</h2>
               <p className="text-sm text-gray-400 mb-6">Publica tu primer producto para empezar a vender</p>
-              {userRole !== "superadmin" && (
+              {userRole === "vendedor" && (
                 <button onClick={() => router.push("/perfil/ofrecer")}
                   className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold py-2.5 px-6 rounded-xl text-sm shadow-md hover:opacity-90 transition-opacity">
                   Publicar Producto

@@ -42,7 +42,7 @@ export default function PlanesPage() {
         body: JSON.stringify({ plan_id: planId }),
       });
       toast.success("¡Plan seleccionado!");
-      router.push("/checkout");
+      router.push("/checkout?source=plan");
     } catch (e: any) {
       toast.error("Error al seleccionar plan");
     } finally {

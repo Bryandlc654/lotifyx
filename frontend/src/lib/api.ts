@@ -792,3 +792,125 @@ async function multipartAuth(url: string, method: string, fields: Record<string,
   if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
   return res.json();
 }
+
+export async function saveBankAccount(dto: { bank_name: string; account_number: string; account_holder?: string; account_type?: string }) {
+  const res = await authFetch(`${API_URL}/auth/bank-account`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al guardar cuenta bancaria");
+  return res.json();
+}
+
+export async function getBankAccounts() {
+  const res = await authFetch(`${API_URL}/auth/bank-accounts`);
+  if (!res.ok) throw new Error("Error al obtener cuentas bancarias");
+  return res.json();
+}
+
+export async function getAdminOrders(status?: string) {
+  const qs = status ? `?status=${status}` : "";
+  const res = await authFetch(`${API_URL}/admin/orders${qs}`);
+  if (!res.ok) throw new Error("Error al obtener pedidos");
+  return res.json();
+}
+
+export async function approveOrderPayment(id: string) {
+  const res = await authFetch(`${API_URL}/admin/orders/${id}/approve`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al aprobar pago");
+  return res.json();
+}
+
+export async function rejectOrderPayment(id: string, motivo: string) {
+  const res = await authFetch(`${API_URL}/admin/orders/${id}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ motivo }),
+  });
+  if (!res.ok) throw new Error("Error al rechazar pago");
+  return res.json();
+}
+
+export async function getMySales() {
+  const res = await authFetch(`${API_URL}/checkout/sales`);
+  if (!res.ok) throw new Error("Error al obtener ventas");
+  return res.json();
+}
+
+export async function getMyOrders() {
+  const res = await authFetch(`${API_URL}/checkout/orders`);
+  if (!res.ok) throw new Error("Error al obtener pedidos");
+  return res.json();
+}
+
+export async function submitPlanPayment(data: {
+  operation_number: string;
+  amount: number;
+  origin_account_id?: string;
+  proof: File;
+}) {
+  const token = getAccessToken();
+  const fd = new FormData();
+  fd.append("operation_number", data.operation_number);
+  fd.append("amount", String(data.amount));
+  if (data.origin_account_id) fd.append("origin_account_id", data.origin_account_id);
+  fd.append("proof", data.proof);
+
+  let res = await fetch(`${API_URL}/auth/submit-payment`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+
+  if (res.status === 401 && getRefreshToken()) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await fetch(`${API_URL}/auth/submit-payment`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${newToken}` },
+        body: fd,
+      });
+    } else {
+      removeTokens();
+      emitSessionExpired();
+    }
+  }
+
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function submitCheckout(data: {
+  items: { id: string; price: number }[];
+  origin_account_id: string;
+  operation_number: string;
+  amount: number;
+  proof: File;
+}) {
+  const token = getAccessToken();
+  const fd = new FormData();
+  fd.append("items", JSON.stringify(data.items));
+  fd.append("origin_account_id", data.origin_account_id);
+  fd.append("operation_number", data.operation_number);
+  fd.append("amount", String(data.amount));
+  fd.append("proof", data.proof);
+
+  let res = await fetch(`${API_URL}/checkout/submit`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+
+  if (res.status === 401 && getRefreshToken()) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await fetch(`${API_URL}/checkout/submit`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${newToken}` },
+        body: fd,
+      });
+    } else {
+      removeTokens();
+      emitSessionExpired();
+    }
+  }
+
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}

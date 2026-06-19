@@ -258,12 +258,30 @@ function DetallesContent() {
             Editar Perfil
           </button>
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-compras")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Compras
+            </button>
+          )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-cuentas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Cuentas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-ventas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
             <button onClick={() => router.push("/perfil/mis-productos")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Productos
             </button>
           )}
-          {userRole !== "superadmin" && (
+          {userRole === "vendedor" && (
             <button onClick={() => router.push("/perfil/ofrecer")}
               className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
               Ofrecer

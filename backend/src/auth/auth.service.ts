@@ -463,15 +463,22 @@ export class AuthService {
     return { message: "Plan activado exitosamente" };
   }
 
-  async saveBankAccount(userId: string, dto: { bank_name: string; account_number: string }) {
+  async getBankAccounts(userId: string) {
+    return this.userRepository.query(
+      `SELECT * FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+  }
+
+  async saveBankAccount(userId: string, dto: { bank_name: string; account_number: string; account_holder?: string; account_type?: string }) {
     const result = await this.userRepository.query(
-      `INSERT INTO bank_accounts (user_id, bank_name, account_number) VALUES ($1, $2, $3) RETURNING *`,
-      [userId, dto.bank_name, dto.account_number]
+      `INSERT INTO bank_accounts (user_id, bank_name, account_number, account_holder, account_type) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [userId, dto.bank_name, dto.account_number, dto.account_holder || null, dto.account_type || "Cuenta bancaria"]
     );
     return result[0];
   }
 
-  async submitPayment(userId: string, dto: { operation_number: string; amount: number }) {
+  async submitPayment(userId: string, dto: { operation_number: string; amount: number; proof_url: string; origin_account_id?: string }) {
     const sp = await this.userRepository.query(
       `SELECT id FROM seller_plans WHERE user_id = $1 AND payment_status = 'pending' ORDER BY created_at DESC LIMIT 1`,
       [userId]
@@ -479,8 +486,8 @@ export class AuthService {
     const sellerPlanId = sp[0]?.id;
 
     await this.userRepository.query(
-      `INSERT INTO plan_payments (seller_plan_id, user_id, amount, payment_proof, status) VALUES ($1, $2, $3, $4, 'pending')`,
-      [sellerPlanId, userId, dto.amount, dto.operation_number]
+      `INSERT INTO plan_payments (seller_plan_id, user_id, amount, payment_proof, status, operation_number, origin_account_id) VALUES ($1, $2, $3, $4, 'pending', $5, $6)`,
+      [sellerPlanId, userId, dto.amount, dto.proof_url, dto.operation_number, dto.origin_account_id || null]
     );
 
     await this.userRepository.update(userId, { status: "pending_approval" });

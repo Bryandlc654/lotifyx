@@ -120,6 +120,8 @@ export class AdminRbacService {
       { name: "products.write", description: "Crear/editar productos", module: "products" },
       { name: "products.delete", description: "Eliminar productos", module: "products" },
       { name: "products.approve", description: "Aprobar/rechazar productos", module: "products" },
+      { name: "orders.read", description: "Ver historial de ventas", module: "orders" },
+      { name: "orders.approve", description: "Aprobar pagos de pedidos", module: "orders" },
     ];
 
     let created = 0;

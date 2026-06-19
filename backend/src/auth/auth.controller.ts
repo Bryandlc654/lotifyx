@@ -11,10 +11,12 @@ import {
   Res,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
+import { existsSync, mkdirSync } from "fs";
 import { Throttle } from "@nestjs/throttler";
 import { AuthGuard } from "@nestjs/passport";
 import { Response } from "express";
@@ -144,16 +146,55 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("bank-accounts")
+  getBankAccounts(@Req() req) {
+    return this.authService.getBankAccounts(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post("bank-account")
   @HttpCode(HttpStatus.CREATED)
-  saveBankAccount(@Req() req, @Body() dto: { bank_name: string; account_number: string }) {
+  saveBankAccount(@Req() req, @Body() dto: { bank_name: string; account_number: string; account_holder?: string; account_type?: string }) {
     return this.authService.saveBankAccount(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("submit-payment")
+  @UseInterceptors(
+    FileInterceptor("proof", {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = "./uploads/proofs";
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\//)) {
+          cb(new BadRequestException("Solo se permiten imágenes"), false);
+          return;
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
   @HttpCode(HttpStatus.OK)
-  submitPayment(@Req() req, @Body() dto: { operation_number: string; amount: number }) {
-    return this.authService.submitPayment(req.user.id, dto);
+  submitPayment(
+    @Req() req,
+    @Body() body: { operation_number: string; amount: string; origin_account_id?: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException("El comprobante es obligatorio");
+    const proofUrl = `/uploads/proofs/${file.filename}`;
+    return this.authService.submitPayment(req.user.id, {
+      operation_number: body.operation_number,
+      amount: parseFloat(body.amount),
+      proof_url: proofUrl,
+      origin_account_id: body.origin_account_id,
+    });
   }
 }

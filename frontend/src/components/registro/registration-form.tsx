@@ -58,8 +58,9 @@ export function RegistrationForm() {
   const onSubmit = async (data: RegistroFormData) => {
     setIsSubmitting(true);
     try {
+      const { confirmarContrasena, ...rest } = data;
       const payload = {
-        ...data,
+        ...rest,
         aceptaTerminos: Boolean(data.aceptaTerminos),
         accountType: data.accountType,
         codigoReferidos: data.codigoReferidos || undefined,
