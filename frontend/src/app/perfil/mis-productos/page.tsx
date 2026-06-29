@@ -62,6 +62,12 @@ export default function MisProductosPage() {
             className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
             Editar Perfil
           </button>
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/dashboard")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Dashboard
+            </button>
+          )}
           {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-compras")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
@@ -78,6 +84,12 @@ export default function MisProductosPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/carga-masiva")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Carga Masiva
             </button>
           )}
           {userRole === "vendedor" && (
@@ -157,6 +169,7 @@ export default function MisProductosPage() {
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">SKU</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Stock</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Producto</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Tipo</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Especificaciones</th>
@@ -170,6 +183,11 @@ export default function MisProductosPage() {
                     <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-5 py-4 hidden lg:table-cell">
                         <span className="text-xs font-mono text-gray-400">{p.sku || "—"}</span>
+                      </td>
+                      <td className="px-3 py-4 text-center hidden md:table-cell">
+                        <span className={`text-xs font-medium ${(p.stock ?? 0) > 0 ? "text-green-700" : "text-red-500"}`}>
+                          {p.stock ?? "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4">
                         <span className="font-semibold text-gray-900 text-sm">{p.specifications?.["Título del Producto"] || p.specifications?.titulo || p.specifications?.title || p.title}</span>

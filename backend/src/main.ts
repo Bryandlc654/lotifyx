@@ -5,6 +5,10 @@ import { json, urlencoded } from "express";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
+  // Graceful crash logging
+  process.on("unhandledRejection", (reason) => console.error("UNHANDLED REJECTION:", reason));
+  process.on("uncaughtException", (err) => console.error("UNCAUGHT EXCEPTION:", err));
+
   const app = await NestFactory.create(AppModule);
 
   // ─── Body size limits ─────────────────────
@@ -38,6 +42,8 @@ async function bootstrap() {
   app.setGlobalPrefix("api", {
     exclude: ["uploads/(.*)"],
   });
+
+  app.enableShutdownHooks();
 
   const port = process.env.APP_PORT || 4000;
   await app.listen(port);

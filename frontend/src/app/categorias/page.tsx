@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getActiveProducts, getCategories, getImageUrl, Product, Category } from "@/lib/api";
-import { Grid3X3, List, ChevronDown, ChevronRight, Tag, Loader2 } from "lucide-react";
+import { Grid3X3, List, ChevronDown, ChevronRight, Tag, Loader2, Search, X } from "lucide-react";
 import { CategoriesCarousel } from "@/components/home/categories-carousel";
 
 export default function CategoriasPage() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,8 +22,12 @@ export default function CategoriasPage() {
   const perPage = 9;
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get("q") || "";
+    setSearchQuery(q);
+
     Promise.all([
-      getActiveProducts(selectedCategory || undefined),
+      getActiveProducts(selectedCategory || undefined, q || undefined),
       getCategories(),
     ])
       .then(([prods, cats]) => {
@@ -113,6 +120,39 @@ export default function CategoriasPage() {
             </aside>
 
             <div className="flex-1 min-w-0">
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const q = searchQuery.trim();
+                        if (q) router.push(`/categorias?q=${encodeURIComponent(q)}`);
+                        else router.push("/categorias");
+                      }
+                    }}
+                    placeholder="Buscar productos..."
+                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => { setSearchQuery(""); router.push("/categorias"); }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-100 text-gray-400"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Resultados para: <span className="font-semibold text-gray-700">"{searchQuery}"</span> ({sorted.length} producto{sorted.length !== 1 ? "s" : ""})
+                  </p>
+                )}
+              </div>
+
               <div className="mb-6">
                 <h3 className="text-base font-semibold text-gray-900 mb-3">Navega por las categorías</h3>
                 <CategoriesCarousel showTitle={false} bgWhite={false} showArrows={false} compact={true} />

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart, FileText, AlertTriangle } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -21,6 +21,7 @@ const modules = [
   { href: "/admin/backing", label: "Respaldo", icon: ShieldCheck, permission: "backing" },
   { href: "/admin/products", label: "Productos", icon: Package, permission: "products" },
   { href: "/admin/sales", label: "Ventas", icon: ShoppingCart, permission: "orders" },
+  { href: "/admin/reclamos", label: "Reclamos", icon: AlertTriangle, permission: "orders" },
   { href: "/admin/plans", label: "Planes", icon: CreditCard, permission: "plans" },
   { href: "/admin/rbac", label: "RBAC", icon: Shield, permission: "rbac" },
   { href: "/admin/marquees", label: "Logos", icon: Star, permission: "marquees" },
@@ -28,6 +29,7 @@ const modules = [
   { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, permission: "faqs" },
   { href: "/admin/faq-categories", label: "Categorías FAQ", icon: Tags, permission: "faq_categories" },
   { href: "/admin/leads", label: "Leads", icon: Mail, permission: "leads" },
+  { href: "/admin/audit", label: "Auditoría", icon: FileText, permission: "orders" },
   { href: "/admin/settings", label: "Configuración", icon: Settings, permission: "settings" },
 ];
 

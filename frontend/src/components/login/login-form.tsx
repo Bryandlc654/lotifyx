@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { loginUser, getGoogleAuthUrl, getProfile } from "@/lib/api";
+import { loginUser, getGoogleAuthUrl } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 
 interface LoginFormData {
@@ -26,15 +26,14 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     try {
-      await loginUser(data);
+      const res = await loginUser(data);
       toast.success("¡Bienvenido!");
       reset();
-      const profile = await getProfile();
-      const u = profile.user as any;
+      const u = res.user as any;
       if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
         router.push("/planes"); return;
       }
-      router.push("/perfil");
+      router.push(u?.role?.name === "vendedor" ? "/perfil/dashboard" : "/perfil");
     } catch (err: any) {
       toast.error(err.message || "Error al iniciar sesión");
     } finally { setLoading(false); }

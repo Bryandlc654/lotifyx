@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { loginUser, getGoogleAuthUrl, getProfile } from "@/lib/api";
+import { loginUser, getGoogleAuthUrl } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 
 interface LoginModalProps {
@@ -33,21 +33,17 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     try {
-      await loginUser(data);
+      const res = await loginUser(data);
       toast.success("¡Bienvenido!");
       reset();
       onClose();
 
-      try {
-        const profile = await getProfile();
-        const u = profile.user as any;
-        if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
-          router.push("/planes");
-          return;
-        }
-      } catch {}
-
-      router.push("/perfil");
+      const u = res.user as any;
+      if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
+        router.push("/planes");
+        return;
+      }
+      router.push(u?.role?.name === "vendedor" ? "/perfil/dashboard" : "/perfil");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error al iniciar sesión";

@@ -76,6 +76,12 @@ export default function MisVentasPage() {
             </button>
           )}
           {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/carga-masiva")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Carga Masiva
+            </button>
+          )}
+          {userRole === "vendedor" && (
             <button onClick={() => router.push("/perfil/mis-productos")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Productos

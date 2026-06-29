@@ -13,15 +13,19 @@ export class CleanupService {
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async cleanupExpiredTokens() {
-    const result = await this.refreshTokenRepo
-      .createQueryBuilder()
-      .delete()
-      .where("expires_at < :now", { now: new Date() })
-      .orWhere("is_revoked = :revoked", { revoked: true })
-      .execute();
+    try {
+      const result = await this.refreshTokenRepo
+        .createQueryBuilder()
+        .delete()
+        .where("expires_at < :now", { now: new Date() })
+        .orWhere("is_revoked = :revoked", { revoked: true })
+        .execute();
 
-    if (result.affected && result.affected > 0) {
-      console.log(`[Cron] ${result.affected} refresh tokens expirados eliminados`);
+      if (result.affected && result.affected > 0) {
+        console.log(`[Cron] ${result.affected} refresh tokens expirados eliminados`);
+      }
+    } catch (err) {
+      console.error("[Cron] Error limpiando tokens:", err?.message);
     }
   }
 }

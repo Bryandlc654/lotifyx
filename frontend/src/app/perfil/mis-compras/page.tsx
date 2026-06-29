@@ -101,10 +101,18 @@ export default function MisComprasPage() {
             className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
             Editar Perfil
           </button>
-          <button onClick={() => router.push("/perfil/mis-compras")}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/dashboard")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Dashboard
+            </button>
+          )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-compras")}
             className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
             Mis Compras
           </button>
+          )}
           {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
@@ -115,6 +123,12 @@ export default function MisComprasPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/carga-masiva")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Carga Masiva
             </button>
           )}
           {userRole === "vendedor" && (
@@ -179,6 +193,11 @@ export default function MisComprasPage() {
                           className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline">
                           <Eye className="w-3 h-3" />
                           Detalle
+                        </button>
+                        <button onClick={() => router.push(`/perfil/reclamo/${order.id}`)}
+                          className="flex items-center gap-1 text-[10px] text-orange-600 hover:underline ml-2">
+                          <AlertCircle className="w-3 h-3" />
+                          Reclamo
                         </button>
                       </div>
 

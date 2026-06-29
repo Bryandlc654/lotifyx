@@ -1,10 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
+import { AuditService } from "../audit/audit.service";
 
 @Injectable()
 export class CheckoutService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly audit: AuditService,
+  ) {}
 
   async getOrders(userId: string) {
     const orders = await this.dataSource.query(
@@ -18,7 +22,8 @@ export class CheckoutService {
        LEFT JOIN users u ON u.id = p.user_id
        LEFT JOIN user_profiles up ON up.user_id = p.user_id
        WHERE o.user_id = $1
-       ORDER BY o.created_at DESC`,
+       ORDER BY o.created_at DESC
+       LIMIT 200`,
       [userId],
     );
 
@@ -74,8 +79,9 @@ export class CheckoutService {
        LEFT JOIN user_profiles up ON up.user_id = p.user_id
        LEFT JOIN users buyer ON buyer.id = o.user_id
        LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
-       ${statusFilter}
-       ORDER BY o.created_at DESC`,
+        ${statusFilter}
+        ORDER BY o.created_at DESC
+        LIMIT 200`,
       params,
     );
 
@@ -121,12 +127,125 @@ export class CheckoutService {
     return Object.values(grouped);
   }
 
+  async getDashboard(userId: string) {
+    const [[productsStats], [salesStats], recentOrders, recentProducts] = await Promise.all([
+      this.dataSource.query(
+        `SELECT
+           COUNT(*)::int as total,
+           COUNT(*) FILTER (WHERE status = 'active')::int as active,
+           COUNT(*) FILTER (WHERE status = 'pending_approval')::int as pending,
+           COUNT(*) FILTER (WHERE status = 'draft')::int as draft
+         FROM products WHERE user_id = $1`,
+        [userId],
+      ),
+      this.dataSource.query(
+        `SELECT
+           COUNT(DISTINCT o.id)::int as total_sales,
+           COALESCE(SUM(oi.price), 0)::numeric as revenue,
+           COUNT(*) FILTER (WHERE o.status = 'completed')::int as completed,
+           COUNT(*) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
+         FROM orders o
+         INNER JOIN order_items oi ON oi.order_id = o.id
+         INNER JOIN products p ON p.id = oi.product_id AND p.user_id = $1`,
+        [userId],
+      ),
+      this.dataSource.query(
+        `SELECT o.id, o.total_amount, o.status, o.created_at,
+                oi.price as item_price, p.title as product_title
+         FROM orders o
+         INNER JOIN order_items oi ON oi.order_id = o.id
+         INNER JOIN products p ON p.id = oi.product_id AND p.user_id = $1
+         ORDER BY o.created_at DESC LIMIT 5`,
+        [userId],
+      ),
+      this.dataSource.query(
+        `SELECT id, title, sku, status, created_at FROM products
+         WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
+        [userId],
+      ),
+    ]);
+
+    return {
+      products: productsStats,
+      sales: salesStats,
+      recentOrders,
+      recentProducts,
+    };
+  }
+
   async approveOrder(id: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.query(
+        `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`,
+        [id],
+      );
+
+      const items = await queryRunner.query(
+        `SELECT product_id FROM order_items WHERE order_id = $1`,
+        [id],
+      );
+
+      for (const item of items) {
+        await queryRunner.query(
+          `UPDATE products SET stock = GREATEST(stock - 1, 0) WHERE id = $1 AND stock > 0`,
+          [item.product_id],
+        );
+      }
+
+      await queryRunner.commitTransaction();
+      this.audit.log({ action: "order_approved", entity: "order", entityId: id });
+      return { message: "Pago aprobado y stock actualizado" };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async updateOrderStatus(id: string, status: string) {
+    const valid = ["pending_payment", "completed", "rejected", "paid"];
+    if (!valid.includes(status)) throw new BadRequestException("Estado inválido");
     await this.dataSource.query(
-      `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`,
-      [id],
+      `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1`,
+      [id, status],
     );
-    return { message: "Pago aprobado correctamente" };
+    this.audit.log({ action: "order_status_updated", entity: "order", entityId: id, details: { status } });
+    return { message: "Estado actualizado" };
+  }
+
+  async createClaim(data: { userId: string; orderId: string; reason: string; description: string; solution: string; amount: number | null }) {
+    await this.dataSource.query(
+      `INSERT INTO claims (order_id, user_id, reason, description, solution, amount) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [data.orderId, data.userId, data.reason, data.description, data.solution, data.amount],
+    );
+    this.audit.log({ userId: data.userId, action: "claim_created", entity: "claim", entityId: data.orderId, details: { reason: data.reason } });
+    return { message: "Reclamo enviado correctamente" };
+  }
+
+  async findAllClaims() {
+    return this.dataSource.query(
+      `SELECT c.*, o.total_amount, o.created_at as order_date,
+              u.email as user_email, up.first_name as user_first_name, up.last_name as user_last_name
+       FROM claims c
+       LEFT JOIN orders o ON o.id = c.order_id
+       LEFT JOIN users u ON u.id = c.user_id
+       LEFT JOIN user_profiles up ON up.user_id = c.user_id
+       ORDER BY c.created_at DESC LIMIT 200`,
+    );
+  }
+
+  async updateClaimStatus(id: string, status: string, response?: string) {
+    await this.dataSource.query(
+      `UPDATE claims SET status = $2, updated_at = NOW() WHERE id = $1`,
+      [id, status],
+    );
+    this.audit.log({ action: "claim_updated", entity: "claim", entityId: id, details: { status } });
+    return { message: "Reclamo actualizado" };
   }
 
   async rejectOrder(id: string, motivo: string) {
@@ -134,6 +253,7 @@ export class CheckoutService {
       `UPDATE orders SET status = 'rejected', rejected_reason = $2, updated_at = NOW() WHERE id = $1`,
       [id, motivo],
     );
+    this.audit.log({ action: "order_rejected", entity: "order", entityId: id, details: { motivo } });
     return { message: "Pago rechazado" };
   }
 
@@ -147,8 +267,9 @@ export class CheckoutService {
        INNER JOIN order_items oi ON oi.order_id = o.id
        INNER JOIN products p ON p.id = oi.product_id AND p.user_id = $1
        LEFT JOIN users buyer ON buyer.id = o.user_id
-       LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
-       ORDER BY o.created_at DESC`,
+        LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
+        ORDER BY o.created_at DESC
+        LIMIT 200`,
       [userId],
     );
 
@@ -190,6 +311,16 @@ export class CheckoutService {
     amount: number;
     proofUrl: string;
   }) {
+    const productIds = data.items.map(i => i.id);
+
+    const ownProducts = await this.dataSource.query(
+      `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2`,
+      [productIds, data.userId],
+    );
+
+    if (ownProducts.length > 0) {
+      throw new BadRequestException("No puedes comprar tus propios productos");
+    }
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -211,6 +342,7 @@ export class CheckoutService {
       }
 
       await queryRunner.commitTransaction();
+      this.audit.log({ userId: data.userId, action: "order_created", entity: "order", entityId: order.id, details: { items: data.items.length, total: data.total } });
       return order;
     } catch (err) {
       await queryRunner.rollbackTransaction();

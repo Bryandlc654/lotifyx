@@ -3,6 +3,8 @@ import {
   Post,
   Put,
   Get,
+  Delete,
+  Param,
   Body,
   HttpCode,
   HttpStatus,
@@ -156,6 +158,20 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   saveBankAccount(@Req() req, @Body() dto: { bank_name: string; account_number: string; account_holder?: string; account_type?: string }) {
     return this.authService.saveBankAccount(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put("bank-account/:id")
+  @HttpCode(HttpStatus.OK)
+  updateBankAccount(@Req() req, @Param("id") id: string, @Body() dto: { bank_name?: string; account_number?: string; account_holder?: string; account_type?: string }) {
+    return this.authService.updateBankAccount(req.user.id, id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("bank-account/:id")
+  @HttpCode(HttpStatus.OK)
+  deleteBankAccount(@Req() req, @Param("id") id: string) {
+    return this.authService.deleteBankAccount(req.user.id, id);
   }
 
   @UseGuards(JwtAuthGuard)

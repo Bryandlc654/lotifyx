@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Menu, X, Search } from "lucide-react";
 import { UserMenu } from "./user-menu";
 import { getProfile, isAuthenticated, removeTokens } from "@/lib/api";
@@ -23,7 +24,9 @@ const NAV_LINKS = [
 ];
 
 export function Header() {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [user, setUser] = useState<UserData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [topBarText, setTopBarText] = useState("Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.");
@@ -101,7 +104,14 @@ export function Header() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar"
+              placeholder="Buscar productos..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && searchTerm.trim()) {
+                  router.push(`/categorias?q=${encodeURIComponent(searchTerm.trim())}`);
+                }
+              }}
               className="w-40 lg:w-56 pl-10 pr-4 py-2 rounded-full border border-gray-200 bg-gray-50 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400 focus:bg-white transition-colors"
             />
           </div>
@@ -142,6 +152,22 @@ export function Header() {
 
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-6 py-4 space-y-3">
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar productos..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && searchTerm.trim()) {
+                    setMobileOpen(false);
+                    router.push(`/categorias?q=${encodeURIComponent(searchTerm.trim())}`);
+                  }
+                }}
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              />
+            </div>
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}

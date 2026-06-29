@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository, In, Like } from "typeorm";
 import { randomBytes } from "crypto";
 import { Product } from "./product.entity";
+import { AuditService } from "../audit/audit.service";
 
 function generateSku(): string {
   return `SKU-${randomBytes(4).toString("hex").toUpperCase()}`;
@@ -10,12 +11,16 @@ function generateSku(): string {
 
 @Injectable()
 export class ProductsService {
-  constructor(@InjectRepository(Product) private readonly repo: Repository<Product>) {}
+  constructor(
+    @InjectRepository(Product) private readonly repo: Repository<Product>,
+    private readonly audit: AuditService,
+  ) {}
 
-  findAllActive(categoryId?: string) {
+  findAllActive(categoryId?: string, search?: string) {
     const where: any = { status: "active" };
     if (categoryId) where.category_id = categoryId;
-    return this.repo.find({ where, order: { created_at: "DESC" } });
+    if (search) where.title = Like(`%${search}%`);
+    return this.repo.find({ where, order: { created_at: "DESC" }, take: 200 });
   }
 
   findAllAdmin(status?: string) {
@@ -24,7 +29,7 @@ export class ProductsService {
       const statuses = status.split(",");
       where.status = statuses.length === 1 ? statuses[0] : In(statuses);
     }
-    return this.repo.find({ where, order: { created_at: "DESC" } });
+    return this.repo.find({ where, order: { created_at: "DESC" }, take: 200 });
   }
 
   findByUser(userId: string) {
@@ -42,7 +47,9 @@ export class ProductsService {
     while (await this.repo.findOne({ where: { sku } })) {
       sku = generateSku();
     }
-    return this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
+    const product = await this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
+    this.audit.log({ userId: dto.user_id, action: "product_created", entity: "product", entityId: product.id, details: { title: dto.title } });
+    return product;
   }
 
   async update(id: string, dto: Partial<Product>) {
@@ -59,12 +66,16 @@ export class ProductsService {
   async approve(id: string) {
     const p = await this.findOne(id);
     p.status = "active";
-    return this.repo.save(p);
+    const saved = await this.repo.save(p);
+    this.audit.log({ action: "product_approved", entity: "product", entityId: id, details: { title: p.title } });
+    return saved;
   }
 
   async reject(id: string) {
     const p = await this.findOne(id);
     p.status = "rejected";
-    return this.repo.save(p);
+    const saved = await this.repo.save(p);
+    this.audit.log({ action: "product_rejected", entity: "product", entityId: id, details: { title: p.title } });
+    return saved;
   }
 }

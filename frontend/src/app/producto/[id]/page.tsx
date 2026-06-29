@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getImageUrl, Product, CategoryField } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, Product, CategoryField } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
 
@@ -18,6 +18,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"descripcion" | "condiciones">("descripcion");
   const [showCartSuccess, setShowCartSuccess] = useState(false);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [isOwn, setIsOwn] = useState(false);
   const cart = useCart();
 
   useEffect(() => {
@@ -31,6 +33,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       setFields(flds.filter(f => f.category_id === p.category_id));
       const cat = cats.find(c => c.id === p.category_id);
       if (cat) setCategoryName(cat.name);
+      getActiveProducts(p.category_id).then(relatedProducts => {
+        setRelated(relatedProducts.filter(r => r.id !== id).slice(0, 4));
+      }).catch(() => {});
+      setIsOwn(getCurrentUserId() === p.user_id);
     }).catch(() => {})
     .finally(() => setLoading(false));
   }, [id]);
@@ -39,7 +45,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     return (
       <>
         <Header />
-        <main className="pt-24 min-h-screen bg-white flex items-center justify-center">
+        <main className="pt-24 min-h-screen bg-[#f5f6f8] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
         </main>
         <Footer />
@@ -51,7 +57,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     return (
       <>
         <Header />
-        <main className="pt-24 min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+        <main className="pt-24 min-h-screen bg-[#f5f6f8] flex flex-col items-center justify-center gap-4">
           <XCircle className="h-12 w-12 text-gray-300" />
           <p className="text-gray-500">Producto no encontrado</p>
           <Link href="/categorias" className="text-purple-600 hover:underline text-sm">Volver a categorías</Link>
@@ -122,7 +128,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   return (
     <>
       <Header />
-      <main className="pt-24 min-h-screen bg-white">
+      <main className="pt-24 min-h-screen bg-[#f5f6f8]">
         <div className="max-w-7xl mx-auto px-6 py-6">
 
           <nav className="flex items-center gap-2 text-sm mb-6">
@@ -135,6 +141,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             <span className="text-purple-600 font-semibold truncate max-w-[200px]">{product.title}</span>
           </nav>
 
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr_400px] gap-6">
             {thumbnails.length > 0 && (
               <div className="hidden lg:flex flex-col gap-3">
@@ -190,6 +197,14 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   })}
                 </div>
               )}
+              {(product.stock != null && product.stock !== undefined) && (
+                <div className="mt-2 flex gap-2 text-sm">
+                  <span className="text-gray-400 w-32 flex-shrink-0">Stock</span>
+                  <span className={`font-medium ${product.stock > 0 ? "text-green-700" : "text-red-600"}`}>
+                    {product.stock > 0 ? `${product.stock} disponibles` : "Agotado"}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-6 mt-4">
                 <div className="flex items-center gap-1.5 text-sm text-gray-400">
@@ -203,7 +218,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               </div>
 
               <div className="mt-6 flex gap-3">
-                {product.envio_delivery && (
+                {isOwn && (
+                  <p className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">Es tu propio producto</p>
+                )}
+                {product.envio_delivery && !isOwn && (
                   <button onClick={() => {
                     cart.addItem({
                       id: product.id,
@@ -227,6 +245,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 )}
               </div>
             </div>
+          </div>
           </div>
 
           {/* Tabs: Descripción / Condiciones */}
@@ -311,6 +330,66 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               )}
             </div>
           </div>
+
+          {/* Related Products */}
+          {related.length > 0 && (
+            <div className="mt-12">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Productos relacionados</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {related.map(r => {
+                  const rSpecs = r.specifications || {};
+                  const rEntries = Object.entries(rSpecs);
+                  const rImgEntries = rEntries.filter(([, v]) => {
+                    const s = String(v ?? "");
+                    return s.startsWith("/uploads/") || s.startsWith("[");
+                  });
+                  const rPriceEntries = rEntries.filter(([k]) => {
+                    const key = k.toLowerCase().replace(/_/g, " ");
+                    return key.includes("precio") || key.includes("price");
+                  });
+                  const rPriceRegular = rPriceEntries.find(([k]) => {
+                    const key = k.toLowerCase();
+                    return key.includes("regular") || key.includes("original") || key.includes("antes");
+                  });
+                  const rPriceCurrent = rPriceEntries.find(([k]) => {
+                    const key = k.toLowerCase();
+                    return !key.includes("regular") && !key.includes("original") && !key.includes("antes");
+                  }) || (rPriceRegular ? rPriceEntries.find(([k]) => k !== rPriceRegular[0]) : null);
+
+                  let rImage = "";
+                  if (rImgEntries.length > 0) {
+                    const v = String(rImgEntries[0][1] ?? "");
+                    if (v.startsWith("[")) {
+                      try { const arr = JSON.parse(v); rImage = arr[0] || ""; } catch {}
+                    } else {
+                      rImage = v;
+                    }
+                  }
+
+                  return (
+                    <Link key={r.id} href={`/producto/${r.id}`} className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                        {rImage ? (
+                          <img src={getImageUrl(rImage)} alt={r.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <span className="text-gray-300 text-sm">Sin img</span>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug">{r.title}</h3>
+                        {rPriceCurrent && (
+                          <p className="text-sm font-bold text-gray-900 mt-1">S/ {Number(rPriceCurrent[1]).toFixed(2)}</p>
+                        )}
+                        {rPriceRegular && (
+                          <p className="text-[10px] text-gray-400 line-through">S/ {Number(rPriceRegular[1]).toFixed(2)}</p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
       </main>

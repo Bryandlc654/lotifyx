@@ -257,6 +257,12 @@ function DetallesContent() {
             className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
             Editar Perfil
           </button>
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/dashboard")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Dashboard
+            </button>
+          )}
           {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-compras")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
@@ -273,6 +279,12 @@ function DetallesContent() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/carga-masiva")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Carga Masiva
             </button>
           )}
           {userRole === "vendedor" && (

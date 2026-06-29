@@ -42,6 +42,12 @@ export class CheckoutController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("dashboard")
+  getDashboard(@Req() req) {
+    return this.checkoutService.getDashboard(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get("sales")
   getSales(@Req() req) {
     return this.checkoutService.getSales(req.user.id);
@@ -98,5 +104,22 @@ export class CheckoutController {
     });
 
     return { message: "Depósito enviado correctamente", order };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("claims")
+  @HttpCode(HttpStatus.CREATED)
+  async createClaim(@Req() req, @Body() body: { order_id: string; reason: string; description: string; solution: string; amount?: string }) {
+    if (!body.order_id || !body.reason || !body.description || !body.solution) {
+      throw new BadRequestException("Todos los campos son obligatorios");
+    }
+    return this.checkoutService.createClaim({
+      userId: req.user.id,
+      orderId: body.order_id,
+      reason: body.reason,
+      description: body.description,
+      solution: body.solution,
+      amount: body.amount ? parseFloat(body.amount) : null,
+    });
   }
 }

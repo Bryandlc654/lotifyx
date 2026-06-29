@@ -50,6 +50,9 @@ export class Product {
   @Column({ length: 20, default: "draft" })
   status: string;
 
+  @Column({ type: "int", default: 0 })
+  stock: number;
+
   @CreateDateColumn()
   created_at: Date;
 

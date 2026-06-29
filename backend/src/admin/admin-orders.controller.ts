@@ -26,4 +26,22 @@ export class AdminOrdersController {
   reject(@Param("id") id: string, @Body("motivo") motivo: string) {
     return this.checkoutService.rejectOrder(id, motivo || "Sin motivo especificado");
   }
+
+  @Patch(":id/status")
+  @RequirePermission("orders.approve")
+  updateStatus(@Param("id") id: string, @Body("status") status: string) {
+    return this.checkoutService.updateOrderStatus(id, status);
+  }
+
+  @Get("claims")
+  @RequirePermission("orders.read")
+  findClaims() {
+    return this.checkoutService.findAllClaims();
+  }
+
+  @Patch("claims/:id")
+  @RequirePermission("orders.approve")
+  updateClaim(@Param("id") id: string, @Body("status") status: string) {
+    return this.checkoutService.updateClaimStatus(id, status);
+  }
 }

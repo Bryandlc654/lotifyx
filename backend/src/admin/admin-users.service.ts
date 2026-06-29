@@ -4,6 +4,7 @@ import { Repository, Like, In } from "typeorm";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
 import { User } from "../auth/entities/user.entity";
+import { AuditService } from "../audit/audit.service";
 
 function isUUID(val: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val); }
 import { UserProfile } from "../auth/entities/user-profile.entity";
@@ -15,6 +16,7 @@ export class AdminUsersService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(UserProfile) private readonly profileRepo: Repository<UserProfile>,
     @InjectRepository(UserVerification) private readonly vfyRepo: Repository<UserVerification>,
+    private readonly audit: AuditService,
   ) {}
 
   async findAll(query: { search?: string; role?: string; status?: string; is_admin?: string; page?: number; limit?: number }) {
@@ -98,7 +100,9 @@ export class AdminUsersService {
       })
     );
 
-    return this.findOne(user.id);
+    const result = await this.findOne(user.id);
+    this.audit.log({ action: "user_created", entity: "user", entityId: user.id, details: { email: dto.email, name: `${dto.first_name} ${dto.last_name}` } });
+    return result;
   }
 
   async update(id: string, dto: Partial<{
@@ -133,7 +137,9 @@ export class AdminUsersService {
       await this.profileRepo.update({ user_id: id }, profileFields);
     }
 
-    return this.findOne(id);
+    const result = await this.findOne(id);
+    this.audit.log({ action: "user_updated", entity: "user", entityId: id, details: { changed: Object.keys(dto).filter(k => dto[k] !== undefined) } });
+    return result;
   }
 
   async toggleActive(id: string) {
@@ -143,6 +149,7 @@ export class AdminUsersService {
     const newStatus = user.status === "disabled" ? "active" : "disabled";
     await this.userRepo.update(id, { status: newStatus });
     const updated = await this.findOne(id);
+    this.audit.log({ action: "user_status_changed", entity: "user", entityId: id, details: { from: user.status, to: newStatus } });
     return { ...updated, status: newStatus };
   }
 
@@ -154,7 +161,7 @@ export class AdminUsersService {
     await this.profileRepo.delete({ user_id: id });
     await this.vfyRepo.delete({ user_id: id });
     await this.userRepo.remove(user);
-
+    this.audit.log({ action: "user_deleted", entity: "user", entityId: id, details: { email: user.email } });
     return { message: "Usuario eliminado" };
   }
 

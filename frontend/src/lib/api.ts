@@ -37,6 +37,17 @@ export function isAuthenticated(): boolean {
   return !!getAccessToken();
 }
 
+export function getCurrentUserId(): string | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Auto-refresh ────────────────────────────────────────────
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -515,6 +526,7 @@ export interface Product {
   category_id: string;
   title: string;
   specifications: Record<string, any>;
+  stock?: number;
   metodo_pago: string;
   envio_delivery: boolean;
   envio_courier: boolean;
@@ -541,6 +553,39 @@ export async function getMyProducts(): Promise<Product[]> {
   return res.json();
 }
 
+export async function bulkUploadProducts(file: File) {
+  const token = getAccessToken();
+  const fd = new FormData();
+  fd.append("file", file);
+
+  let res = await fetch(`${API_URL}/products/bulk`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+
+  if (res.status === 401 && getRefreshToken()) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await fetch(`${API_URL}/products/bulk`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${newToken}` },
+        body: fd,
+      });
+    } else {
+      removeTokens();
+      emitSessionExpired();
+    }
+  }
+
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export function getBulkTemplateUrl(): string {
+  return `${API_URL}/products/template`;
+}
+
 export async function getProduct(id: string): Promise<Product> {
   const res = await fetch(`${API_URL}/products/${id}`);
   if (!res.ok) throw new Error("Error al obtener producto");
@@ -558,8 +603,11 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar producto");
 }
 
-export async function getActiveProducts(categoryId?: string): Promise<Product[]> {
-  const qs = categoryId ? `?category_id=${categoryId}` : "";
+export async function getActiveProducts(categoryId?: string, search?: string): Promise<Product[]> {
+  const params = new URLSearchParams();
+  if (categoryId) params.set("category_id", categoryId);
+  if (search) params.set("search", search);
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API_URL}/products${qs}`);
   if (!res.ok) throw new Error("Error al obtener productos");
   return res.json();
@@ -799,6 +847,18 @@ export async function saveBankAccount(dto: { bank_name: string; account_number: 
   return res.json();
 }
 
+export async function updateBankAccount(id: string, dto: { bank_name?: string; account_number?: string; account_holder?: string; account_type?: string }) {
+  const res = await authFetch(`${API_URL}/auth/bank-account/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar cuenta");
+  return res.json();
+}
+
+export async function deleteBankAccount(id: string) {
+  const res = await authFetch(`${API_URL}/auth/bank-account/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar cuenta");
+  return res.json();
+}
+
 export async function getBankAccounts() {
   const res = await authFetch(`${API_URL}/auth/bank-accounts`);
   if (!res.ok) throw new Error("Error al obtener cuentas bancarias");
@@ -827,9 +887,64 @@ export async function rejectOrderPayment(id: string, motivo: string) {
   return res.json();
 }
 
+export async function updateOrderStatus(id: string, status: string) {
+  const res = await authFetch(`${API_URL}/admin/orders/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Error al actualizar estado");
+  return res.json();
+}
+
 export async function getMySales() {
   const res = await authFetch(`${API_URL}/checkout/sales`);
   if (!res.ok) throw new Error("Error al obtener ventas");
+  return res.json();
+}
+
+export async function getDashboard() {
+  const res = await authFetch(`${API_URL}/checkout/dashboard`);
+  if (!res.ok) throw new Error("Error al cargar dashboard");
+  return res.json();
+}
+
+export async function getAdminDashboard() {
+  const res = await authFetch(`${API_URL}/admin/dashboard`);
+  if (!res.ok) throw new Error("Error al cargar dashboard admin");
+  return res.json();
+}
+
+export async function getAuditLogs(filters?: { action?: string; entity?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.action) params.set("action", filters.action);
+  if (filters?.entity) params.set("entity", filters.entity);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await authFetch(`${API_URL}/admin/audit${qs}`);
+  if (!res.ok) throw new Error("Error al cargar auditoría");
+  return res.json();
+}
+
+export async function submitClaim(data: { order_id: string; reason: string; description: string; solution: string; amount?: number }) {
+  const res = await authFetch(`${API_URL}/checkout/claims`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function getAdminClaims() {
+  const res = await authFetch(`${API_URL}/admin/orders/claims`);
+  if (!res.ok) throw new Error("Error al cargar reclamos");
+  return res.json();
+}
+
+export async function updateClaimStatus(id: string, status: string) {
+  const res = await authFetch(`${API_URL}/admin/orders/claims/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Error al actualizar reclamo");
   return res.json();
 }
 

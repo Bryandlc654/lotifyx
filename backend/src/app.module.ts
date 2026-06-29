@@ -25,6 +25,7 @@ import { LeadsModule } from "./leads/leads.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { ProductsModule } from "./products/products.module";
 import { CheckoutModule } from "./checkout/checkout.module";
+import { AuditModule } from "./audit/audit.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -95,6 +96,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     UploadsModule,
     ProductsModule,
     CheckoutModule,
+    AuditModule,
   ],
 
   // ─── Global rate limit guard ──────────────
