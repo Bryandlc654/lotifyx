@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { Setting } from "./setting.entity";
 
 @Injectable()
@@ -9,6 +9,13 @@ export class SettingsService {
 
   async getAll() {
     const rows = await this.repo.find();
+    const result: Record<string, string> = {};
+    for (const r of rows) result[r.key] = r.value;
+    return result;
+  }
+
+  async getMany(keys: string[]) {
+    const rows = await this.repo.find({ where: { key: In(keys) } });
     const result: Record<string, string> = {};
     for (const r of rows) result[r.key] = r.value;
     return result;

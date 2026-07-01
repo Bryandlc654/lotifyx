@@ -53,13 +53,20 @@ export default function AdminSalesPage() {
   const [rejectTarget, setRejectTarget] = useState<Order | null>(null);
   const [rejectMotivo, setRejectMotivo] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [statusFilter, page]);
 
   async function load() {
     setLoading(true);
     try {
-      setOrders(await getAdminOrders());
+      const status = statusFilter === "all" ? "" : statusFilter;
+      const res = await getAdminOrders(status || undefined, page);
+      setOrders(res.data);
+      setTotalPages(res.totalPages);
+      setTotalItems(res.total);
     } catch {
       toast.error("Error al cargar pedidos");
     } finally {
@@ -114,7 +121,7 @@ export default function AdminSalesPage() {
       <div className="p-6 sm:p-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Ventas y Pagos</h1>
-          <span className="text-sm text-gray-400">{filtered.length} pedido{filtered.length !== 1 ? "s" : ""}</span>
+          <span className="text-sm text-gray-400">{totalItems} pedido{totalItems !== 1 ? "s" : ""}</span>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -123,7 +130,7 @@ export default function AdminSalesPage() {
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por ID o Nº operación..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200" />
           </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
             className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200">
             {STATUS_FILTERS.map(s => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -221,6 +228,23 @@ export default function AdminSalesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="text-gray-400">Página {page} de {totalPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Siguiente
+              </button>
+            </div>
           </div>
         )}
       </div>

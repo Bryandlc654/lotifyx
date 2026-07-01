@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, Product, CategoryField } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, Product, CategoryField } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
+import { toast } from "sonner";
+import { LoginModal } from "@/components/layout/login-modal";
 
 export default function ProductoDetallePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -20,23 +22,34 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [showCartSuccess, setShowCartSuccess] = useState(false);
   const [related, setRelated] = useState<Product[]>([]);
   const [isOwn, setIsOwn] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [savesCount, setSavesCount] = useState(0);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const cart = useCart();
 
   useEffect(() => {
     if (!id) return;
+    registerProductView(id).catch(() => {});
     Promise.all([
       getProduct(id),
       getCategories(),
       getCategoryFields(),
     ]).then(([p, cats, flds]) => {
       setProduct(p);
+      setSavesCount(p.saves_count || 0);
       setFields(flds.filter(f => f.category_id === p.category_id));
       const cat = cats.find(c => c.id === p.category_id);
       if (cat) setCategoryName(cat.name);
       getActiveProducts(p.category_id).then(relatedProducts => {
         setRelated(relatedProducts.filter(r => r.id !== id).slice(0, 4));
       }).catch(() => {});
-      setIsOwn(getCurrentUserId() === p.user_id);
+      const uid = getCurrentUserId();
+      setIsOwn(uid === p.user_id);
+      if (uid) {
+        getProductSaveStatus(id).then(s => setSaved(s.saved)).catch(() => {});
+      }
     }).catch(() => {})
     .finally(() => setLoading(false));
   }, [id]);
@@ -141,10 +154,9 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             <span className="text-purple-600 font-semibold truncate max-w-[200px]">{product.title}</span>
           </nav>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr_400px] gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr_360px] gap-6 mb-6">
             {thumbnails.length > 0 && (
-              <div className="hidden lg:flex flex-col gap-3">
+              <div className="hidden lg:flex flex-col gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3">
                 {thumbnails.map((img, i) => (
                   <div key={i} className={`bg-gray-100 rounded-lg aspect-square flex items-center justify-center cursor-pointer border-2 overflow-hidden ${i === 0 ? "border-purple-600" : "border-gray-200 hover:border-gray-400"} transition-colors`}>
                     <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
@@ -153,35 +165,24 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               </div>
             )}
 
-            <div className={`bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden ${!mainImage ? "" : ""}`}>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-center overflow-hidden">
               {mainImage ? (
-                <img src={getImageUrl(mainImage)} alt={product.title} className="w-full h-full object-cover" />
+                <img src={getImageUrl(mainImage)} alt={product.title} className="w-full h-full object-cover rounded-xl" />
               ) : (
                 <span className="text-gray-400 text-lg">Sin imagen</span>
               )}
             </div>
 
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {product.title}
-              </h1>
-
+            {/* Product info sidebar */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               {product.sku && (
-                <span className="inline-block mt-2 px-3 py-1 rounded-lg bg-gray-100 text-xs font-mono font-medium text-gray-500">
+                <span className="inline-block mb-1 px-3 py-1 rounded-lg bg-gray-100 text-xs font-mono font-medium text-gray-500">
                   SKU: {product.sku}
                 </span>
               )}
-
-              {priceEntries.length > 0 && (
-                <div className="mt-6">
-                  {priceRegular && (
-                    <p className="text-sm text-gray-400 line-through">S/ {Number(priceRegular[1]).toFixed(2)}</p>
-                  )}
-                  <p className={`font-bold text-gray-900 ${priceRegular ? "text-3xl" : "text-2xl mt-4"}`}>
-                    S/ {Number((priceCurrent || priceEntries[0])[1]).toFixed(2)}
-                  </p>
-                </div>
-              )}
+              <h1 className="text-2xl font-bold text-[#344054]">
+                {product.title}
+              </h1>
 
               {sidebarSpecs.length > 0 && (
                 <div className="mt-4 space-y-2">
@@ -209,32 +210,76 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               <div className="flex items-center gap-6 mt-4">
                 <div className="flex items-center gap-1.5 text-sm text-gray-400">
                   <Eye className="h-4 w-4" />
-                  <span>0 vistas</span>
+                  <span>{product.views || 0} vistas</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-gray-400">
-                  <Heart className="h-4 w-4" />
-                  <span>0 guardados</span>
-                </div>
+                <button onClick={async () => {
+                  if (!getCurrentUserId()) { toast.error("Inicia sesión para guardar productos"); return; }
+                  try {
+                    const res = await toggleProductSave(id);
+                    setSaved(res.saved);
+                    setSavesCount(c => res.saved ? c + 1 : Math.max(0, c - 1));
+                  } catch { toast.error("Error al guardar"); }
+                }} className="flex items-center gap-1.5 text-sm transition-colors">
+                  <Heart className={`h-4 w-4 ${saved ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"}`} />
+                  <span className={saved ? "text-red-500" : "text-gray-400"}>{savesCount} guardados</span>
+                </button>
               </div>
 
-              <div className="mt-6 flex gap-3">
+              {priceEntries.length > 0 && (
+                <div className="mt-6 mb-3">
+                  {priceRegular && (
+                    <p className="text-sm text-gray-400 line-through">S/ {Number(priceRegular[1]).toFixed(2)}</p>
+                  )}
+                  <p className={`font-bold text-gray-900 ${priceRegular ? "text-3xl" : "text-2xl"}`}>
+                    S/ {Number((priceCurrent || priceEntries[0])[1]).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {/* TYC for non-logged-in users */}
+              {!getCurrentUserId() && (
+                <div className="mb-3">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                    <span className="text-xs text-gray-500 leading-tight">
+                      Al crear una cuenta significa que aceptas los{" "}
+                      <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Términos y condiciones</a>{" "}
+                      y nuestra{" "}
+                      <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Política de privacidad</a>
+                    </span>
+                  </label>
+                </div>
+              )}
+              <div className="flex gap-3">
                 {isOwn && (
                   <p className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">Es tu propio producto</p>
                 )}
                 {product.envio_delivery && !isOwn && (
-                  <button onClick={() => {
-                    cart.addItem({
-                      id: product.id,
-                      title: product.title,
-                      sku: product.sku,
-                      image: mainImage,
-                      price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
-                      regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
-                    });
-                    setShowCartSuccess(true);
-                  }} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-400 px-4 py-3.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all">
-                    <Truck className="h-5 w-5" />
-                    Comprar
+                  <button disabled={product.stock != null && product.stock <= 0}
+                    onClick={() => {
+                      if (product.stock != null && product.stock <= 0) return;
+                      if (!getCurrentUserId()) {
+                        if (!acceptTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
+                        setShowLoginModal(true);
+                        return;
+                      }
+                      cart.addItem({
+                        id: product.id,
+                        title: product.title,
+                        sku: product.sku,
+                        image: mainImage,
+                        price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
+                        regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
+                      });
+                      setShowCartSuccess(true);
+                    }}
+                    className={`flex-1 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-md transition-all ${
+                      product.stock != null && product.stock <= 0
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-gradient-to-br from-purple-600 to-cyan-400 text-white hover:shadow-lg"
+                    }`}>
+                    {product.stock != null && product.stock <= 0 ? "Agotado" : "Comprar"}
                   </button>
                 )}
                 {product.envio_courier && (
@@ -246,17 +291,25 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               </div>
             </div>
           </div>
-          </div>
 
-          {/* Tabs: Descripción / Condiciones */}
-          <div className="mt-8 bg-white rounded-2xl border border-gray-100 overflow-hidden max-w-3xl">
-            <div className="flex border-b border-gray-100">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 mb-6">
+            {/* Tabs: Descripción / Condiciones */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="flex gap-3 px-6 pt-5 pb-3">
               <button onClick={() => setTab("descripcion")}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${tab === "descripcion" ? "text-purple-600 border-b-2 border-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                className={`w-fit px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  tab === "descripcion"
+                    ? "bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-white shadow-sm"
+                    : "bg-[#E7EAEB] text-[#161A3A] hover:opacity-80"
+                }`}>
                 Descripción del Producto
               </button>
               <button onClick={() => setTab("condiciones")}
-                className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${tab === "condiciones" ? "text-purple-600 border-b-2 border-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                className={`w-fit px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  tab === "condiciones"
+                    ? "bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-white shadow-sm"
+                    : "bg-[#E7EAEB] text-[#161A3A] hover:opacity-80"
+                }`}>
                 Condiciones
               </button>
             </div>
@@ -264,21 +317,36 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             <div className="p-6">
               {tab === "descripcion" ? (
                 textSpecs.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {textSpecs.map(([k, v]) => {
-                      const val = String(v ?? "");
-                      if (!val) return null;
-                      const isDescription = ["descripción", "descripcion", "description", "descripción general", "descripcion general"].some(d =>
-                        k.toLowerCase().replace(/_/g, " ").includes(d)
-                      );
-                      return (
-                        <div key={k} className={isDescription ? "sm:col-span-2" : ""}>
-                          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{getFieldLabel(k)}</span>
-                          <p className="text-sm text-gray-700 mt-0.5">{val}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-hidden transition-all duration-300 ${descExpanded ? "" : "max-h-[160px]"}`}>
+                      {textSpecs.map(([k, v]) => {
+                        const val = String(v ?? "");
+                        if (!val) return null;
+                        const isDescription = ["descripción", "descripcion", "description", "descripción general", "descripcion general"].some(d =>
+                          k.toLowerCase().replace(/_/g, " ").includes(d)
+                        );
+                        return (
+                          <div key={k} className={isDescription ? "sm:col-span-2" : ""}>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{getFieldLabel(k)}</span>
+                            <p className="text-sm text-gray-700 mt-0.5">{val}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!descExpanded && (
+                      <div className="relative mt-2">
+                        <div className="absolute bottom-full left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
+                        <button onClick={() => setDescExpanded(true)} className="text-sm font-medium text-purple-600 hover:text-purple-700">
+                          Ver más
+                        </button>
+                      </div>
+                    )}
+                    {descExpanded && (
+                      <button onClick={() => setDescExpanded(false)} className="mt-2 text-sm font-medium text-purple-600 hover:text-purple-700">
+                        Ver menos
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-gray-400">Sin descripción disponible</p>
                 )
@@ -331,6 +399,19 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             </div>
           </div>
 
+            {/* Agendar visita */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Agendar visita</h3>
+              <p className="text-xs text-gray-500 mb-3">Las visitas requieren cita previa. Te brindamos la ubicación al agendarla.</p>
+              <button className="flex items-center gap-2 w-fit rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 hover:opacity-80 transition-opacity" style={{ backgroundColor: "#F4F6F7" }}>
+                <span className="bg-green-500 rounded-full p-1.5 flex items-center justify-center">
+                  <svg className="h-4 w-4" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                </span>
+                Agendar cita
+              </button>
+            </div>
+          </div>
+
           {/* Related Products */}
           {related.length > 0 && (
             <div className="mt-12">
@@ -366,6 +447,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     }
                   }
 
+                  const rBrand = rEntries.find(([k]) => /marca|brand|marcha/i.test(k));
+
                   return (
                     <Link key={r.id} href={`/producto/${r.id}`} className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
                       <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -376,12 +459,15 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug">{r.title}</h3>
+                        {rBrand && (
+                          <p className="text-xs text-[#161A3A] leading-tight">{String(rBrand[1])}</p>
+                        )}
+                        <h3 className="text-base text-[#344054] leading-snug line-clamp-2 mt-0.5">{r.title}</h3>
                         {rPriceCurrent && (
-                          <p className="text-sm font-bold text-gray-900 mt-1">S/ {Number(rPriceCurrent[1]).toFixed(2)}</p>
+                          <p className="text-2xl font-semibold text-[#161A3A] mt-1">S/ {Number(rPriceCurrent[1]).toFixed(2)}</p>
                         )}
                         {rPriceRegular && (
-                          <p className="text-[10px] text-gray-400 line-through">S/ {Number(rPriceRegular[1]).toFixed(2)}</p>
+                          <p className="text-base font-semibold text-[#98A2B3] line-through">S/ {Number(rPriceRegular[1]).toFixed(2)}</p>
                         )}
                       </div>
                     </Link>
@@ -447,6 +533,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
         </div>
       )}
 
+      <LoginModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
       <Footer />
     </>
   );

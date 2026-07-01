@@ -54,6 +54,7 @@ export function RegistrationForm() {
   });
 
   const aceptaTerminos = watch("aceptaTerminos");
+  const accountType = watch("accountType");
 
   const onSubmit = async (data: RegistroFormData) => {
     setIsSubmitting(true);
@@ -64,6 +65,8 @@ export function RegistrationForm() {
         aceptaTerminos: Boolean(data.aceptaTerminos),
         accountType: data.accountType,
         codigoReferidos: data.codigoReferidos || undefined,
+        ruc: data.ruc || undefined,
+        razonSocial: data.razonSocial || undefined,
       };
       await registerUser(payload);
       toast.success("Registro exitoso. Revisa tu correo para el código de verificación.");
@@ -127,6 +130,32 @@ export function RegistrationForm() {
   return (
     <>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Tipo de cuenta */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-3 block">¿Qué quieres hacer en Lotifyx?</label>
+          <div className="flex gap-4">
+            <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3.5 cursor-pointer transition-all ${
+              accountType === "Quiero vender"
+                ? "border-purple-600 bg-purple-50 text-purple-700"
+                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+            }`}>
+              <input type="radio" value="Quiero vender" {...register("accountType")} className="sr-only" />
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" /></svg>
+              Quiero vender
+            </label>
+            <label className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3.5 cursor-pointer transition-all ${
+              accountType === "Quiero comprar"
+                ? "border-purple-600 bg-purple-50 text-purple-700"
+                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+            }`}>
+              <input type="radio" value="Quiero comprar" {...register("accountType")} className="sr-only" />
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+              Quiero comprar
+            </label>
+          </div>
+          {errors.accountType && <p className="text-xs text-red-500 mt-1.5">{errors.accountType.message}</p>}
+        </div>
+
         {/* Datos personales */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -149,20 +178,21 @@ export function RegistrationForm() {
           <Input label="Correo electrónico" type="email" {...register("correo")} error={errors.correo?.message} />
           <Input label="Contraseña" isPassword {...register("contrasena")} error={errors.contrasena?.message} />
           <Input label="Confirmar contraseña" isPassword {...register("confirmarContrasena")} error={errors.confirmarContrasena?.message} />
-          <Select label="¿Qué quieres hacer en Lotifyx?" options={["Quiero vender", "Quiero comprar"]} {...register("accountType")} error={errors.accountType?.message} />
         </section>
 
-        {/* Datos de empresa */}
-        <section>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 min-w-0">
-              <Input label="RUC" maxLength={11} inputMode="numeric" {...register("ruc")} error={errors.ruc?.message} />
+        {/* Datos de empresa (solo para vendedores) */}
+        {accountType === "Quiero vender" && (
+          <section>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 min-w-0">
+                <Input label="RUC" maxLength={11} inputMode="numeric" {...register("ruc")} error={errors.ruc?.message} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Input label="Razón social (Opcional)" {...register("razonSocial")} error={errors.razonSocial?.message} />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <Input label="Razón social (Opcional)" {...register("razonSocial")} error={errors.razonSocial?.message} />
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Información adicional */}
         <section className="space-y-4">

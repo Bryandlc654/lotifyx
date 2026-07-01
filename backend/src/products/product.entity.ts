@@ -53,6 +53,12 @@ export class Product {
   @Column({ type: "int", default: 0 })
   stock: number;
 
+  @Column({ type: "int", default: 0 })
+  views: number;
+
+  @Column({ type: "int", default: 0 })
+  saves_count: number;
+
   @CreateDateColumn()
   created_at: Date;
 

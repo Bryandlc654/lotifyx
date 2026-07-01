@@ -11,8 +11,12 @@ export class AdminOrdersController {
 
   @Get()
   @RequirePermission("orders.read")
-  findAll(@Query("status") status?: string) {
-    return this.checkoutService.findAllOrders(status);
+  findAll(
+    @Query("status") status?: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.checkoutService.findAllOrders(status, page || 1, limit || 20);
   }
 
   @Patch(":id/approve")

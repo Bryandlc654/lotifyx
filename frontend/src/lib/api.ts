@@ -115,7 +115,7 @@ interface RegisterPayload {
   telefono: string;
   correo: string;
   contrasena: string;
-  ruc: string;
+  ruc?: string;
   razonSocial?: string;
   codigoReferidos?: string;
   comoNosEncontraste: string;
@@ -527,6 +527,8 @@ export interface Product {
   title: string;
   specifications: Record<string, any>;
   stock?: number;
+  views?: number;
+  saves_count?: number;
   metodo_pago: string;
   envio_delivery: boolean;
   envio_courier: boolean;
@@ -537,6 +539,20 @@ export interface Product {
   garantia: string;
   politicas_imagenes: string;
   status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string;
+  image_url?: string;
+  author?: string;
+  status: string;
+  published_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -603,18 +619,24 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar producto");
 }
 
-export async function getActiveProducts(categoryId?: string, search?: string): Promise<Product[]> {
+export async function getActiveProducts(categoryId?: string, search?: string, limit?: number): Promise<Product[]> {
   const params = new URLSearchParams();
   if (categoryId) params.set("category_id", categoryId);
   if (search) params.set("search", search);
+  if (limit) params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API_URL}/products${qs}`);
   if (!res.ok) throw new Error("Error al obtener productos");
   return res.json();
 }
 
-export async function getAdminProducts(status?: string): Promise<Product[]> {
-  const qs = status ? `?status=${status}` : "";
+export async function getAdminProducts(status?: string, sort?: "ASC" | "DESC", page: number = 1, limit: number = 20): Promise<{ data: Product[]; total: number; page: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (sort) params.set("sort", sort);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await authFetch(`${API_URL}/admin/products${qs}`);
   if (!res.ok) throw new Error("Error al obtener productos");
   return res.json();
@@ -629,6 +651,24 @@ export async function approveProduct(id: string): Promise<Product> {
 export async function rejectProduct(id: string): Promise<Product> {
   const res = await authFetch(`${API_URL}/admin/products/${id}/reject`, { method: "PATCH" });
   if (!res.ok) throw new Error("Error al rechazar producto");
+  return res.json();
+}
+
+export async function registerProductView(id: string) {
+  const res = await fetch(`${API_URL}/products/${id}/view`, { method: "POST" });
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function toggleProductSave(id: string) {
+  const res = await authFetch(`${API_URL}/products/${id}/save`, { method: "POST" });
+  if (!res.ok) throw new Error("Error al guardar producto");
+  return res.json();
+}
+
+export async function getProductSaveStatus(id: string): Promise<{ saved: boolean }> {
+  const res = await authFetch(`${API_URL}/products/${id}/save-status`);
+  if (!res.ok) throw new Error("Error");
   return res.json();
 }
 
@@ -807,6 +847,169 @@ export async function deleteLead(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error");
 }
 
+// ─── Newsletter ───────────────────────────────────────────────
+
+export async function getAdminNewsletter(): Promise<any[]> {
+  const res = await authFetch(`${API_URL}/admin/newsletter`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+// ─── Tutorials ────────────────────────────────────────────────
+
+export interface Tutorial {
+  id: string;
+  title: string;
+  description?: string;
+  video_url?: string;
+  image_url?: string;
+  status: string;
+  created_at: string;
+}
+
+export async function getTutorials(): Promise<Tutorial[]> {
+  const res = await fetch(`${API_URL}/tutorials`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminTutorials(): Promise<Tutorial[]> {
+  const res = await authFetch(`${API_URL}/admin/tutorials`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminTutorial(id: string): Promise<Tutorial> {
+  const res = await authFetch(`${API_URL}/admin/tutorials/${id}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createTutorial(dto: Partial<Tutorial>): Promise<Tutorial> {
+  const res = await authFetch(`${API_URL}/admin/tutorials`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear tutorial");
+  return res.json();
+}
+
+export async function updateTutorial(id: string, dto: Partial<Tutorial>): Promise<Tutorial> {
+  const res = await authFetch(`${API_URL}/admin/tutorials/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar tutorial");
+  return res.json();
+}
+
+export async function deleteTutorial(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/tutorials/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar tutorial");
+}
+
+// ─── Events ───────────────────────────────────────────────────
+
+export interface AppEvent {
+  id: string;
+  title: string;
+  description?: string;
+  event_date?: string;
+  location?: string;
+  image_url?: string;
+  status: string;
+  created_at: string;
+}
+
+export async function getEvents(): Promise<AppEvent[]> {
+  const res = await fetch(`${API_URL}/events`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminEvents(): Promise<AppEvent[]> {
+  const res = await authFetch(`${API_URL}/admin/events`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminEvent(id: string): Promise<AppEvent> {
+  const res = await authFetch(`${API_URL}/admin/events/${id}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createEvent(dto: Partial<AppEvent>): Promise<AppEvent> {
+  const res = await authFetch(`${API_URL}/admin/events`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear evento");
+  return res.json();
+}
+
+export async function updateEvent(id: string, dto: Partial<AppEvent>): Promise<AppEvent> {
+  const res = await authFetch(`${API_URL}/admin/events/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar evento");
+  return res.json();
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/events/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar evento");
+}
+
+export async function deleteNewsletterSubscriber(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/newsletter/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar");
+}
+
+export async function exportNewsletterCsv() {
+  const res = await authFetch(`${API_URL}/admin/newsletter/export`);
+  if (!res.ok) throw new Error("Error al exportar");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "suscriptores-newsletter.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Blog ─────────────────────────────────────────────────────
+
+export async function getBlogPosts(): Promise<BlogPost[]> {
+  const res = await fetch(`${API_URL}/blog`);
+  if (!res.ok) throw new Error("Error al obtener artículos");
+  return res.json();
+}
+
+export async function getBlogPost(slug: string): Promise<BlogPost> {
+  const res = await fetch(`${API_URL}/blog/${slug}`);
+  if (!res.ok) throw new Error("Error al obtener artículo");
+  return res.json();
+}
+
+export async function getAdminBlogPosts(): Promise<BlogPost[]> {
+  const res = await authFetch(`${API_URL}/admin/blog`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminBlogPost(id: string): Promise<BlogPost> {
+  const res = await authFetch(`${API_URL}/admin/blog/${id}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createBlogPost(dto: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await authFetch(`${API_URL}/admin/blog`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear artículo");
+  return res.json();
+}
+
+export async function updateBlogPost(id: string, dto: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await authFetch(`${API_URL}/admin/blog/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar artículo");
+  return res.json();
+}
+
+export async function deleteBlogPost(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/blog/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar artículo");
+}
+
 // ─── Multipart auth helper ────────────────────────────────────
 
 async function multipartAuth(url: string, method: string, fields: Record<string, any>): Promise<any> {
@@ -865,8 +1068,12 @@ export async function getBankAccounts() {
   return res.json();
 }
 
-export async function getAdminOrders(status?: string) {
-  const qs = status ? `?status=${status}` : "";
+export async function getAdminOrders(status?: string, page: number = 1, limit: number = 20): Promise<{ data: any[]; total: number; page: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await authFetch(`${API_URL}/admin/orders${qs}`);
   if (!res.ok) throw new Error("Error al obtener pedidos");
   return res.json();

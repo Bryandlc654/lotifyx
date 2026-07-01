@@ -32,7 +32,9 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-[#8234FE] to-[#26BEFE]" />
+      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-[#8234FE] to-[#26BEFE] relative overflow-hidden">
+        <img src="/forms-sesion/login.png" alt="" className="absolute left-1/2 -translate-x-1/2 h-full w-auto" />
+      </div>
     </main>
   );
 }

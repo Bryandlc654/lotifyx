@@ -13,7 +13,7 @@ export class CheckoutService {
   async getOrders(userId: string) {
     const orders = await this.dataSource.query(
       `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price,
-              p.user_id as seller_id,
+              p.title as product_title, p.user_id as seller_id,
               up.first_name as seller_first_name, up.last_name as seller_last_name,
               u.email as seller_email, u.phone as seller_phone
        FROM orders o
@@ -48,6 +48,7 @@ export class CheckoutService {
         grouped[row.id].items.push({
           id: row.item_id,
           product_id: row.product_id,
+          product_title: row.product_title,
           price: row.item_price,
           seller: {
             id: row.seller_id,
@@ -62,9 +63,22 @@ export class CheckoutService {
     return Object.values(grouped);
   }
 
-  async findAllOrders(status?: string) {
+  async findAllOrders(status?: string, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+    const countParams: any[] = [];
     const statusFilter = status ? `WHERE o.status = $1` : "";
-    const params = status ? [status] : [];
+    if (status) countParams.push(status);
+
+    const [{ count }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int as count FROM (SELECT o.id FROM orders o ${statusFilter} GROUP BY o.id) sub`,
+      countParams,
+    );
+    const total = Number(count);
+
+    const orderParams: any[] = [];
+    if (status) orderParams.push(status);
+    orderParams.push(limit, offset);
+
     const orders = await this.dataSource.query(
       `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price,
               p.title as product_title, p.user_id as seller_id, p.sku as product_sku,
@@ -79,10 +93,10 @@ export class CheckoutService {
        LEFT JOIN user_profiles up ON up.user_id = p.user_id
        LEFT JOIN users buyer ON buyer.id = o.user_id
        LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
-        ${statusFilter}
-        ORDER BY o.created_at DESC
-        LIMIT 200`,
-      params,
+       ${statusFilter}
+       ORDER BY o.created_at DESC
+       LIMIT $${orderParams.length - 1} OFFSET $${orderParams.length}`,
+      orderParams,
     );
 
     const grouped: Record<string, any> = {};
@@ -124,7 +138,12 @@ export class CheckoutService {
         });
       }
     }
-    return Object.values(grouped);
+    return {
+      data: Object.values(grouped),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getDashboard(userId: string) {
@@ -184,17 +203,11 @@ export class CheckoutService {
         [id],
       );
 
-      const items = await queryRunner.query(
-        `SELECT product_id FROM order_items WHERE order_id = $1`,
+      await queryRunner.query(
+        `UPDATE products SET stock = GREATEST(stock - 1, 0)
+         WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1) AND stock > 0`,
         [id],
       );
-
-      for (const item of items) {
-        await queryRunner.query(
-          `UPDATE products SET stock = GREATEST(stock - 1, 0) WHERE id = $1 AND stock > 0`,
-          [item.product_id],
-        );
-      }
 
       await queryRunner.commitTransaction();
       this.audit.log({ action: "order_approved", entity: "order", entityId: id });
@@ -333,13 +346,13 @@ export class CheckoutService {
         [data.userId, data.total, data.originAccountId, data.operationNumber, data.amount, data.proofUrl],
       );
 
-      for (const item of data.items) {
-        await queryRunner.query(
-          `INSERT INTO order_items (order_id, product_id, price, created_at)
-           VALUES ($1, $2, $3, NOW())`,
-          [order.id, item.id, item.price],
-        );
-      }
+      const values = data.items.map((_, i) => `($1, $${2 + i * 2}, $${3 + i * 2}, NOW())`).join(", ");
+      const params = [order.id];
+      for (const item of data.items) { params.push(item.id, item.price); }
+      await queryRunner.query(
+        `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ${values}`,
+        params,
+      );
 
       await queryRunner.commitTransaction();
       this.audit.log({ userId: data.userId, action: "order_created", entity: "order", entityId: order.id, details: { items: data.items.length, total: data.total } });

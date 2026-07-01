@@ -63,6 +63,34 @@ export class MailService implements OnModuleInit {
     });
   }
 
+  async sendNewsletterConfirmation(to: string, name: string | undefined) {
+    const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
+    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
+    const unsubscribeUrl = `${frontendUrl}/newsletter/cancelar`;
+    const displayName = name || "suscriptor";
+
+    await this.transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to,
+      subject: "¡Gracias por suscribirte! - Lotifyx",
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#8234FE;margin:0 0 8px">¡Gracias por suscribirte, ${displayName}!</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            A partir de ahora recibirás en tu correo las mejores ofertas, novedades y contenido exclusivo de Lotifyx.
+          </p>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;margin:20px 0">
+            <p style="margin:0;color:#475569;font-size:13px;line-height:1.6">✅ Ofertas y descuentos exclusivos<br>🆕 Nuevos productos y lanzamientos<br>📚 Guías y consejos de comercio electrónico<br>🔔 Novedades de la plataforma</p>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;">
+            Si deseas dejar de recibir nuestros correos, puedes <a href="${unsubscribeUrl}" style="color:#8234FE;text-decoration:underline">cancelar tu suscripción aquí</a>.
+          </p>
+        </div>
+      `,
+    });
+  }
+
   async sendPasswordReset(to: string, token: string, name: string) {
     const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;

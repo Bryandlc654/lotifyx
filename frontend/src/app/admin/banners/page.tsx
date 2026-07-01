@@ -13,6 +13,7 @@ export default function BannersPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Edit state
@@ -42,17 +43,17 @@ export default function BannersPage() {
       toast.error("Ingresa un título para el banner");
       return;
     }
-    const file = fileRef.current?.files?.[0];
-    if (!file) {
+    if (!selectedFile) {
       toast.error("Selecciona una imagen");
       return;
     }
 
     setUploading(true);
     try {
-      await createBanner(title.trim(), file);
+      await createBanner(title.trim(), selectedFile);
       toast.success("Banner creado exitosamente");
       setTitle("");
+      setSelectedFile(null);
       if (fileRef.current) fileRef.current.value = "";
       loadBanners();
     } catch (err: any) {
@@ -128,21 +129,48 @@ export default function BannersPage() {
               placeholder="Título del banner"
               className="flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500"
             />
-            <div className="flex gap-3">
-              <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
-                <Upload className="h-4 w-4" />
-                Seleccionar imagen
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" />
-              </label>
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={uploading}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-5 py-2.5 text-sm font-semibold text-white hover:from-[#7428F0] hover:to-[#1EA8E8] transition-all shadow-sm disabled:opacity-60"
-              >
-                <Plus className="h-4 w-4" />
-                {uploading ? "Subiendo..." : "Crear"}
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3 items-start">
+                <label className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors ${
+                  selectedFile ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}>
+                  <Upload className="h-4 w-4" />
+                  {selectedFile ? selectedFile.name.slice(0, 20) + (selectedFile.name.length > 20 ? "..." : "") : "Seleccionar imagen"}
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (!f) { setSelectedFile(null); return; }
+                      const maxSize = 2 * 1024 * 1024;
+                      const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+                      if (!allowed.includes(f.type)) {
+                        toast.error("Formato no válido. Usa JPG, PNG, WebP o GIF");
+                        e.target.value = "";
+                        setSelectedFile(null);
+                        return;
+                      }
+                      if (f.size > maxSize) {
+                        toast.error("La imagen supera los 2MB permitidos");
+                        e.target.value = "";
+                        setSelectedFile(null);
+                        return;
+                      }
+                      setSelectedFile(f);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={uploading}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-5 py-2.5 text-sm font-semibold text-white hover:from-[#7428F0] hover:to-[#1EA8E8] transition-all shadow-sm disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" />
+                  {uploading ? "Subiendo..." : "Crear"}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 ml-1">
+                Formatos: JPG, PNG, WebP, GIF — Máx. 2MB — Se recomienda 1920x400px
+              </p>
             </div>
           </div>
         </div>
@@ -187,13 +215,31 @@ export default function BannersPage() {
                       />
                       <label className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium cursor-pointer transition-colors ${editFile ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
                         <Upload className="h-3.5 w-3.5" />
-                        {editFile ? editFile.name.slice(0, 12) + "..." : "Imagen"}
+                        {editFile ? editFile.name.slice(0, 16) + (editFile.name.length > 16 ? "..." : "") : "Imagen"}
                         <input
                           ref={editFileRef}
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => setEditFile(e.target.files?.[0] || null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (!f) { setEditFile(null); return; }
+                            const maxSize = 2 * 1024 * 1024;
+                            const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+                            if (!allowed.includes(f.type)) {
+                              toast.error("Formato no válido. Usa JPG, PNG, WebP o GIF");
+                              e.target.value = "";
+                              setEditFile(null);
+                              return;
+                            }
+                            if (f.size > maxSize) {
+                              toast.error("La imagen supera los 2MB permitidos");
+                              e.target.value = "";
+                              setEditFile(null);
+                              return;
+                            }
+                            setEditFile(f);
+                          }}
                         />
                       </label>
                       <button

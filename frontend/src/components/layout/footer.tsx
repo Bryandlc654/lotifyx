@@ -19,10 +19,10 @@ const footerLinks = [
   {
     title: "Recursos",
     links: [
-      { label: "Blog", href: "#" },
-      { label: "Newsletter", href: "#" },
-      { label: "Tutoriales", href: "#" },
-      { label: "Eventos", href: "#" },
+      { label: "Blog", href: "/blog" },
+      { label: "Newsletter", href: "/newsletter" },
+      { label: "Tutoriales", href: "/tutoriales" },
+      { label: "Eventos", href: "/eventos" },
     ],
   },
   {
@@ -37,8 +37,8 @@ const footerLinks = [
   {
     title: "Ayuda",
     links: [
-      { label: "¿Cómo vender?", href: "#" },
-      { label: "Centro de ayuda", href: "#" },
+      { label: "¿Cómo vender?", href: "/como-vender" },
+      { label: "Centro de ayuda", href: "/ayuda" },
       { label: "Soporte", href: "#" },
       { label: "Preguntas frecuentes", href: "/faqs" },
     ],

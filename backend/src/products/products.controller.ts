@@ -131,11 +131,24 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query("category_id") categoryId?: string, @Query("search") search?: string) { return this.service.findAllActive(categoryId, search); }
+  findAll(@Query("category_id") categoryId?: string, @Query("search") search?: string, @Query("limit") limit?: number) { return this.service.findAllActive(categoryId, search, limit); }
 
   @UseGuards(JwtAuthGuard)
   @Get("mine")
   findMine(@Req() req) { return this.service.findByUser(req.user.id); }
+
+  @Post(":id/view")
+  @HttpCode(HttpStatus.OK)
+  view(@Param("id") id: string) { return this.service.registerView(id); }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/save")
+  @HttpCode(HttpStatus.OK)
+  toggleSave(@Param("id") id: string, @Req() req) { return this.service.toggleSave(id, req.user.id); }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/save-status")
+  saveStatus(@Param("id") id: string, @Req() req) { return this.service.getSaveStatus(id, req.user.id); }
 
   @Get(":id")
   findOne(@Param("id") id: string) { return this.service.findOne(id); }

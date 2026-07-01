@@ -139,6 +139,44 @@ export class AuthService {
       }
     }
 
+    // Validar DNI y RUC con API Peru
+    const [tokenRow] = await this.userRepository.query(
+      `SELECT value FROM settings WHERE key = 'apiperu_token'`,
+    );
+    const apiToken = tokenRow?.value;
+
+    if (apiToken) {
+      if (dto.dni) {
+        const dniRes = await fetch("https://apiperu.dev/api/dni", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}`, "Accept": "application/json" },
+          body: JSON.stringify({ dni: dto.dni }),
+        });
+        const dniData = await dniRes.json();
+        if (!dniData.success) {
+          throw new BadRequestException("El DNI ingresado no es válido o no existe en RENIEC");
+        }
+      }
+
+      if (dto.ruc) {
+        const rucRes = await fetch("https://apiperu.dev/api/ruc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}`, "Accept": "application/json" },
+          body: JSON.stringify({ ruc: dto.ruc }),
+        });
+        const rucData = await rucRes.json();
+        if (!rucData.success) {
+          throw new BadRequestException("El RUC ingresado no es válido o no existe en SUNAT");
+        }
+        if (rucData.data?.estado !== "ACTIVO") {
+          throw new BadRequestException(`El RUC no está activo. Estado actual: ${rucData.data?.estado || "Desconocido"}`);
+        }
+        if (rucData.data?.condicion !== "HABIDO") {
+          throw new BadRequestException(`El RUC no está habido. Condición actual: ${rucData.data?.condicion || "Desconocido"}`);
+        }
+      }
+    }
+
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(dto.contrasena, salt);
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -207,6 +245,12 @@ export class AuthService {
       });
 
       await this.profileRepository.save(profile);
+
+      // Auto-subscribe to newsletter
+      this.userRepository.query(
+        `INSERT INTO newsletter_subscribers (name, email) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+        [`${dto.nombre} ${dto.apellidos}`, dto.correo],
+      ).catch((e) => console.error("Newsletter subscribe failed:", e?.message));
 
       // Create virtual wallet for non-seller users
       if (dto.accountType !== "Quiero vender") {

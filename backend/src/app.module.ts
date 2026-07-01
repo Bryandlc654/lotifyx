@@ -8,6 +8,10 @@ import { APP_GUARD } from "@nestjs/core";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
 import { AuthModule } from "./auth/auth.module";
+import { BlogModule } from "./blog/blog.module";
+import { NewsletterModule } from "./newsletter/newsletter.module";
+import { TutorialsModule } from "./tutorials/tutorials.module";
+import { EventsModule } from "./events/events.module";
 import { MailModule } from "./mail/mail.module";
 import { BannersModule } from "./banners/banners.module";
 import { MarqueesModule } from "./marquees/marquees.module";
@@ -97,6 +101,10 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     ProductsModule,
     CheckoutModule,
     AuditModule,
+    BlogModule,
+    NewsletterModule,
+    TutorialsModule,
+    EventsModule,
   ],
 
   // ─── Global rate limit guard ──────────────

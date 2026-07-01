@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyOrders, getProduct, getImageUrl, submitClaim, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
+import { getMyOrders, getImageUrl, submitClaim, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
 import { ChevronRight, ExternalLink, Upload, X, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
+interface Seller {
+  id: string; first_name: string; last_name: string; email: string; phone: string;
+}
 interface OrderItem {
-  id: string; product_id: string; price: number;
-  seller?: { id: string; first_name: string; last_name: string; email: string; phone: string };
+  id: string; product_id: string; product_title?: string; price: number; seller?: Seller;
 }
 
 interface Order {
@@ -31,7 +33,7 @@ export default function ReclamoPage({ params }: { params: { orderId: string } })
   const { orderId } = params;
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
-  const [productNames, setProductNames] = useState<Record<string, string>>({});
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reason, setReason] = useState(REASONS[0]);
@@ -52,12 +54,6 @@ export default function ReclamoPage({ params }: { params: { orderId: string } })
         const found = orders.find(o => o.id === orderId);
         if (!found) { toast.error("Pedido no encontrado"); router.push("/perfil/mis-compras"); return; }
         setOrder(found);
-        const names: Record<string, string> = {};
-        await Promise.all(found.items.map(async (item) => {
-          try { const p = await getProduct(item.product_id); names[item.product_id] = p.title; }
-          catch { names[item.product_id] = "Producto"; }
-        }));
-        setProductNames(names);
         setAmount(String(found.total_amount));
       })
       .catch(() => toast.error("Error al cargar pedido"))
@@ -125,7 +121,7 @@ export default function ReclamoPage({ params }: { params: { orderId: string } })
               <div className="w-full md:w-2/3">
                 {order.items.map(item => (
                   <div key={item.id}>
-                    <h2 className="text-lg font-bold text-gray-900">{productNames[item.product_id] || "Producto"}</h2>
+                    <h2 className="text-lg font-bold text-gray-900">{item.product_title || "Producto"}</h2>
                     <p className="text-xs text-gray-400 mt-1">Precio: <span className="font-semibold">S/ {Number(item.price).toFixed(2)}</span></p>
                   </div>
                 ))}

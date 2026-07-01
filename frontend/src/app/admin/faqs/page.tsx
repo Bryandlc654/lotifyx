@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getFaqsAdmin, createFaq, updateFaq, deleteFaq, Faq, isAuthenticated, getFaqCategoriesAdmin, FaqCategory } from "@/lib/api";
-import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export default function FaqsAdminPage() {
@@ -14,6 +14,7 @@ export default function FaqsAdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ category: "", question: "", answer: "", is_active: true });
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => { load(); }, []);
 
@@ -50,6 +51,8 @@ export default function FaqsAdminPage() {
     catch (e: any) { toast.error(e.message); }
   }
 
+  const filtered = search ? items.filter(f => f.question.toLowerCase().includes(search.toLowerCase()) || f.answer.toLowerCase().includes(search.toLowerCase()) || f.category.toLowerCase().includes(search.toLowerCase())) : items;
+
   return (
     <AdminLayout>
       <div className="p-6 sm:p-8">
@@ -75,8 +78,13 @@ export default function FaqsAdminPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50">
+          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between gap-4">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">FAQs ({items.length})</h2>
+            <div className="relative max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar preguntas..." className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200" />
+            </div>
           </div>
           {loading ? (
             <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
@@ -84,7 +92,7 @@ export default function FaqsAdminPage() {
             <p className="text-center text-gray-400 py-12 text-sm">No hay FAQs</p>
           ) : (
             <div className="divide-y divide-gray-50">
-              {items.map(f => (
+              {filtered.map(f => (
                 <div key={f.id} className="px-6 py-4 hover:bg-gray-50">
                   {editingId === f.id ? (
                     <div className="space-y-2">

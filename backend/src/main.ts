@@ -11,6 +11,13 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // ─── CORS (antes que helmet para preflight) ──
+  app.enableCors({
+    origin: ["http://localhost:3000", "https://devspro.xyz", "https://www.devspro.xyz"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    credentials: true,
+  });
+
   // ─── Body size limits ─────────────────────
   app.use(json({ limit: "10mb" }));
   app.use(urlencoded({ limit: "10mb", extended: true }));
@@ -19,15 +26,9 @@ async function bootstrap() {
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: false,
     })
   );
-
-  // ─── CORS ──────────────────────────────────
-  app.enableCors({
-    origin: ["http://localhost:3000", "https://devspro.xyz", "https://www.devspro.xyz"],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true,
-  });
 
   // ─── Global validation ─────────────────────
   app.useGlobalPipes(

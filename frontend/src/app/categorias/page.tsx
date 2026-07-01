@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getActiveProducts, getCategories, getImageUrl, Product, Category } from "@/lib/api";
@@ -10,7 +9,6 @@ import { Grid3X3, List, ChevronDown, ChevronRight, Tag, Loader2, Search, X } fro
 import { CategoriesCarousel } from "@/components/home/categories-carousel";
 
 export default function CategoriasPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -18,6 +16,7 @@ export default function CategoriasPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("relevancia");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const [page, setPage] = useState(1);
   const perPage = 9;
 
@@ -26,8 +25,9 @@ export default function CategoriasPage() {
     const q = url.searchParams.get("q") || "";
     setSearchQuery(q);
 
+    const catId = selectedSubcategory || selectedCategory || undefined;
     Promise.all([
-      getActiveProducts(selectedCategory || undefined, q || undefined),
+      getActiveProducts(catId, q || undefined),
       getCategories(),
     ])
       .then(([prods, cats]) => {
@@ -36,9 +36,9 @@ export default function CategoriasPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedSubcategory]);
 
-  useEffect(() => { setPage(1); }, [selectedCategory]);
+  useEffect(() => { setPage(1); setSelectedSubcategory(""); }, [selectedCategory]);
 
   const sorted = [...products].sort((a, b) => {
     if (sortBy === "nuevos") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -105,57 +105,67 @@ export default function CategoriasPage() {
                     {categories.map(cat => (
                       <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
                         <input type="radio" name="categoria" checked={selectedCategory === cat.id}
-                          onChange={() => setSelectedCategory(cat.id)} className="sr-only" />
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                          onChange={() => { setSelectedCategory(cat.id); setSelectedSubcategory(""); }} className="sr-only" />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                           selectedCategory === cat.id ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
                         }`}>
                           {selectedCategory === cat.id && <div className="w-2 h-2 rounded-full bg-white" />}
                         </div>
-                        <span className="text-sm text-[#161A3A]">{cat.name}</span>
+                        <span className="text-sm text-[#161A3A] font-medium">{cat.name}</span>
                       </label>
                     ))}
                   </div>
                 </div>
+
+                {/* Subcategorías */}
+                {(() => {
+                  const parent = categories.find(c => c.id === selectedCategory);
+                  const children = parent?.children?.filter(c => c.status === "active") || [];
+                  if (children.length === 0) return null;
+                  return (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold text-[#6941C6] mb-3">Subcategoría</h4>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input type="radio" name="subcategoria" checked={selectedSubcategory === ""}
+                            onChange={() => setSelectedSubcategory("")} className="sr-only" />
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                            selectedSubcategory === "" ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
+                          }`}>
+                            {selectedSubcategory === "" && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                          <span className="text-sm text-[#161A3A]">Todas</span>
+                        </label>
+                        {children.map(child => (
+                          <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
+                            <input type="radio" name="subcategoria" checked={selectedSubcategory === child.id}
+                              onChange={() => setSelectedSubcategory(child.id)} className="sr-only" />
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                              selectedSubcategory === child.id ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
+                            }`}>
+                              {selectedSubcategory === child.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-sm text-[#161A3A]">{child.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </aside>
 
             <div className="flex-1 min-w-0">
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        const q = searchQuery.trim();
-                        if (q) router.push(`/categorias?q=${encodeURIComponent(q)}`);
-                        else router.push("/categorias");
-                      }
-                    }}
-                    placeholder="Buscar productos..."
-                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => { setSearchQuery(""); router.push("/categorias"); }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-100 text-gray-400"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {searchQuery && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    Resultados para: <span className="font-semibold text-gray-700">"{searchQuery}"</span> ({sorted.length} producto{sorted.length !== 1 ? "s" : ""})
-                  </p>
-                )}
-              </div>
+              {searchQuery && (
+                <p className="text-sm text-gray-500 mb-3">
+                  Resultados para: <span className="font-semibold text-gray-700">"{searchQuery}"</span> ({sorted.length} producto{sorted.length !== 1 ? "s" : ""})
+                </p>
+              )}
 
               <div className="mb-6">
                 <h3 className="text-base font-semibold text-gray-900 mb-3">Navega por las categorías</h3>
-                <CategoriesCarousel showTitle={false} bgWhite={false} showArrows={false} compact={true} />
+                <CategoriesCarousel showTitle={false} bgWhite={false} showArrows={false} compact={true}
+                  selectedCategoryId={selectedCategory} onCategorySelect={setSelectedCategory} />
               </div>
 
               <div className="flex items-center justify-end gap-4 mb-6">

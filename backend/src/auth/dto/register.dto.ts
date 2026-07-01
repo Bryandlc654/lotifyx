@@ -49,10 +49,10 @@ export class RegisterDto {
   @Matches(/^\d{9}$/, { message: "El teléfono debe tener 9 dígitos" })
   telefono: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: "El RUC es obligatorio" })
   @Matches(/^\d{11}$/, { message: "El RUC debe tener 11 dígitos" })
-  ruc: string;
+  ruc?: string;
 
   @IsOptional()
   @IsString()

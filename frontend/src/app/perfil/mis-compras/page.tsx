@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyOrders, getImageUrl, getProduct, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
+import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
 import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ interface Seller {
 interface OrderItem {
   id: string;
   product_id: string;
+  product_title?: string;
   price: number;
   seller?: Seller;
 }
@@ -45,7 +46,7 @@ export default function MisComprasPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState("");
-  const [productNames, setProductNames] = useState<Record<string, string>>({});
+
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const router = useRouter();
 
@@ -53,21 +54,6 @@ export default function MisComprasPage() {
     try {
       const data = await getMyOrders();
       setOrders(data);
-
-      const ids = new Set<string>();
-      data.forEach((o: Order) => o.items.forEach((i: OrderItem) => ids.add(i.product_id)));
-      const names: Record<string, string> = {};
-      await Promise.all(
-        Array.from(ids).map(async (pid) => {
-          try {
-            const p = await getProduct(pid);
-            names[pid] = p.title;
-          } catch {
-            names[pid] = "Producto";
-          }
-        }),
-      );
-      setProductNames(names);
     } catch {
       toast.error("Error al cargar pedidos");
     } finally {
@@ -204,7 +190,7 @@ export default function MisComprasPage() {
                       <div className="space-y-2">
                         {order.items.map((item) => (
                           <div key={item.id} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">{productNames[item.product_id] || "Cargando..."}</span>
+                            <span className="text-gray-700">{item.product_title || "Producto"}</span>
                             <span className="font-semibold text-gray-800">S/ {Number(item.price).toFixed(2)}</span>
                           </div>
                         ))}
@@ -263,7 +249,7 @@ export default function MisComprasPage() {
                 {selectedOrder.items.map((item) => (
                   <div key={item.id}>
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-700">{productNames[item.product_id] || "Producto"}</span>
+                      <span className="text-gray-700">{item.product_title || "Producto"}</span>
                       <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>
                     </div>
                     {item.seller && (

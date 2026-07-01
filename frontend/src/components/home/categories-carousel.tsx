@@ -7,22 +7,18 @@ import { getCategories, Category, getImageUrl } from "@/lib/api";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const VISIBLE = 4;
 
-export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrows = true, compact = false }: { showTitle?: boolean; bgWhite?: boolean; showArrows?: boolean; compact?: boolean }) {
+export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrows = true, compact = false, selectedCategoryId, onCategorySelect }: {
+  showTitle?: boolean; bgWhite?: boolean; showArrows?: boolean; compact?: boolean;
+  selectedCategoryId?: string; onCategorySelect?: (id: string) => void;
+}) {
   const [cats, setCats] = useState<Category[]>([]);
   const [current, setCurrent] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getCategories().then(data => {
-      const flat: Category[] = [];
-      const flatten = (items: Category[]) => {
-        for (const item of items) {
-          if (item.status === "active") flat.push(item);
-          if (item.children?.length) flatten(item.children);
-        }
-      };
-      flatten(data);
-      setCats(flat);
+      const filtered = data.filter(c => c.status === "active" && (!c.parent_id || c.parent === null));
+      setCats(filtered);
       setLoaded(true);
     }).catch(() => setLoaded(true));
   }, []);
@@ -79,18 +75,23 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
                   : null;
 
                 return (
-                  <div
+                  <button
                     key={`${cat.id}-${i}`}
-                    className="flex items-center gap-4 bg-white rounded-xl px-4 py-3 flex-shrink-0 mx-2"
+                    onClick={() => onCategorySelect?.(cat.id === selectedCategoryId ? "" : cat.id)}
+                    className={`flex items-center gap-4 rounded-xl px-4 py-3 flex-shrink-0 mx-2 transition-all ${
+                      selectedCategoryId === cat.id
+                        ? "bg-[#8234FE] text-white shadow-md ring-2 ring-[#8234FE]/30"
+                        : "bg-white hover:bg-gray-50"
+                    }`}
                     style={{ width: `calc(${100 / VISIBLE}% - 16px)` }}
                   >
                     {imgSrc ? (
-                      <img src={imgSrc} alt={cat.name} className={compact ? "w-10 h-10 object-contain flex-shrink-0" : "w-[85px] h-[85px] object-contain flex-shrink-0"} />
+                      <img src={imgSrc} alt={cat.name} className={`${compact ? "w-10 h-10" : "w-[85px] h-[85px]"} object-contain flex-shrink-0 ${selectedCategoryId === cat.id ? "brightness-0 invert" : ""}`} />
                     ) : (
-                      <div className={compact ? "w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0" : "w-[85px] h-[85px] rounded-lg bg-gray-100 flex-shrink-0"} />
+                      <div className={`${compact ? "w-10 h-10" : "w-[85px] h-[85px]"} rounded-lg flex-shrink-0 ${selectedCategoryId === cat.id ? "bg-white/20" : "bg-gray-100"}`} />
                     )}
-                    <span className={compact ? "text-sm text-[#344054] line-clamp-2 leading-tight" : "text-[20px] text-[#344054] line-clamp-2 leading-tight"}>{cat.name}</span>
-                  </div>
+                    <span className={`${compact ? "text-sm" : "text-[20px]"} line-clamp-2 leading-tight text-left ${selectedCategoryId === cat.id ? "text-white" : "text-[#344054]"}`}>{cat.name}</span>
+                  </button>
                 );
               })}
             </div>

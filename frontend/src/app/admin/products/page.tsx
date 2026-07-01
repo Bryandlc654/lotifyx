@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminProducts, approveProduct, rejectProduct, getImageUrl, getAdminUsers, getCategories, Product } from "@/lib/api";
-import { Check, X, Eye, Search, Calendar, XCircle } from "lucide-react";
+import { getAdminProducts, approveProduct, rejectProduct, deleteProduct, getImageUrl, getAdminUsers, getCategories, Product } from "@/lib/api";
+import { Check, X, Eye, Search, Calendar, XCircle, Trash2, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUSES = [
@@ -35,11 +35,16 @@ export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<Product | null>(null);
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load(); }, [statusFilter, sortOrder, page]);
 
   useEffect(() => {
     getAdminUsers({ limit: 9999 }).then(res => {
@@ -62,7 +67,10 @@ export default function AdminProductsPage() {
     setLoading(true);
     try {
       const status = statusFilter === "all" ? "" : statusFilter;
-      setItems(await getAdminProducts(status || undefined));
+      const res = await getAdminProducts(status || undefined, sortOrder, page);
+      setItems(res.data);
+      setTotalPages(res.totalPages);
+      setTotalItems(res.total);
     } catch {
       toast.error("Error al cargar productos");
     } finally {
@@ -90,6 +98,17 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function handleDelete(id: string) {
+    try {
+      await deleteProduct(id);
+      toast.success("Producto eliminado");
+      setItems(prev => prev.filter(p => p.id !== id));
+      setDeleteConfirm(null);
+    } catch {
+      toast.error("Error al eliminar producto");
+    }
+  }
+
   const filtered = items.filter(p => {
     const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || (p.sku || "").toLowerCase().includes(search.toLowerCase());
     const matchCategory = categoryFilter === "all" || p.category_id === categoryFilter;
@@ -101,7 +120,7 @@ export default function AdminProductsPage() {
       <div className="p-6 sm:p-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-          <span className="text-sm text-gray-400">{filtered.length} producto{filtered.length !== 1 ? "s" : ""}</span>
+          <span className="text-sm text-gray-400">{totalItems} producto{totalItems !== 1 ? "s" : ""}</span>
         </div>
 
         {/* Filters row */}
@@ -111,7 +130,7 @@ export default function AdminProductsPage() {
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por título o SKU..." className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200" />
           </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
             className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-200">
             {STATUSES.map(s => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -124,6 +143,11 @@ export default function AdminProductsPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          <button onClick={() => { setSortOrder(o => o === "DESC" ? "ASC" : "DESC"); setPage(1); }}
+            className="flex items-center gap-1.5 text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors">
+            <ArrowUpDown className="h-4 w-4" />
+            {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
+          </button>
         </div>
 
         {loading ? (
@@ -192,12 +216,33 @@ export default function AdminProductsPage() {
                             <X className="h-4 w-4" />
                           </button>
                         )}
+                        <button onClick={() => setDeleteConfirm(p)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-700 hover:bg-red-50 transition-colors" title="Eliminar">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <span className="text-gray-400">Página {page} de {totalPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Siguiente
+              </button>
+            </div>
           </div>
         )}
 
@@ -267,6 +312,28 @@ export default function AdminProductsPage() {
                   <div className="flex gap-2 text-xs"><span className="text-gray-400 w-28 flex-shrink-0">Creado</span><span className="text-gray-500">{new Date(detail.created_at).toLocaleString("es-PE")}</span></div>
                 </div>
 
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirm modal */}
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setDeleteConfirm(null)}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Eliminar producto</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                ¿Estás seguro de eliminar <strong>{deleteConfirm.title}</strong>? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => setDeleteConfirm(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={() => handleDelete(deleteConfirm.id)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                  Eliminar
+                </button>
               </div>
             </div>
           </div>

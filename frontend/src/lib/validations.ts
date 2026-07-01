@@ -40,10 +40,7 @@ export const registroSchema = z
         "Debe contener mayúscula, minúscula, número y carácter especial"
       ),
     confirmarContrasena: z.string(),
-    ruc: z
-      .string()
-      .regex(/^\d{11}$/, "El RUC debe tener 11 dígitos")
-      .length(11),
+    ruc: z.string().optional().or(z.literal("")),
     razonSocial: z
       .string()
       .max(200)
@@ -86,6 +83,13 @@ export const registroSchema = z
       message: "Debes ser mayor de 18 años",
       path: ["fechaNacimiento"],
     }
+  )
+  .refine(
+    (data) => {
+      if (data.accountType !== "Quiero vender") return true;
+      return /^\d{11}$/.test(data.ruc || "");
+    },
+    { message: "El RUC debe tener 11 dígitos", path: ["ruc"] }
   );
 
 export type RegistroFormData = z.infer<typeof registroSchema>;

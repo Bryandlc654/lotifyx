@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import {
   getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser,
@@ -19,6 +19,8 @@ export default function AdminUsersPage() {
 
   // Search & filters
   const [search, setSearch] = useState("");
+  const [debounceSearch, setDebounceSearch] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const [filterRole, setFilterRole] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
@@ -33,7 +35,11 @@ export default function AdminUsersPage() {
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; user?: AdminUser }>({ open: false });
 
   useEffect(() => { load(); getAdminRoles().then(setRoles).catch(() => {}); }, []);
-  useEffect(() => { setPage(1); load(); }, [search, filterRole, filterStatus]);
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebounceSearch(search), 350);
+  }, [search]);
+  useEffect(() => { setPage(1); load(); }, [debounceSearch, filterRole, filterStatus]);
 
   async function load(p?: number) {
     setLoading(true);

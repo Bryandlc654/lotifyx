@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Delete, Param, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { ProductsService } from "../products/products.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
@@ -11,8 +11,13 @@ export class AdminProductsController {
 
   @Get()
   @RequirePermission("products.read")
-  findAll(@Query("status") status?: string) {
-    return this.productsService.findAllAdmin(status);
+  findAll(
+    @Query("status") status?: string,
+    @Query("sort") sort?: "ASC" | "DESC",
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.productsService.findAllAdmin(status, sort, page || 1, limit || 20);
   }
 
   @Patch(":id/approve")
@@ -25,5 +30,12 @@ export class AdminProductsController {
   @RequirePermission("products.approve")
   reject(@Param("id") id: string) {
     return this.productsService.reject(id);
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("products.delete")
+  remove(@Param("id") id: string) {
+    return this.productsService.remove(id);
   }
 }
