@@ -34,6 +34,7 @@ import { UploadsModule } from "./uploads/uploads.module";
 import { ProductsModule } from "./products/products.module";
 import { CheckoutModule } from "./checkout/checkout.module";
 import { AuditModule } from "./audit/audit.module";
+import { MessagesModule } from "./messages/messages.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 
 @Module({
@@ -113,6 +114,7 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     SupportModule,
     CartModule,
     PressModule,
+    MessagesModule,
   ],
 
   // ─── Global rate limit guard ──────────────

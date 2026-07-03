@@ -11,10 +11,10 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30 });
+  const [form, setForm] = useState({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30, commission: 0 });
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30, is_active: true });
+  const [editForm, setEditForm] = useState({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30, commission: 0, is_active: true });
 
   useEffect(() => { load(); }, []);
 
@@ -27,7 +27,7 @@ export default function PlansPage() {
   async function handleCreate() {
     if (!form.name) { toast.error("Nombre obligatorio"); return; }
     setSaving(true);
-    try { await createPlan(form); toast.success("Creado"); setForm({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30 }); load(); }
+    try { await createPlan(form); toast.success("Creado"); setForm({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30, commission: 0 }); load(); }
     catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   }
@@ -58,6 +58,8 @@ export default function PlansPage() {
             <input type="number" value={form.price || ""} onChange={e => setForm({...form, price: Number(e.target.value)})} placeholder="Precio S/"
               className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
             <input type="number" value={form.duration_days || ""} onChange={e => setForm({...form, duration_days: Number(e.target.value)})} placeholder="Duración (días)"
+              className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
+            <input type="number" value={form.commission || ""} onChange={e => setForm({...form, commission: Number(e.target.value)})} placeholder="Comisión %"
               className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -96,6 +98,8 @@ export default function PlansPage() {
                         className="rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
                       <input type="number" value={editForm.duration_days || ""} onChange={e => setEditForm({...editForm, duration_days: Number(e.target.value)})}
                         className="rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                      <input type="number" value={editForm.commission || ""} onChange={e => setEditForm({...editForm, commission: Number(e.target.value)})}
+                        className="rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" placeholder="Comisión %" />
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="checkbox" checked={editForm.is_active} onChange={e => setEditForm({...editForm, is_active: e.target.checked})}
                           className="rounded border-gray-300 text-primary-600" />
@@ -122,7 +126,7 @@ export default function PlansPage() {
                           {!p.is_active && <p className="text-xs text-red-500">Inactivo</p>}
                         </div>
                       </div>
-                      <button onClick={() => { setEditingId(p.id); setEditForm({ name: p.name, description: p.description || "", price: p.price, max_products: p.max_products, max_featured: p.max_featured, duration_days: p.duration_days, is_active: p.is_active }); }}
+                      <button onClick={() => { setEditingId(p.id); setEditForm({ name: p.name, description: p.description || "", price: p.price, max_products: p.max_products, max_featured: p.max_featured, duration_days: p.duration_days, commission: p.commission, is_active: p.is_active }); }}
                         className="p-2 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
                       <button onClick={() => handleDelete(p.id)} className="p-2 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                     </>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Menu, X, Search, Loader2, Tag } from "lucide-react";
 import { UserMenu } from "./user-menu";
+import { NotificationBell } from "./notification-bell";
 import { getProfile, isAuthenticated, removeTokens, getActiveProducts, getImageUrl } from "@/lib/api";
 import type { Product } from "@/lib/api";
 
@@ -266,7 +267,10 @@ export function Header() {
             {!authChecked ? (
               <div className="w-20 h-9 rounded-lg bg-gray-100 animate-pulse" />
             ) : user ? (
-              <UserMenu user={user} onLogout={handleLogout} />
+              <>
+                <NotificationBell />
+                <UserMenu user={user} onLogout={handleLogout} />
+              </>
             ) : (
               <Link
                 href="/login"

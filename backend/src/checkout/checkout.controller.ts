@@ -2,6 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Param,
+  Query,
   UseGuards,
   Req,
   Body,
@@ -10,6 +13,8 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  NotFoundException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
@@ -121,5 +126,43 @@ export class CheckoutController {
       solution: body.solution,
       amount: body.amount ? parseFloat(body.amount) : null,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("orders/:id")
+  async getOrder(@Req() req, @Param("id") id: string) {
+    return this.checkoutService.getOrderDetail(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put("orders/:id/tracking")
+  async updateTracking(
+    @Req() req,
+    @Param("id") id: string,
+    @Body() body: { status: string; note?: string; shipping_address?: string; shipping_reference?: string; shipping_city?: string; shipping_notes?: string; tracking_number?: string },
+  ) {
+    return this.checkoutService.updateOrderTracking(id, req.user.id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("funds")
+  async getFunds(@Req() req) {
+    return this.checkoutService.getFunds(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("funds/withdrawals")
+  async getWithdrawals(@Req() req, @Query("page") page?: number, @Query("limit") limit?: number) {
+    return this.checkoutService.getWithdrawals(req.user.id, page || 1, limit || 10);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("funds/withdraw")
+  @HttpCode(HttpStatus.CREATED)
+  async requestWithdrawal(@Req() req, @Body() body: { amount: number; bank_name: string; account_number: string; account_holder: string }) {
+    if (!body.amount || !body.bank_name || !body.account_number || !body.account_holder) {
+      throw new BadRequestException("Todos los campos son obligatorios");
+    }
+    return this.checkoutService.requestWithdrawal(req.user.id, body);
   }
 }

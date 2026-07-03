@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getMySales, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
-import { ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, User, Mail, Store } from "lucide-react";
+import { ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, User, Mail, Store, MessageCircle, Truck, Package, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 interface Buyer {
@@ -64,6 +64,12 @@ export default function MisVentasPage() {
             </button>
           )}
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Cuentas
@@ -73,6 +79,12 @@ export default function MisVentasPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -91,6 +103,12 @@ export default function MisVentasPage() {
             <button onClick={() => router.push("/perfil/ofrecer")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Ofrecer
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mi-plan")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mi Plan
             </button>
           )}
         </nav>
@@ -163,6 +181,19 @@ export default function MisVentasPage() {
                         ))}
                       </div>
 
+                      {sale.status === "completed" && (
+                        <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                          <Truck className="w-3 h-3" />
+                          <span>Envío: <strong>{(sale as any).tracking_status || "Pendiente"}</strong></span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); router.push(`/perfil/pedido/${sale.id}`); }}
+                            className="ml-auto text-purple-600 hover:underline font-semibold"
+                          >
+                            Gestionar
+                          </button>
+                        </div>
+                      )}
+
                       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
                         <span className="font-bold text-gray-800">Total</span>
                         <span className="text-lg font-bold text-gray-900">S/ {Number(sale.total_amount).toFixed(2)}</span>
@@ -234,3 +265,4 @@ export default function MisVentasPage() {
     </>
   );
 }
+

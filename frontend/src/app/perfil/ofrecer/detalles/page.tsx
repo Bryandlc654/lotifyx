@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
+import { MessageCircle, Wallet } from "lucide-react";
 import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getProduct, updateProduct } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -270,6 +271,12 @@ function DetallesContent() {
             </button>
           )}
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Cuentas
@@ -279,6 +286,12 @@ function DetallesContent() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -480,3 +493,4 @@ export default function DetallesPage() {
     </Suspense>
   );
 }
+

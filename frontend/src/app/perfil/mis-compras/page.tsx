@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
-import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone } from "lucide-react";
+import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 interface Seller {
@@ -100,6 +100,12 @@ export default function MisComprasPage() {
           </button>
           )}
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Cuentas
@@ -109,6 +115,12 @@ export default function MisComprasPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -175,7 +187,13 @@ export default function MisComprasPage() {
                             {cfg.label}
                           </span>
                         </div>
-                        <button onClick={() => setSelectedOrder(order)}
+                        <button onClick={() => {
+                          if (order.status === "completed") {
+                            router.push(`/perfil/pedido/${order.id}`);
+                          } else {
+                            setSelectedOrder(order);
+                          }
+                        }}
                           className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline">
                           <Eye className="w-3 h-3" />
                           Detalle
@@ -185,6 +203,22 @@ export default function MisComprasPage() {
                           <AlertCircle className="w-3 h-3" />
                           Reclamo
                         </button>
+                        {order.status === "completed" && order.items[0]?.seller?.id && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const { createOrGetConversation } = await import("@/lib/api");
+                                const item = order.items[0];
+                                const conv = await createOrGetConversation(item.seller!.id, item.product_id);
+                                router.push(`/perfil/mensajes?conv=${conv.id}`);
+                              } catch { toast.error("Error al abrir chat"); }
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline ml-2">
+                            <MessageCircle className="w-3 h-3" />
+                            Chat
+                          </button>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -253,26 +287,40 @@ export default function MisComprasPage() {
                       <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>
                     </div>
                     {item.seller && (
-                      <div className="ml-2 mb-2 bg-gray-50 rounded-lg p-3 space-y-1">
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-700">
-                          <Store className="w-3 h-3 text-purple-500" />
-                          {item.seller.first_name} {item.seller.last_name}
-                        </div>
-                        {item.seller.email && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <Mail className="w-3 h-3" />
-                            {item.seller.email}
-                          </div>
-                        )}
-                        {item.seller.phone && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <Phone className="w-3 h-3" />
-                            {item.seller.phone}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                       <div className="ml-2 mb-2 bg-gray-50 rounded-lg p-3 space-y-1">
+                         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>
+                         <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                           <Store className="w-3 h-3 text-purple-500" />
+                           {item.seller.first_name} {item.seller.last_name}
+                         </div>
+                         {item.seller.email && (
+                           <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                             <Mail className="w-3 h-3" />
+                             {item.seller.email}
+                           </div>
+                         )}
+                         {item.seller.phone && (
+                           <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                             <Phone className="w-3 h-3" />
+                             {item.seller.phone}
+                           </div>
+                         )}
+                         <button
+                           onClick={async (e) => {
+                             e.stopPropagation();
+                             try {
+                               const { createOrGetConversation } = await import("@/lib/api");
+                               const conv = await createOrGetConversation(item.seller!.id, item.product_id);
+                               router.push(`/perfil/mensajes?conv=${conv.id}`);
+                             } catch { toast.error("Error al abrir chat"); }
+                           }}
+                           className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium mt-1"
+                         >
+                           <MessageCircle className="w-3 h-3" />
+                           Chat con vendedor
+                         </button>
+                       </div>
+                     )}
                   </div>
                 ))}
               </div>
@@ -287,3 +335,4 @@ export default function MisComprasPage() {
     </>
   );
 }
+

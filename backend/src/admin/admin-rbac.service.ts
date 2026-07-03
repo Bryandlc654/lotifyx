@@ -138,6 +138,8 @@ export class AdminRbacService {
       { name: "blog.write", description: "Gestionar blog", module: "blog" },
       { name: "orders.read", description: "Ver historial de ventas", module: "orders" },
       { name: "orders.approve", description: "Aprobar pagos de pedidos", module: "orders" },
+      { name: "messages.read", description: "Ver mensajes", module: "messages" },
+      { name: "messages.write", description: "Enviar mensajes", module: "messages" },
     ];
 
     let created = 0;

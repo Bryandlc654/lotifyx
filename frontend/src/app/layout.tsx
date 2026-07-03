@@ -6,6 +6,7 @@ import { CartProvider } from "@/lib/cart-context";
 import { CartButton } from "@/components/layout/cart-button";
 import { CartSidebar } from "@/components/layout/cart-sidebar";
 import { CookieConsent } from "@/components/layout/cookie-consent";
+import { NotificationProvider } from "@/lib/notification-context";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,10 +26,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <CartProvider>
-            {children}
-            <CartButton />
-            <CartSidebar />
-            <CookieConsent />
+            <NotificationProvider>
+              {children}
+              <CartButton />
+              <CartSidebar />
+              <CookieConsent />
+            </NotificationProvider>
           </CartProvider>
         </SessionProvider>
         <Toaster

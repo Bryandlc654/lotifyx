@@ -209,6 +209,12 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("my-plan")
+  getMyPlan(@Req() req) {
+    return this.authService.getMyPlan(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get("bank-accounts")
   getBankAccounts(@Req() req) {
     return this.authService.getBankAccounts(req.user.id);

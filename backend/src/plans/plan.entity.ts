@@ -23,6 +23,9 @@ export class Plan {
   @Column({ type: "int", default: 30 })
   duration_days: number;
 
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 0 })
+  commission: number;
+
   @Column({ type: "text", nullable: true })
   icon: string;
 

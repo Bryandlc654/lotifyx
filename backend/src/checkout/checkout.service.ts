@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { AuditService } from "../audit/audit.service";
@@ -160,7 +160,7 @@ export class CheckoutService {
       this.dataSource.query(
         `SELECT
            COUNT(DISTINCT o.id)::int as total_sales,
-           COALESCE(SUM(oi.price), 0)::numeric as revenue,
+           COALESCE(SUM(oi.price) FILTER (WHERE o.status = 'completed'), 0)::numeric as revenue,
            COUNT(*) FILTER (WHERE o.status = 'completed')::int as completed,
            COUNT(*) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
          FROM orders o
@@ -206,6 +206,27 @@ export class CheckoutService {
       await queryRunner.query(
         `UPDATE products SET stock = GREATEST(stock - 1, 0)
          WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1) AND stock > 0`,
+        [id],
+      );
+
+      await queryRunner.query(
+        `UPDATE funds SET pending_balance = pending_balance + (
+           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1
+         )
+         WHERE user_id = (
+           SELECT p.user_id FROM order_items oi
+           INNER JOIN products p ON p.id = oi.product_id
+           WHERE oi.order_id = $1 LIMIT 1
+         )`,
+        [id],
+      );
+
+      await queryRunner.query(
+        `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+         SELECT p.user_id, 0, 0, 0 FROM order_items oi
+         INNER JOIN products p ON p.id = oi.product_id
+         WHERE oi.order_id = $1
+         ON CONFLICT (user_id) DO NOTHING`,
         [id],
       );
 
@@ -259,6 +280,111 @@ export class CheckoutService {
     );
     this.audit.log({ action: "claim_updated", entity: "claim", entityId: id, details: { status } });
     return { message: "Reclamo actualizado" };
+  }
+
+  async getOrderDetail(orderId: string, userId: string) {
+    const [order] = await this.dataSource.query(
+      `SELECT o.*,
+              buyer.email AS buyer_email,
+              buyer.phone AS buyer_phone,
+              buyer_profile.first_name AS buyer_first_name,
+              buyer_profile.last_name AS buyer_last_name,
+              buyer_profile.address AS buyer_address
+       FROM orders o
+       LEFT JOIN users buyer ON buyer.id = o.user_id
+       LEFT JOIN user_profiles buyer_profile ON buyer_profile.user_id = o.user_id
+       WHERE o.id = $1::uuid`,
+      [orderId],
+    );
+
+    if (!order) throw new NotFoundException("Pedido no encontrado");
+
+    const items = await this.dataSource.query(
+      `SELECT oi.*, p.title AS product_title, p.sku AS product_sku,
+              p.specifications AS product_specs, p.user_id AS seller_id
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = $1::uuid`,
+      [orderId],
+    );
+
+    const sellerId = items[0]?.seller_id;
+    const isBuyer = order.user_id === userId;
+    const isSeller = sellerId === userId;
+    if (!isBuyer && !isSeller) throw new ForbiddenException("No tienes acceso a este pedido");
+
+    let sellerInfo = { seller_email: null, seller_first_name: null, seller_last_name: null, seller_phone: null };
+    if (sellerId) {
+      const [s] = await this.dataSource.query(
+        `SELECT u.email AS seller_email, u.phone AS seller_phone,
+                up.first_name AS seller_first_name, up.last_name AS seller_last_name
+         FROM users u
+         LEFT JOIN user_profiles up ON up.user_id = u.id
+         WHERE u.id = $1::uuid`,
+        [sellerId],
+      );
+      if (s) sellerInfo = s;
+    }
+
+    const tracking = await this.dataSource.query(
+      `SELECT * FROM order_tracking_history WHERE order_id = $1::uuid ORDER BY created_at ASC`,
+      [orderId],
+    );
+
+    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking };
+  }
+
+  async updateOrderTracking(
+    orderId: string,
+    userId: string,
+    data: { status: string; note?: string; shipping_address?: string; shipping_reference?: string; shipping_city?: string; shipping_notes?: string; tracking_number?: string },
+  ) {
+    const [order] = await this.dataSource.query(
+      `SELECT o.*, p.user_id AS seller_id FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE o.id = $1::uuid LIMIT 1`,
+      [orderId],
+    );
+    if (!order) throw new NotFoundException("Pedido no encontrado");
+    if (order.seller_id !== userId) throw new ForbiddenException("Solo el vendedor puede actualizar el tracking");
+
+    const validStatuses = ["coordination", "shipping", "delivered"];
+    if (!validStatuses.includes(data.status)) throw new BadRequestException("Estado inválido");
+
+    const dateColumn = data.status === "coordination" ? "tracking_coordination_at"
+      : data.status === "shipping" ? "tracking_shipping_at"
+      : "tracking_delivered_at";
+
+      await this.dataSource.query(
+        `UPDATE orders SET tracking_status = $1, ${dateColumn} = NOW(), updated_at = NOW()
+         WHERE id = $2::uuid`,
+        [data.status, orderId],
+    );
+
+    if (data.shipping_address || data.shipping_reference || data.shipping_city || data.shipping_notes || data.tracking_number) {
+      const updates: string[] = [];
+      const params: any[] = [orderId];
+      if (data.shipping_address !== undefined) { updates.push(`shipping_address = $${params.length + 1}`); params.push(data.shipping_address); }
+      if (data.shipping_reference !== undefined) { updates.push(`shipping_reference = $${params.length + 1}`); params.push(data.shipping_reference); }
+      if (data.shipping_city !== undefined) { updates.push(`shipping_city = $${params.length + 1}`); params.push(data.shipping_city); }
+      if (data.shipping_notes !== undefined) { updates.push(`shipping_notes = $${params.length + 1}`); params.push(data.shipping_notes); }
+      if (data.tracking_number !== undefined) { updates.push(`tracking_number = $${params.length + 1}`); params.push(data.tracking_number); }
+      if (updates.length) {
+        await this.dataSource.query(
+          `UPDATE orders SET ${updates.join(", ")} WHERE id = $1::uuid`,
+          params,
+        );
+      }
+    }
+
+    await this.dataSource.query(
+      `INSERT INTO order_tracking_history (order_id, status, note, created_by) VALUES ($1::uuid, $2, $3, $4::uuid)`,
+      [orderId, data.status, data.note || null, userId],
+    );
+
+    this.audit.log({ userId, action: "order_tracking_updated", entity: "order", entityId: orderId, details: { status: data.status } });
+    return { message: "Tracking actualizado" };
   }
 
   async rejectOrder(id: string, motivo: string) {
@@ -357,6 +483,116 @@ export class CheckoutService {
       await queryRunner.commitTransaction();
       this.audit.log({ userId: data.userId, action: "order_created", entity: "order", entityId: order.id, details: { items: data.items.length, total: data.total } });
       return order;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getFunds(userId: string) {
+    const [funds] = await this.dataSource.query(
+      `SELECT COALESCE(available_balance, 0) AS available_balance,
+              COALESCE(pending_balance, 0) AS pending_balance,
+              COALESCE(disputed_balance, 0) AS disputed_balance
+       FROM funds WHERE user_id = $1::uuid`,
+      [userId],
+    );
+
+    if (!funds) {
+      await this.dataSource.query(
+        `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance) VALUES ($1::uuid, 0, 0, 0) ON CONFLICT (user_id) DO NOTHING`,
+        [userId],
+      );
+      return { available_balance: 0, pending_balance: 0, disputed_balance: 0 };
+    }
+
+    return {
+      available_balance: Number(funds.available_balance),
+      pending_balance: Number(funds.pending_balance),
+      disputed_balance: Number(funds.disputed_balance),
+    };
+  }
+
+  async getWithdrawals(userId: string, page: number = 1, limit: number = 10) {
+    const offset = (page - 1) * limit;
+    const [{ count }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int FROM withdrawals WHERE user_id = $1::uuid`,
+      [userId],
+    );
+    const rows = await this.dataSource.query(
+      `SELECT * FROM withdrawals WHERE user_id = $1::uuid ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+      [userId, limit, offset],
+    );
+    return { data: rows, total: Number(count), page, totalPages: Math.ceil(Number(count) / limit) };
+  }
+
+  async requestWithdrawal(userId: string, data: { amount: number; bank_name: string; account_number: string; account_holder: string }) {
+    if (data.amount <= 0) throw new BadRequestException("Monto inválido");
+
+    const [funds] = await this.dataSource.query(
+      `SELECT available_balance FROM funds WHERE user_id = $1::uuid FOR UPDATE`,
+      [userId],
+    );
+    if (!funds || Number(funds.available_balance) < data.amount) {
+      throw new BadRequestException("Saldo insuficiente");
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query(
+        `UPDATE funds SET available_balance = available_balance - $1, pending_balance = pending_balance + $1 WHERE user_id = $2::uuid`,
+        [data.amount, userId],
+      );
+      await queryRunner.query(
+        `INSERT INTO withdrawals (user_id, amount, status, bank_name, account_number, account_holder) VALUES ($1::uuid, $2, 'pending', $3, $4, $5)`,
+        [userId, data.amount, data.bank_name, data.account_number, data.account_holder],
+      );
+      await queryRunner.commitTransaction();
+      this.audit.log({ userId, action: "withdrawal_requested", entity: "funds", details: { amount: data.amount } });
+      return { message: "Solicitud de retiro enviada" };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async processWithdrawal(id: string, status: string) {
+    if (!["approved", "rejected"].includes(status)) throw new BadRequestException("Estado inválido");
+    const [w] = await this.dataSource.query(
+      `SELECT * FROM withdrawals WHERE id = $1::uuid`,
+      [id],
+    );
+    if (!w) throw new NotFoundException("Retiro no encontrado");
+    if (w.status !== "pending") throw new BadRequestException("El retiro ya fue procesado");
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      if (status === "rejected") {
+        await queryRunner.query(
+          `UPDATE funds SET available_balance = available_balance + $1, pending_balance = pending_balance - $1 WHERE user_id = $2::uuid`,
+          [w.amount, w.user_id],
+        );
+      } else {
+        await queryRunner.query(
+          `UPDATE funds SET pending_balance = pending_balance - $1 WHERE user_id = $2::uuid`,
+          [w.amount, w.user_id],
+        );
+      }
+      await queryRunner.query(
+        `UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2::uuid`,
+        [status, id],
+      );
+      await queryRunner.commitTransaction();
+      this.audit.log({ action: "withdrawal_processed", entity: "funds", entityId: id, details: { status } });
+      return { message: `Retiro ${status === "approved" ? "aprobado" : "rechazado"}` };
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;

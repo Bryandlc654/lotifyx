@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getBankAccounts, saveBankAccount, updateBankAccount, deleteBankAccount, getProfile, isAuthenticated, removeTokens } from "@/lib/api";
-import { Banknote, ChevronRight, Pencil, Trash2, Building2, User, Hash, X } from "lucide-react";
+import { Banknote, ChevronRight, Pencil, Trash2, Building2, User, Hash, X, MessageCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 interface BankAccount {
@@ -117,6 +117,12 @@ export default function MisCuentasPage() {
               Mis Compras
             </button>
           )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
           <button onClick={() => router.push("/perfil/mis-cuentas")}
             className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
             Mis Cuentas
@@ -125,6 +131,12 @@ export default function MisCuentasPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -286,3 +298,4 @@ export default function MisCuentasPage() {
     </>
   );
 }
+

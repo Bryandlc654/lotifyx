@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { bulkUploadProducts, getBulkTemplateUrl, getProfile, isAuthenticated, removeTokens } from "@/lib/api";
-import { ChevronRight, Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ChevronRight, Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, MessageCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CargaMasivaPage() {
@@ -64,6 +64,12 @@ export default function CargaMasivaPage() {
             </button>
           )}
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Cuentas
@@ -73,6 +79,12 @@ export default function CargaMasivaPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -244,3 +256,4 @@ export default function CargaMasivaPage() {
     </>
   );
 }
+

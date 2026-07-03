@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut, ChevronDown, Shield } from "lucide-react";
+import { User, LogOut, ChevronDown, Shield, MessageCircle } from "lucide-react";
 import { logoutUser } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
 
 interface UserData {
   email: string;
@@ -26,6 +27,17 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (socket) {
+      socket.on("unread_update", (data: { unread: number }) => {
+        setUnread(data.unread);
+      });
+    }
+    return () => { socket?.off("unread_update"); };
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -94,6 +106,20 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
           >
             <User className="h-4 w-4" />
             Mi perfil
+          </Link>
+
+          <Link
+            href="/perfil/mensajes"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Mensajes
+            {unread > 0 && (
+              <span className="ml-auto bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </Link>
 
           <button

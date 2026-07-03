@@ -73,7 +73,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
 // ─── Authenticated fetch ─────────────────────────────────────
 
-async function authFetch(
+export async function authFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
@@ -723,6 +723,7 @@ export async function deleteBackingLogo(id: string): Promise<void> {
 export interface Plan {
   id: string; name: string; description: string; price: number;
   max_products: number; max_featured: number; duration_days: number;
+  commission: number;
   icon: string; is_active: boolean; order_index: number;
 }
 
@@ -732,7 +733,7 @@ export async function getPlans(): Promise<Plan[]> {
   return res.json();
 }
 
-export async function createPlan(dto: { name: string; description?: string; price: number; max_products: number; max_featured?: number; duration_days?: number }): Promise<Plan> {
+export async function createPlan(dto: { name: string; description?: string; price: number; max_products: number; max_featured?: number; duration_days?: number; commission?: number }): Promise<Plan> {
   const res = await authFetch(`${API_URL}/plans`, { method: "POST", body: JSON.stringify(dto) });
   if (!res.ok) throw new Error((await res.json().catch(()=>({message:"Error"}))).message);
   return res.json();
@@ -1287,6 +1288,21 @@ export async function updateClaimStatus(id: string, status: string) {
   return res.json();
 }
 
+export async function getMyPlan(): Promise<any> {
+  const res = await authFetch(`${API_URL}/auth/my-plan`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function selectPlan(planId: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/auth/select-plan`, {
+    method: "POST",
+    body: JSON.stringify({ plan_id: planId }),
+  });
+  if (!res.ok) throw new Error("Error al seleccionar plan");
+  return res.json();
+}
+
 export async function getMyOrders() {
   const res = await authFetch(`${API_URL}/checkout/orders`);
   if (!res.ok) throw new Error("Error al obtener pedidos");
@@ -1367,4 +1383,80 @@ export async function submitCheckout(data: {
 
   if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
   return res.json();
+}
+
+// ─── Messages ─────────────────────────────────────────────────
+
+export interface Conversation {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  product_id: string | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  buyer_email: string;
+  buyer_first_name: string;
+  buyer_last_name: string;
+  buyer_avatar: string | null;
+  seller_email: string;
+  seller_first_name: string;
+  seller_last_name: string;
+  seller_avatar: string | null;
+  product_title: string | null;
+  product_images: string | null;
+  unread_count: number;
+}
+
+export interface MessageData {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  text: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export async function getConversations(): Promise<Conversation[]> {
+  const res = await authFetch(`${API_URL}/messages/conversations`);
+  if (!res.ok) throw new Error("Error al obtener conversaciones");
+  return res.json();
+}
+
+export async function createOrGetConversation(sellerId: string, productId?: string): Promise<Conversation> {
+  const res = await authFetch(`${API_URL}/messages/conversations`, {
+    method: "POST",
+    body: JSON.stringify({ seller_id: sellerId, product_id: productId }),
+  });
+  if (!res.ok) throw new Error("Error al crear conversación");
+  return res.json();
+}
+
+export async function getMessages(conversationId: string): Promise<MessageData[]> {
+  const res = await authFetch(`${API_URL}/messages/conversations/${conversationId}`);
+  if (!res.ok) throw new Error("Error al obtener mensajes");
+  return res.json();
+}
+
+export async function sendMessage(conversationId: string, text: string): Promise<MessageData> {
+  const res = await authFetch(`${API_URL}/messages/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error("Error al enviar mensaje");
+  return res.json();
+}
+
+export async function getUnreadCount(): Promise<{ unread: number }> {
+  const res = await authFetch(`${API_URL}/messages/unread-count`);
+  if (!res.ok) return { unread: 0 };
+  return res.json();
+}
+
+export async function markAsRead(messageId: string): Promise<void> {
+  await authFetch(`${API_URL}/messages/${messageId}/read`, { method: "PUT" });
+}
+
+export async function markAllAsRead(conversationId: string): Promise<void> {
+  await authFetch(`${API_URL}/messages/conversations/${conversationId}/read-all`, { method: "PUT" });
 }

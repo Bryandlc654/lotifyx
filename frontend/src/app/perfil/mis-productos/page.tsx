@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, getImageUrl, Product } from "@/lib/api";
-import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle } from "lucide-react";
+import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MisProductosPage() {
@@ -75,6 +75,12 @@ export default function MisProductosPage() {
             </button>
           )}
           {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mensajes")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mensajes
+            </button>
+          )}
+          {userRole !== "superadmin" && (
             <button onClick={() => router.push("/perfil/mis-cuentas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Cuentas
@@ -84,6 +90,12 @@ export default function MisProductosPage() {
             <button onClick={() => router.push("/perfil/mis-ventas")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Mis Ventas
+            </button>
+          )}
+          {userRole === "vendedor" && (
+            <button onClick={() => router.push("/perfil/mis-fondos")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Fondos
             </button>
           )}
           {userRole === "vendedor" && (
@@ -382,3 +394,4 @@ export default function MisProductosPage() {
     </>
   );
 }
+
