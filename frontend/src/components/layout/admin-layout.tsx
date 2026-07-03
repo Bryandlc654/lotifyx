@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart, FileText, AlertTriangle, Play, Calendar } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart, FileText, AlertTriangle, Play, Calendar, Newspaper } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -31,6 +31,9 @@ const modules = [
   { href: "/admin/blog", label: "Blog", icon: FileText, permission: "blog" },
   { href: "/admin/tutoriales", label: "Tutoriales", icon: Play, permission: "tutorials" },
   { href: "/admin/eventos", label: "Eventos", icon: Calendar, permission: "events" },
+  { href: "/admin/prensa", label: "Prensa", icon: Newspaper, permission: "press" },
+  { href: "/admin/ayuda", label: "Centro de Ayuda", icon: HelpCircle, permission: "help" },
+  { href: "/admin/soporte", label: "Soporte", icon: MessageSquare, permission: "support" },
   { href: "/admin/newsletter", label: "Newsletter", icon: Mail, permission: "newsletter" },
   { href: "/admin/leads", label: "Leads", icon: Mail, permission: "leads" },
   { href: "/admin/audit", label: "Auditoría", icon: FileText, permission: "orders" },

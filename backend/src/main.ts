@@ -2,6 +2,7 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import { json, urlencoded } from "express";
+import * as cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
@@ -10,6 +11,9 @@ async function bootstrap() {
   process.on("uncaughtException", (err) => console.error("UNCAUGHT EXCEPTION:", err));
 
   const app = await NestFactory.create(AppModule);
+
+  // ─── Cookie parser ───────────────────────
+  app.use(cookieParser());
 
   // ─── CORS (antes que helmet para preflight) ──
   app.enableCors({

@@ -1,4 +1,4 @@
-import { Controller, Post, UploadedFile, UploadedFiles, UseInterceptors, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, UploadedFile, UploadedFiles, UseInterceptors, HttpCode, HttpStatus, BadRequestException } from "@nestjs/common";
 import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
@@ -13,6 +13,22 @@ function mkdir(dir: string) {
 
 const GALLERY_DEST = "./uploads/gallery";
 const IMAGE_DEST = "./uploads/images";
+const FILE_DEST = "./uploads/files";
+
+const ALLOWED_IMAGES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_FILES = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function imageFilter(_req: any, file: Express.Multer.File, cb: (err: Error | null, ok: boolean) => void) {
+  if (!ALLOWED_IMAGES.includes(file.mimetype)) cb(new BadRequestException("Formato de imagen no válido (JPG, PNG, WebP, GIF)"), false);
+  else cb(null, true);
+}
+
+function fileFilter(_req: any, file: Express.Multer.File, cb: (err: Error | null, ok: boolean) => void) {
+  if (!ALLOWED_FILES.includes(file.mimetype)) cb(new BadRequestException("Formato de archivo no válido (PDF, DOC, DOCX, TXT)"), false);
+  else cb(null, true);
+}
 
 @Controller("uploads")
 export class UploadsController {
@@ -31,11 +47,26 @@ export class UploadsController {
   @UseInterceptors(
     FileInterceptor("file", {
       storage: diskStorage({ destination: mkdir(IMAGE_DEST), filename: name }),
+      fileFilter: imageFilter,
+      limits: { fileSize: MAX_IMAGE_SIZE },
     }),
   )
   @HttpCode(HttpStatus.CREATED)
   uploadImage(@UploadedFile() file: Express.Multer.File) {
     return { url: `/uploads/images/${file.filename}` };
+  }
+
+  @Post("file")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({ destination: mkdir(FILE_DEST), filename: name }),
+      fileFilter,
+      limits: { fileSize: MAX_FILE_SIZE },
+    }),
+  )
+  @HttpCode(HttpStatus.CREATED)
+  uploadFile(@UploadedFile() file: Express.Multer.File) {
+    return { url: `/uploads/files/${file.filename}` };
   }
 }
 

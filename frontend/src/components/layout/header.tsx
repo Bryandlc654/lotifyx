@@ -136,17 +136,23 @@ export function Header() {
   return (
     <>
       {/* Top bar */}
-      {topBarEnabled && currentMessage && (
+      {topBarEnabled && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#8234FE] to-[#26BEFE]">
-          {currentMessage.link ? (
-            <a href={currentMessage.link} className="block text-center font-medium text-white py-2 px-4 hover:underline"
-              style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
-              {currentMessage.text}
-            </a>
+          {currentMessage ? (
+            currentMessage.link ? (
+              <a href={currentMessage.link} className="block text-center font-medium text-white py-2 px-4 hover:underline"
+                style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
+                {currentMessage.text}
+              </a>
+            ) : (
+              <p className="text-center font-medium text-white py-2 px-4"
+                style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
+                {currentMessage.text}
+              </p>
+            )
           ) : (
-            <p className="text-center font-medium text-white py-2 px-4"
-              style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
-              {currentMessage.text}
+            <p className="text-center font-medium text-white py-2 px-4 text-sm">
+              Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.
             </p>
           )}
         </div>

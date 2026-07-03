@@ -115,4 +115,61 @@ export class MailService implements OnModuleInit {
       `,
     });
   }
+
+  async sendTicketConfirmation(to: string, name: string, ticketNumber: string, subject: string) {
+    const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
+    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
+
+    await this.transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to,
+      subject: `Ticket #${ticketNumber} recibido - Lotifyx`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#8234FE;margin:0 0 8px">Hemos recibido tu solicitud, ${name}</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            Tu ticket de soporte ha sido creado correctamente. Pronto nos pondremos en contacto contigo.
+          </p>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;margin:20px 0;text-align:center">
+            <p style="margin:0;color:#94a3b8;font-size:12px;">Número de ticket</p>
+            <p style="margin:4px 0 0;font-size:22px;font-weight:700;letter-spacing:2px;color:#1e293b;font-family:monospace">${ticketNumber}</p>
+          </div>
+          <p style="color:#475569;font-size:13px;line-height:1.6"><strong>Asunto:</strong> ${subject}</p>
+          <p style="color:#94a3b8;font-size:12px;margin-top:16px;">
+            Puedes dar seguimiento a tu ticket ingresando el número en nuestra página de soporte.
+            <br><a href="${frontendUrl}/soporte" style="color:#8234FE;text-decoration:underline">Ir al centro de soporte</a>
+          </p>
+        </div>
+      `,
+    });
+  }
+
+  async sendTicketResponse(to: string, name: string, ticketNumber: string, responseText: string) {
+    const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
+    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");
+
+    await this.transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to,
+      subject: `Tu ticket #${ticketNumber} ha sido respondido - Lotifyx`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#8234FE;margin:0 0 8px">Tu ticket ha sido respondido, ${name}</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            Hemos respondido a tu solicitud. Puedes ver los detalles a continuación:
+          </p>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;margin:20px 0">
+            <p style="margin:0;color:#94a3b8;font-size:12px;">Ticket</p>
+            <p style="margin:4px 0 12px;font-size:16px;font-weight:700;color:#1e293b;font-family:monospace">${ticketNumber}</p>
+            <p style="margin:0;color:#94a3b8;font-size:12px;">Respuesta del soporte</p>
+            <p style="margin:4px 0 0;color:#475569;font-size:14px;line-height:1.6">${responseText}</p>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;text-align:center">
+            Si tienes más dudas, puedes responder a este correo o crear un nuevo ticket en nuestro centro de soporte.
+          </p>
+        </div>
+      `,
+    });
+  }
 }

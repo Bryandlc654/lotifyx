@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
 import { onSessionExpired } from "@/lib/session";
-import { loginUser, getProfile, getGoogleAuthUrl, isAuthenticated, setTokens } from "@/lib/api";
-import { X, Loader2 } from "lucide-react";
+import { loginUser, getGoogleAuthUrl, setTokens } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -13,8 +12,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [credential, setCredential] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
-  const pendingUrl = useRef<string | null>(null);
 
   useEffect(() => {
     return onSessionExpired(() => setShowLogin(true));

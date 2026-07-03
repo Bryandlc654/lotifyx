@@ -19,13 +19,14 @@ export function getAccessToken(): string | null {
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_KEY);
+  const stored = localStorage.getItem(REFRESH_KEY);
+  if (stored) return stored;
+  return getAccessToken(); // fallback
 }
 
-export function setTokens(access: string, refresh: string): void {
+export function setTokens(access: string, refresh?: string): void {
   localStorage.setItem(ACCESS_KEY, access);
-  localStorage.setItem(REFRESH_KEY, refresh);
+  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
 }
 
 export function removeTokens(): void {
@@ -51,24 +52,19 @@ export function getCurrentUserId(): string | null {
 // ─── Auto-refresh ────────────────────────────────────────────
 
 async function refreshAccessToken(): Promise<string | null> {
-  const refresh = getRefreshToken();
-  if (!refresh) return null;
-
   try {
+    const storedRefresh = getRefreshToken();
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: refresh }),
+      headers: storedRefresh ? { "Content-Type": "application/json" } : {},
+      body: storedRefresh ? JSON.stringify({ refreshToken: storedRefresh }) : undefined,
+      credentials: "include",
     });
 
-    if (!res.ok) {
-      return null;
-    }
+    if (!res.ok) return null;
 
     const data = await res.json();
-    if (data.accessToken && data.refreshToken) {
-      setTokens(data.accessToken, data.refreshToken);
-    }
+    if (data.accessToken) setTokens(data.accessToken, data.refreshToken);
     return data.accessToken || null;
   } catch {
     return null;
@@ -89,7 +85,7 @@ async function authFetch(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  let res = await fetch(url, { ...options, headers });
+  let res = await fetch(url, { ...options, headers, credentials: "include" });
 
   if (res.status === 401 && getRefreshToken()) {
     const newToken = await refreshAccessToken();
@@ -130,7 +126,7 @@ interface LoginPayload {
 interface AuthResponse {
   message: string;
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   user: Record<string, unknown>;
 }
 
@@ -224,13 +220,11 @@ export async function verifyEmail(email: string, code: string) {
 }
 
 export async function logoutUser() {
-  const refresh = getRefreshToken();
-  if (refresh) {
-    await authFetch(`${API_URL}/auth/logout`, {
-      method: "POST",
-      body: JSON.stringify({ refreshToken: refresh }),
-    }).catch(() => {});
-  }
+  const storedRefresh = getRefreshToken();
+  await authFetch(`${API_URL}/auth/logout`, {
+    method: "POST",
+    body: storedRefresh ? JSON.stringify({ refreshToken: storedRefresh }) : undefined,
+  }).catch(() => {});
   removeTokens();
 }
 
@@ -948,6 +942,144 @@ export async function updateEvent(id: string, dto: Partial<AppEvent>): Promise<A
 export async function deleteEvent(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/admin/events/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar evento");
+}
+
+// ─── Help Articles ────────────────────────────────────────────
+
+export interface HelpArticle {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  status: string;
+  created_at: string;
+}
+
+export async function getHelpArticles(): Promise<HelpArticle[]> {
+  const res = await fetch(`${API_URL}/help`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminHelpArticles(): Promise<HelpArticle[]> {
+  const res = await authFetch(`${API_URL}/admin/help`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminHelpArticle(id: string): Promise<HelpArticle> {
+  const res = await authFetch(`${API_URL}/admin/help/${id}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createHelpArticle(dto: Partial<HelpArticle>): Promise<HelpArticle> {
+  const res = await authFetch(`${API_URL}/admin/help`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear artículo");
+  return res.json();
+}
+
+export async function updateHelpArticle(id: string, dto: Partial<HelpArticle>): Promise<HelpArticle> {
+  const res = await authFetch(`${API_URL}/admin/help/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar artículo");
+  return res.json();
+}
+
+export async function deleteHelpArticle(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/help/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar artículo");
+}
+
+// ─── Press ───────────────────────────────────────────────────
+
+export interface PressArticle {
+  id: string;
+  title: string;
+  excerpt?: string;
+  source: string;
+  link: string;
+  image_url?: string;
+  status: string;
+  published_at?: string;
+  created_at: string;
+}
+
+export async function getPressArticles(): Promise<PressArticle[]> {
+  const res = await fetch(`${API_URL}/press`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminPressArticles(): Promise<PressArticle[]> {
+  const res = await authFetch(`${API_URL}/admin/press`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function createPressArticle(dto: Partial<PressArticle>): Promise<PressArticle> {
+  const res = await authFetch(`${API_URL}/admin/press`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al crear nota");
+  return res.json();
+}
+
+export async function updatePressArticle(id: string, dto: Partial<PressArticle>): Promise<PressArticle> {
+  const res = await authFetch(`${API_URL}/admin/press/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error al actualizar nota");
+  return res.json();
+}
+
+export async function deletePressArticle(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/press/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar nota");
+}
+
+// ─── Support Tickets ──────────────────────────────────────────
+
+export interface SupportTicket {
+  id: string;
+  ticket_number: string;
+  name: string;
+  email: string;
+  subject: string;
+  description: string;
+  images: string[];
+  files: string[];
+  status: string;
+  response: string | null;
+  created_at: string;
+}
+
+export async function createSupportTicket(dto: Partial<SupportTicket>): Promise<SupportTicket> {
+  const res = await fetch(`${API_URL}/support/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error("Error al crear ticket");
+  return res.json();
+}
+
+export async function getSupportTicket(ticketNumber: string): Promise<SupportTicket> {
+  const res = await fetch(`${API_URL}/support/tickets/${ticketNumber}`);
+  if (!res.ok) throw new Error("Ticket no encontrado");
+  return res.json();
+}
+
+export async function getAdminSupportTickets(): Promise<SupportTicket[]> {
+  const res = await authFetch(`${API_URL}/admin/support`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function updateSupportTicket(id: string, dto: Partial<SupportTicket>): Promise<SupportTicket> {
+  const res = await authFetch(`${API_URL}/admin/support/${id}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function deleteSupportTicket(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/support/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar ticket");
 }
 
 export async function deleteNewsletterSubscriber(id: string): Promise<void> {

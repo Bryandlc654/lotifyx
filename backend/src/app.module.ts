@@ -12,6 +12,10 @@ import { BlogModule } from "./blog/blog.module";
 import { NewsletterModule } from "./newsletter/newsletter.module";
 import { TutorialsModule } from "./tutorials/tutorials.module";
 import { EventsModule } from "./events/events.module";
+import { HelpModule } from "./help/help.module";
+import { SupportModule } from "./support/support.module";
+import { CartModule } from "./cart/cart.module";
+import { PressModule } from "./press/press.module";
 import { MailModule } from "./mail/mail.module";
 import { BannersModule } from "./banners/banners.module";
 import { MarqueesModule } from "./marquees/marquees.module";
@@ -105,6 +109,10 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     NewsletterModule,
     TutorialsModule,
     EventsModule,
+    HelpModule,
+    SupportModule,
+    CartModule,
+    PressModule,
   ],
 
   // ─── Global rate limit guard ──────────────

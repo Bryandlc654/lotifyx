@@ -5,6 +5,7 @@ import { SessionProvider } from "@/components/layout/session-provider";
 import { CartProvider } from "@/lib/cart-context";
 import { CartButton } from "@/components/layout/cart-button";
 import { CartSidebar } from "@/components/layout/cart-sidebar";
+import { CookieConsent } from "@/components/layout/cookie-consent";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,6 +28,7 @@ export default function RootLayout({
             {children}
             <CartButton />
             <CartSidebar />
+            <CookieConsent />
           </CartProvider>
         </SessionProvider>
         <Toaster

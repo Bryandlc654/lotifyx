@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -14,6 +15,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
@@ -22,6 +24,7 @@ import { existsSync, mkdirSync } from "fs";
 import { Throttle } from "@nestjs/throttler";
 import { AuthGuard } from "@nestjs/passport";
 import { Response } from "express";
+import * as crypto from "crypto";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -35,15 +38,28 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
-  register(@Body() dto: RegisterDto) {
+  register(@Body() dto: RegisterDto, @Req() req: any) {
+    const referralFromCookie = req.cookies?.referral_code;
+    if (referralFromCookie && !dto.codigoReferidos) {
+      dto.codigoReferidos = referralFromCookie;
+    }
     return this.authService.register(dto);
   }
 
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto);
+    const isProd = process.env.NODE_ENV === "production";
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProd ? "none" : "lax",
+      path: "/api/auth/",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user, message: result.message };
   }
 
   @Post("verify-email")
@@ -73,12 +89,54 @@ export class AuthController {
     );
   }
 
+  // ─── CSRF Token ─────────────────────────────────────────
+
+  @Get("csrf-token")
+  getCsrfToken(@Res({ passthrough: true }) res: Response) {
+    const token = crypto.randomBytes(32).toString("hex");
+    res.cookie("csrf_token", token, {
+      httpOnly: false,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    return { csrfToken: token };
+  }
+
+  // ─── Referral Tracking ─────────────────────────────────
+
+  @Get("set-referral")
+  setReferral(@Query("ref") ref: string, @Res({ passthrough: true }) res: Response) {
+    if (ref) {
+      res.cookie("referral_code", ref, {
+        httpOnly: false,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+    }
+    return { message: "Referral guardado" };
+  }
+
   // ─── Refresh Token ──────────────────────────────────────
 
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
-  refresh(@Body("refreshToken") refreshToken: string) {
-    return this.authService.refreshAccessToken(refreshToken);
+  async refresh(@Req() req: any, @Body("refreshToken") bodyToken: string, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refreshToken || bodyToken;
+    if (!refreshToken) throw new UnauthorizedException("Refresh token no encontrado");
+    const result = await this.authService.refreshAccessToken(refreshToken);
+    const isProd = process.env.NODE_ENV === "production";
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProd ? "none" : "lax",
+      path: "/api/auth/",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken, message: "Token renovado" };
   }
 
   // ─── Logout ─────────────────────────────────────────────
@@ -86,8 +144,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post("logout")
   @HttpCode(HttpStatus.OK)
-  logout(@Body("refreshToken") refreshToken: string) {
-    return this.authService.logout(refreshToken);
+  async logout(@Req() req: any, @Body("refreshToken") bodyToken: string, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refreshToken || bodyToken;
+    if (refreshToken) await this.authService.logout(refreshToken);
+    res.clearCookie("refreshToken", { path: "/api/auth/" });
+    return { message: "Sesión cerrada" };
   }
 
   // ─── Profile ────────────────────────────────────────────

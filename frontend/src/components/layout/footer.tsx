@@ -11,9 +11,9 @@ const footerLinks = [
   {
     title: "Compañía",
     links: [
-      { label: "Sobre nosotros", href: "#" },
+      { label: "Sobre nosotros", href: "/nosotros" },
       { label: "Carreras", href: "#" },
-      { label: "Prensa", href: "#" },
+      { label: "Prensa", href: "/prensa" },
     ],
   },
   {
@@ -39,7 +39,7 @@ const footerLinks = [
     links: [
       { label: "¿Cómo vender?", href: "/como-vender" },
       { label: "Centro de ayuda", href: "/ayuda" },
-      { label: "Soporte", href: "#" },
+      { label: "Soporte", href: "/soporte" },
       { label: "Preguntas frecuentes", href: "/faqs" },
     ],
   },
@@ -48,7 +48,7 @@ const footerLinks = [
     links: [
       { label: "Términos", href: "/terminos" },
       { label: "Privacidad", href: "/privacidad" },
-      { label: "Cookies", href: "#" },
+      { label: "Cookies", href: "/politica-de-cookies" },
     ],
   },
 ];

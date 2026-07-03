@@ -1,25 +1,46 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
 const steps = [
-  { num: 1, title: "Busca y elige", sub: "Explora productos por categorías o buscador." },
-  { num: 2, title: "Compra segura", sub: "Paga con métodos protegidos. Tu dinero está seguro." },
-  { num: 3, title: "Recibe tu pedido", sub: "Sigue el envío hasta tu puerta." },
-  { num: 4, title: "Califica", sub: "Valora al vendedor y tu experiencia." },
+  { num: 1, title: "Busca y elige", sub: "Explora productos por categorías o buscador.", img: "/como-comprar/C1.png" },
+  { num: 2, title: "Compra segura", sub: "Paga con métodos protegidos. Tu dinero está seguro.", img: "/como-comprar/C2.png" },
+  { num: 3, title: "Recibe tu pedido", sub: "Sigue el envío hasta tu puerta.", img: "/como-comprar/C3.png" },
+  { num: 4, title: "Califica", sub: "Valora al vendedor y tu experiencia.", img: "/como-comprar/C4.png" },
 ];
 
 export function HowToBuySection() {
+  const [activeImg, setActiveImg] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(true);
+
+  useEffect(() => {
+    if (!autoPlay) return;
+    const timer = setInterval(() => {
+      setActiveImg(i => (i + 1) % steps.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [autoPlay]);
+
+  function handleHover(i: number) {
+    setAutoPlay(false);
+    setActiveImg(i);
+  }
+
+  function handleLeave() {
+    setAutoPlay(true);
+  }
+
   return (
     <section className="bg-white py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
-          {/* Left: image */}
           <div className="flex-1 w-full">
             <img
-              src="/cierres-confianza/Rectangle 24.png"
+              src={steps[activeImg].img}
               alt="Comprar nunca fue tan fácil"
-              className="w-full h-auto max-h-[500px] object-cover rounded-2xl"
+              className="w-full h-auto max-h-[500px] object-cover rounded-2xl transition-all duration-500"
             />
           </div>
-
-          {/* Right: content */}
           <div className="flex-1">
             <h2 className="text-[32px] font-bold text-gray-900 leading-tight uppercase">
               Comprar nunca fue tan fácil
@@ -27,15 +48,14 @@ export function HowToBuySection() {
             <p className="text-base text-gray-500 mt-3 leading-relaxed">
               Explora miles de productos, paga con total confianza y recibe tu pedido en la puerta de tu casa. Tu compra está protegida en todo momento y cuentas con soporte si lo necesitas.
             </p>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
-              {steps.map((s) => (
-                <div key={s.num} className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8234FE] to-[#26BEFE] flex items-center justify-center flex-shrink-0">
+              {steps.map((s, i) => (
+                <div key={s.num} onMouseEnter={() => handleHover(i)} onMouseLeave={handleLeave} className="flex items-start gap-4 cursor-pointer group">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${activeImg === i ? "bg-gradient-to-br from-[#8234FE] to-[#26BEFE] shadow-lg scale-110" : "bg-gradient-to-br from-[#8234FE] to-[#26BEFE]"}`}>
                     <span className="text-white text-sm font-bold">{s.num}</span>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">{s.title}</p>
+                    <p className={`text-sm font-semibold transition-colors duration-300 ${activeImg === i ? "text-[#8234FE]" : "text-gray-900"}`}>{s.title}</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{s.sub}</p>
                   </div>
                 </div>
