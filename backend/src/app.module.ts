@@ -76,19 +76,25 @@ import { DebugController } from "./debug.controller";
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres",
-        host: config.get<string>("DB_HOST", "localhost"),
-        port: config.get<number>("DB_PORT", 5432),
-        username: config.get<string>("DB_USERNAME", "postgres"),
-        password: config.get<string>("DB_PASSWORD", "postgres"),
-        database: config.get<string>("DB_DATABASE", "lotifyx"),
-        autoLoadEntities: true,
-        synchronize: config.get<string>("NODE_ENV") !== "production",
-        connectTimeoutMS: 2000,
-        retryAttempts: 0,
-        extra: { client_encoding: "UTF8" },
-      }),
+      useFactory: (config: ConfigService) => {
+        const dbUrl = config.get<string>("DATABASE_URL");
+        const base: Record<string, any> = { type: "postgres" };
+        if (dbUrl) {
+          base.url = dbUrl;
+        } else {
+          base.host = config.get<string>("DB_HOST", "localhost");
+          base.port = config.get<number>("DB_PORT", 5432);
+          base.username = config.get<string>("DB_USERNAME", "postgres");
+          base.password = config.get<string>("DB_PASSWORD", "postgres");
+          base.database = config.get<string>("DB_DATABASE", "lotifyx");
+        }
+        base.autoLoadEntities = true;
+        base.synchronize = config.get<string>("NODE_ENV") !== "production";
+        base.connectTimeoutMS = 5000;
+        base.retryAttempts = 2;
+        base.extra = { client_encoding: "UTF8" };
+        return base;
+      },
     }),
 
     AuthModule,
