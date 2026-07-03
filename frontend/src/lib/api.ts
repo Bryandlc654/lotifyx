@@ -1460,3 +1460,61 @@ export async function markAsRead(messageId: string): Promise<void> {
 export async function markAllAsRead(conversationId: string): Promise<void> {
   await authFetch(`${API_URL}/messages/conversations/${conversationId}/read-all`, { method: "PUT" });
 }
+
+// ─── Reviews ──────────────────────────────────────────────────
+
+export interface Review {
+  id: string;
+  product_id: string;
+  user_id: string;
+  order_id: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  product_title?: string;
+  product_sku?: string;
+  operation_number?: string;
+  user_email?: string;
+  user_first_name?: string;
+  user_last_name?: string;
+}
+
+export async function createReview(dto: { product_id: string; order_id: string; rating: number; comment?: string; images?: string[] }): Promise<Review> {
+  const res = await authFetch(`${API_URL}/reviews`, {
+    method: "POST", body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function getMyReviews(): Promise<Review[]> {
+  const res = await authFetch(`${API_URL}/reviews/mine`);
+  if (!res.ok) throw new Error("Error al obtener reseñas");
+  return res.json();
+}
+
+export async function getOrderReviews(orderId: string): Promise<Review[]> {
+  const res = await authFetch(`${API_URL}/reviews/order/${orderId}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getSellerReviews(): Promise<Review[]> {
+  const res = await authFetch(`${API_URL}/reviews/seller`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getAdminReviews(page: number = 1, limit: number = 20): Promise<{ data: Review[]; total: number; page: number; totalPages: number }> {
+  const res = await authFetch(`${API_URL}/admin/reviews?page=${page}&limit=${limit}`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function adminDeleteReview(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/reviews/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar reseña");
+}

@@ -5,53 +5,41 @@ import { json, urlencoded } from "express";
 import * as cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
 
+function getCorsOrigins(): string[] {
+  return (process.env.CORS_ORIGINS || "http://localhost:3000,https://devspro.xyz,https://www.devspro.xyz,https://loti.nextboostperu.com")
+    .split(",")
+    .map(s => s.trim());
+}
+
 async function bootstrap() {
-  // Graceful crash logging
   process.on("unhandledRejection", (reason) => console.error("UNHANDLED REJECTION:", reason));
   process.on("uncaughtException", (err) => console.error("UNCAUGHT EXCEPTION:", err));
 
   const app = await NestFactory.create(AppModule);
 
-  // ─── Cookie parser ───────────────────────
   app.use(cookieParser());
-
-  // ─── CORS (antes que helmet para preflight) ──
   app.enableCors({
-    origin: ["http://localhost:3000", "https://devspro.xyz", "https://www.devspro.xyz"],
+    origin: getCorsOrigins(),
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   });
-
-  // ─── Body size limits ─────────────────────
   app.use(json({ limit: "10mb" }));
   app.use(urlencoded({ limit: "10mb", extended: true }));
-
-  // ─── Security headers (CORP: cross-origin para imágenes) ──
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-      contentSecurityPolicy: false,
-    })
-  );
-
-  // ─── Global validation ─────────────────────
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    })
-  );
-
-  app.setGlobalPrefix("api", {
-    exclude: ["uploads/(.*)"],
-  });
-
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false,
+  }));
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: { enableImplicitConversion: true },
+  }));
+  app.setGlobalPrefix("api", { exclude: ["uploads/(.*)"] });
   app.enableShutdownHooks();
 
-  const port = process.env.APP_PORT || 4000;
-  await app.listen(port);
-  console.log(`Lotifyx API running on http://localhost:${port}`);
+  const port = process.env.PORT || 10000;
+  await app.listen(port, "0.0.0.0");
+  console.log(`Lotifyx API running on port ${port}`);
 }
 bootstrap();

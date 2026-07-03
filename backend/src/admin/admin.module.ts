@@ -7,6 +7,8 @@ import { AdminRbacService } from "./admin-rbac.service";
 import { AdminProductsController } from "./admin-products.controller";
 import { AdminOrdersController } from "./admin-orders.controller";
 import { AdminDashboardController } from "./admin-dashboard.controller";
+import { AdminWithdrawalsController } from "./admin-withdrawals.controller";
+import { AdminReviewsController } from "./admin-reviews.controller";
 import { ProductsModule } from "../products/products.module";
 import { CheckoutModule } from "../checkout/checkout.module";
 import { AuditModule } from "../audit/audit.module";
@@ -19,7 +21,7 @@ import { RolePermission } from "../auth/entities/role-permission.entity";
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, CheckoutModule, AuditModule],
-  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminOrdersController, AdminDashboardController],
+  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController],
   providers: [AdminUsersService, AdminRbacService],
 })
 export class AdminModule {}

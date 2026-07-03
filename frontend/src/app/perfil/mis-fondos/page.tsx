@@ -21,12 +21,7 @@ export default function MisFondosPage() {
   const [funds, setFunds] = useState<any>({ available_balance: 0, pending_balance: 0, disputed_balance: 0 });
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [withdrawTotal, setWithdrawTotal] = useState(0);
-  const [showForm, setShowForm] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountHolder, setAccountHolder] = useState("");
-  const [saving, setSaving] = useState(false);
+
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -58,39 +53,7 @@ export default function MisFondosPage() {
   const pctPending = total > 0 ? Math.round((Number(funds.pending_balance) / total) * 100) : 0;
   const dashArray = pctAvailable;
 
-  async function handleWithdraw() {
-    if (!amount || !bankName || !accountNumber || !accountHolder) {
-      toast.error("Completa todos los campos");
-      return;
-    }
-    const val = parseFloat(amount);
-    if (val <= 0 || val > Number(funds.available_balance)) {
-      toast.error("Monto inválido o saldo insuficiente");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await authFetch(`${API_URL}/checkout/funds/withdraw`, {
-        method: "POST",
-        body: JSON.stringify({ amount: val, bank_name: bankName, account_number: accountNumber, account_holder: accountHolder }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Solicitud enviada");
-      setShowForm(false);
-      setAmount("");
-      const [f, w] = await Promise.all([
-        authFetch(`${API_URL}/checkout/funds`).then(r => r.json()),
-        authFetch(`${API_URL}/checkout/funds/withdrawals`).then(r => r.json()),
-      ]);
-      setFunds(f);
-      setWithdrawals(w.data || []);
-      setWithdrawTotal(w.total || 0);
-    } catch {
-      toast.error("Error al solicitar retiro");
-    } finally {
-      setSaving(false);
-    }
-  }
+
 
   function formatPrice(n: number) {
     return "S/ " + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -136,7 +99,7 @@ export default function MisFondosPage() {
               <div className="text-4xl font-bold text-indigo-600 mb-2">{formatPrice(Number(funds.available_balance))}</div>
               <p className="text-sm text-slate-500 mb-6">Disponible para retirar</p>
               <button
-                onClick={() => setShowForm(!showForm)}
+                onClick={() => router.push("/perfil/mis-fondos/retirar")}
                 disabled={Number(funds.available_balance) <= 0}
                 className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 shadow-lg hover:opacity-90 transition-opacity disabled:opacity-40"
               >
@@ -146,44 +109,7 @@ export default function MisFondosPage() {
             </div>
           </section>
 
-          {/* Withdraw Form */}
-          {showForm && (
-            <section className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <h2 className="font-bold text-slate-800 mb-4">Solicitar retiro</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-500 font-medium">Monto a retirar</label>
-                  <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} max={funds.available_balance}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder={`Máx: ${formatPrice(Number(funds.available_balance))}`} />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 font-medium">Banco</label>
-                  <input value={bankName} onChange={(e) => setBankName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="BCP, BBVA, etc" />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 font-medium">Nº de cuenta</label>
-                  <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="191-12345678" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-500 font-medium">Titular</label>
-                  <input value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Nombre del titular" />
-                </div>
-                <div className="md:col-span-2 flex gap-2">
-                  <button onClick={handleWithdraw} disabled={saving}
-                    className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40">
-                    {saving ? "Enviando..." : "Solicitar retiro"}
-                  </button>
-                  <button onClick={() => setShowForm(false)}
-                    className="px-6 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
+
 
           {/* Summary Cards */}
           <section className="grid grid-cols-1 md:grid-cols-2 gap-4">

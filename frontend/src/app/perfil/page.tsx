@@ -169,6 +169,12 @@ export default function PerfilPage() {
               Mi Plan
             </button>
           )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-resenas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Reseñas
+            </button>
+          )}
         </nav>
         <div className="w-full max-w-2xl bg-[#f8fafc] rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-8 md:p-12">

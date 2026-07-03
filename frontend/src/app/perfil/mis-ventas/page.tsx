@@ -181,7 +181,7 @@ export default function MisVentasPage() {
                         ))}
                       </div>
 
-                      {sale.status === "completed" && (
+                      {(sale.status === "paid" || sale.status === "completed") && (
                         <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
                           <Truck className="w-3 h-3" />
                           <span>Envío: <strong>{(sale as any).tracking_status || "Pendiente"}</strong></span>

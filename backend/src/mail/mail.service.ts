@@ -145,6 +145,36 @@ export class MailService implements OnModuleInit {
     });
   }
 
+  async sendOrderDelivered(to: string, name: string, orderId: string, operationNumber: string) {
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
+    const reviewUrl = `${frontendUrl}/perfil/mis-compras/resena/${orderId}`;
+    const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
+    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");
+
+    await this.transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to,
+      subject: "¡Tu pedido ha sido entregado! - Lotifyx",
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+          <h2 style="color:#8234FE;margin:0 0 8px">¡Pedido entregado, ${name}!</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            Tu pedido <strong>#${operationNumber?.slice(-6) || orderId.slice(0, 8)}</strong> ha sido marcado como entregado por el vendedor.
+          </p>
+          <p style="color:#475569;font-size:14px;line-height:1.6">
+            Nos encantaría conocer tu opinión. ¿Cómo fue tu experiencia con este producto?
+          </p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${reviewUrl}" style="display:inline-block;background:linear-gradient(135deg,#8234FE,#26BEFE);color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Dejar una reseña</a>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;">
+            Tu opinión ayuda a otros compradores y al vendedor a mejorar.
+          </p>
+        </div>
+      `,
+    });
+  }
+
   async sendTicketResponse(to: string, name: string, ticketNumber: string, responseText: string) {
     const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
     const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");

@@ -2,12 +2,14 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { AuditService } from "../audit/audit.service";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class CheckoutService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   async getOrders(userId: string) {
@@ -199,7 +201,7 @@ export class CheckoutService {
 
     try {
       await queryRunner.query(
-        `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`,
+        `UPDATE orders SET status = 'paid', updated_at = NOW() WHERE id = $1`,
         [id],
       );
 
@@ -382,6 +384,48 @@ export class CheckoutService {
       `INSERT INTO order_tracking_history (order_id, status, note, created_by) VALUES ($1::uuid, $2, $3, $4::uuid)`,
       [orderId, data.status, data.note || null, userId],
     );
+
+    // When seller marks as delivered, complete the order and release funds to available_balance
+    if (data.status === "delivered") {
+      await this.dataSource.query(
+        `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1::uuid AND status = 'paid'`,
+        [orderId],
+      );
+      await this.dataSource.query(
+        `UPDATE funds SET available_balance = available_balance + (
+           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1::uuid
+         ), pending_balance = pending_balance - (
+           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1::uuid
+         )
+         WHERE user_id = (
+           SELECT p.user_id FROM order_items oi
+           INNER JOIN products p ON p.id = oi.product_id
+           WHERE oi.order_id = $1::uuid LIMIT 1
+         )`,
+        [orderId],
+      );
+      this.audit.log({ userId, action: "order_completed", entity: "order", entityId: orderId, details: { status: "completed" } });
+
+      // Send email to buyer asking for review
+      try {
+        const [buyer] = await this.dataSource.query(
+          `SELECT u.email, up.first_name FROM users u
+           LEFT JOIN user_profiles up ON up.user_id = u.id
+           WHERE u.id = (SELECT user_id FROM orders WHERE id = $1::uuid)`,
+          [orderId],
+        );
+        if (buyer?.email) {
+          await this.mail.sendOrderDelivered(
+            buyer.email,
+            buyer.first_name || "Comprador",
+            orderId,
+            order.operation_number || "",
+          );
+        }
+      } catch (e) {
+        console.error("[CheckoutService] Error sending delivered email:", e);
+      }
+    }
 
     this.audit.log({ userId, action: "order_tracking_updated", entity: "order", entityId: orderId, details: { status: data.status } });
     return { message: "Tracking actualizado" };
@@ -599,5 +643,39 @@ export class CheckoutService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async findAllWithdrawals(page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+    const [{ count }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int FROM withdrawals`,
+    );
+    const rows = await this.dataSource.query(
+      `SELECT w.*, up.first_name, up.last_name, u.email
+       FROM withdrawals w
+       LEFT JOIN users u ON u.id = w.user_id
+       LEFT JOIN user_profiles up ON up.user_id = w.user_id
+       ORDER BY w.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset],
+    );
+    return { data: rows, total: Number(count), page, totalPages: Math.ceil(Number(count) / limit) };
+  }
+
+  async toggleWithdrawalDeposit(id: string) {
+    const [w] = await this.dataSource.query(
+      `SELECT * FROM withdrawals WHERE id = $1::uuid`,
+      [id],
+    );
+    if (!w) throw new NotFoundException("Retiro no encontrado");
+    if (w.status !== "approved" && w.status !== "completed") throw new BadRequestException("El retiro debe estar aprobado para gestionar el depósito");
+
+    const newConfirmed = !w.deposit_confirmed;
+    await this.dataSource.query(
+      `UPDATE withdrawals SET deposit_confirmed = $1, deposit_confirmed_at = CASE WHEN $1 THEN NOW() ELSE NULL END, status = CASE WHEN $1 THEN 'completed' ELSE 'approved' END, updated_at = NOW() WHERE id = $2::uuid`,
+      [newConfirmed, id],
+    );
+    this.audit.log({ action: "withdrawal_deposit_toggled", entity: "funds", entityId: id, details: { deposit_confirmed: newConfirmed } });
+    return { message: newConfirmed ? "Depósito confirmado" : "Depósito marcado como pendiente" };
   }
 }

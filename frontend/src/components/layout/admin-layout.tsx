@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart, FileText, AlertTriangle, Play, Calendar, Newspaper } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, ShoppingCart, FileText, AlertTriangle, Play, Calendar, Newspaper, Banknote } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -22,6 +22,8 @@ const modules = [
   { href: "/admin/products", label: "Productos", icon: Package, permission: "products" },
   { href: "/admin/sales", label: "Ventas", icon: ShoppingCart, permission: "orders" },
   { href: "/admin/reclamos", label: "Reclamos", icon: AlertTriangle, permission: "orders" },
+  { href: "/admin/retiros", label: "Retiros", icon: Banknote, permission: "orders" },
+  { href: "/admin/reviews", label: "Reseñas", icon: Star, permission: "orders" },
   { href: "/admin/plans", label: "Planes", icon: CreditCard, permission: "plans" },
   { href: "/admin/rbac", label: "RBAC", icon: Shield, permission: "rbac" },
   { href: "/admin/marquees", label: "Logos", icon: Star, permission: "marquees" },

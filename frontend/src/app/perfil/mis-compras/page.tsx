@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
-import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet } from "lucide-react";
+import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface Seller {
@@ -141,6 +141,12 @@ export default function MisComprasPage() {
               Ofrecer
             </button>
           )}
+          {userRole !== "superadmin" && (
+            <button onClick={() => router.push("/perfil/mis-resenas")}
+              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
+              Mis Reseñas
+            </button>
+          )}
         </nav>
 
         <div className="max-w-4xl w-full">
@@ -203,6 +209,13 @@ export default function MisComprasPage() {
                           <AlertCircle className="w-3 h-3" />
                           Reclamo
                         </button>
+                        {order.status === "completed" && (
+                          <button onClick={() => router.push(`/perfil/mis-compras/resena/${order.id}`)}
+                            className="flex items-center gap-1 text-[10px] text-green-600 hover:underline ml-2">
+                            <Star className="w-3 h-3" />
+                            Reseña
+                          </button>
+                        )}
                         {order.status === "completed" && order.items[0]?.seller?.id && (
                           <button
                             onClick={async (e) => {

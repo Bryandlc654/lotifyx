@@ -6,12 +6,12 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import {
   isAuthenticated, removeTokens, getProfile, authFetch,
-  getImageUrl, createOrGetConversation, getAccessToken,
+  getImageUrl, createOrGetConversation, getAccessToken, getOrderReviews,
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
   ArrowLeft, Check, Truck, Package, MapPin, Phone, Mail, User,
-  Copy, ChevronDown, ChevronUp, Loader2, MessageCircle,
+  Copy, ChevronDown, ChevronUp, Loader2, MessageCircle, Star,
 } from "lucide-react";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
@@ -41,6 +41,7 @@ export default function PedidoPage() {
   const [shipNotes, setShipNotes] = useState("");
   const [trackNum, setTrackNum] = useState("");
   const [trackNote, setTrackNote] = useState("");
+  const [orderReviews, setOrderReviews] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
@@ -59,6 +60,9 @@ export default function PedidoPage() {
         setShipRef(data.shipping_reference || "");
         setShipNotes(data.shipping_notes || "");
         setTrackNum(data.tracking_number || "");
+        if (data.status === "completed") {
+          getOrderReviews(orderId).then(setOrderReviews).catch(() => {});
+        }
       })
       .catch(() => { removeTokens(); router.push("/"); })
       .finally(() => setLoading(false));
@@ -175,7 +179,7 @@ export default function PedidoPage() {
           </header>
 
           {/* Stepper */}
-          {order.status === "completed" && (
+          {(order.status === "paid" || order.status === "completed") && (
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
               <h2 className="text-lg font-semibold mb-8 text-gray-700">Estado del pedido</h2>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
@@ -349,7 +353,7 @@ export default function PedidoPage() {
               )}
 
               {/* Seller tracking controls */}
-              {isSeller && order.status === "completed" && (
+              {isSeller && order.status === "paid" && (
                 <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-lg font-semibold mb-6 text-gray-700">Gestionar envío</h2>
                   <div className="space-y-3">
@@ -392,6 +396,36 @@ export default function PedidoPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </article>
+              )}
+
+              {/* Reviews section */}
+              {orderReviews.length > 0 && (
+                <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="text-lg font-semibold mb-6 text-gray-700">Reseñas</h2>
+                  <div className="space-y-4">
+                    {orderReviews.map((r) => (
+                      <div key={r.id} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-gray-700">{r.user_first_name || r.user_email}</span>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map(i => (
+                              <Star key={i} className={`h-3.5 w-3.5 ${i <= r.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-200"}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600">{r.comment || "Sin comentario"}</p>
+                        {r.images?.length > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            {r.images.map((url: string, i: number) => (
+                              <img key={i} src={getImageUrl(url)} alt="" className="w-16 h-16 rounded-lg object-cover border" />
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">{r.product_title}</p>
+                      </div>
+                    ))}
                   </div>
                 </article>
               )}

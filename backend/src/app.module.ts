@@ -35,7 +35,9 @@ import { ProductsModule } from "./products/products.module";
 import { CheckoutModule } from "./checkout/checkout.module";
 import { AuditModule } from "./audit/audit.module";
 import { MessagesModule } from "./messages/messages.module";
+import { ReviewsModule } from "./reviews/reviews.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
+import { DebugController } from "./debug.controller";
 
 @Module({
   imports: [
@@ -83,6 +85,8 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
         database: config.get<string>("DB_DATABASE", "lotifyx"),
         autoLoadEntities: true,
         synchronize: config.get<string>("NODE_ENV") !== "production",
+        connectTimeoutMS: 2000,
+        retryAttempts: 0,
         extra: { client_encoding: "UTF8" },
       }),
     }),
@@ -115,7 +119,10 @@ import { AuthMiddleware } from "./common/middleware/auth.middleware";
     CartModule,
     PressModule,
     MessagesModule,
+    ReviewsModule,
   ],
+
+  controllers: [DebugController],
 
   // ─── Global rate limit guard ──────────────
   providers: [
