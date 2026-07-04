@@ -15,7 +15,7 @@ export class MailService {
     }
 
     const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
-    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "noreply@lotifyx.com");
+    const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "b0e5d2001@smtp-brevo.com");
 
     console.log(`[MailService] Enviando correo a ${to} via Brevo API`);
 
