@@ -2,8 +2,6 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { SecondaryBanner } from "./secondary-banner.entity";
-import * as fs from "fs";
-import * as path from "path";
 
 function isUUID(val: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val); }
 
@@ -18,7 +16,7 @@ export class SecondaryBannersService {
   async create(dto: { title: string; subtitle?: string; type: string; link_url?: string; button_text?: string }, file: Express.Multer.File) {
     return this.repo.save(this.repo.create({
       title: dto.title, subtitle: dto.subtitle, type: dto.type,
-      image_url: `/uploads/${file.filename}`,
+      image_url: file.filename,
       link_url: dto.link_url, button_text: dto.button_text,
     }));
   }
@@ -35,11 +33,7 @@ export class SecondaryBannersService {
     if (dto.is_active !== undefined) b.is_active = String(dto.is_active) === "true";
     if (dto.type !== undefined) b.type = dto.type;
 
-    if (file) {
-      const oldPath = path.join(__dirname, "..", "..", "uploads", b.image_url.replace("/uploads/", ""));
-      try { if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath); } catch {}
-      b.image_url = `/uploads/${file.filename}`;
-    }
+    if (file) b.image_url = file.filename;
 
     return this.repo.save(b);
   }
@@ -48,9 +42,6 @@ export class SecondaryBannersService {
     if (!isUUID(id)) throw new NotFoundException("Banner no encontrado");
     const b = await this.repo.findOne({ where: { id } });
     if (!b) throw new NotFoundException("Banner no encontrado");
-
-    const fp = path.join(__dirname, "..", "..", "uploads", b.image_url.replace("/uploads/", ""));
-    try { if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch {}
     await this.repo.remove(b);
     return { message: "Banner eliminado" };
   }

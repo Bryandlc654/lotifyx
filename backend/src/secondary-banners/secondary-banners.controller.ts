@@ -3,17 +3,13 @@ import {
   UseInterceptors, UploadedFile,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
 import { SecondaryBannersService } from "./secondary-banners.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/permissions.decorator";
+import { R2Storage } from "../r2/r2-storage";
 
-const storage = diskStorage({
-  destination: "./uploads",
-  filename: (_req, file, cb) => { cb(null, `sb-${Date.now()}-${Math.round(Math.random()*1e9)}${extname(file.originalname)}`); },
-});
+const storage = new R2Storage({ folder: "secondary-banners" });
 
 @Controller("secondary-banners")
 export class SecondaryBannersController {

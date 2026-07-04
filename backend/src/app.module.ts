@@ -36,6 +36,7 @@ import { CheckoutModule } from "./checkout/checkout.module";
 import { AuditModule } from "./audit/audit.module";
 import { MessagesModule } from "./messages/messages.module";
 import { ReviewsModule } from "./reviews/reviews.module";
+import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
 
@@ -54,7 +55,10 @@ import { DebugController } from "./debug.controller";
     // ─── Cron jobs ──────────────────────────
     ScheduleModule.forRoot(),
 
-    // ─── Static files ───────────────────────
+    // ─── Cloudflare R2 ────────────────────────
+    R2Module,
+
+    // ─── Static files (fallback) ─────────────
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "uploads"),
       serveRoot: "/uploads",

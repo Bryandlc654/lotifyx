@@ -18,10 +18,8 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
-import { existsSync, mkdirSync } from "fs";
 import { Throttle } from "@nestjs/throttler";
+import { R2Storage } from "../r2/r2-storage";
 import { AuthGuard } from "@nestjs/passport";
 import { Response } from "express";
 import * as crypto from "crypto";
@@ -172,13 +170,10 @@ export class AuthController {
   @Post("avatar")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor("avatar", {
-    storage: diskStorage({
-      destination: "./uploads",
-      filename: (_req, file, cb) => { cb(null, `avatar-${Date.now()}-${Math.round(Math.random()*1e9)}${extname(file.originalname)}`); },
-    }),
+    storage: new R2Storage({ folder: "avatars" }),
   }))
   async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
-    const url = `/uploads/${file.filename}`;
+    const url = file.filename;
     await this.authService.updateProfile(req.user.id, { avatar_url: url });
     return { url };
   }
@@ -245,16 +240,7 @@ export class AuthController {
   @Post("submit-payment")
   @UseInterceptors(
     FileInterceptor("proof", {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = "./uploads/proofs";
-          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`);
-        },
-      }),
+      storage: new R2Storage({ folder: "proofs" }),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\//)) {
           cb(new BadRequestException("Solo se permiten imágenes"), false);
@@ -272,11 +258,10 @@ export class AuthController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("El comprobante es obligatorio");
-    const proofUrl = `/uploads/proofs/${file.filename}`;
     return this.authService.submitPayment(req.user.id, {
       operation_number: body.operation_number,
       amount: parseFloat(body.amount),
-      proof_url: proofUrl,
+      proof_url: file.filename,
       origin_account_id: body.origin_account_id,
     });
   }

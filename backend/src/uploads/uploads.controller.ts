@@ -3,6 +3,7 @@ import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { R2Storage } from "../r2/r2-storage";
 
 function mkdir(dir: string) {
   return (_req: any, _file: any, cb: (err: Error | null, dir: string) => void) => {
@@ -11,8 +12,6 @@ function mkdir(dir: string) {
   };
 }
 
-const GALLERY_DEST = "./uploads/gallery";
-const IMAGE_DEST = "./uploads/images";
 const FILE_DEST = "./uploads/files";
 
 const ALLOWED_IMAGES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -35,25 +34,25 @@ export class UploadsController {
   @Post("gallery")
   @UseInterceptors(
     FilesInterceptor("files", 10, {
-      storage: diskStorage({ destination: mkdir(GALLERY_DEST), filename: name }),
+      storage: new R2Storage({ folder: "gallery" }),
     }),
   )
   @HttpCode(HttpStatus.CREATED)
   uploadGallery(@UploadedFiles() files: Express.Multer.File[]) {
-    return { urls: files.map(f => `/uploads/gallery/${f.filename}`) };
+    return { urls: files.map(f => f.filename) };
   }
 
   @Post("image")
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({ destination: mkdir(IMAGE_DEST), filename: name }),
+      storage: new R2Storage({ folder: "images" }),
       fileFilter: imageFilter,
       limits: { fileSize: MAX_IMAGE_SIZE },
     }),
   )
   @HttpCode(HttpStatus.CREATED)
   uploadImage(@UploadedFile() file: Express.Multer.File) {
-    return { url: `/uploads/images/${file.filename}` };
+    return { url: file.filename };
   }
 
   @Post("file")

@@ -2,8 +2,6 @@ import { Injectable, NotFoundException, ConflictException } from "@nestjs/common
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Category } from "./category.entity";
-import * as fs from "fs";
-import * as path from "path";
 
 function isUUID(val: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val); }
 
@@ -48,7 +46,7 @@ export class CategoriesService {
       this.repo.create({
         name: dto.name,
         slug: dto.slug,
-        icon: file ? `/uploads/${file.filename}` : undefined,
+        icon: file ? file.filename : undefined,
         parent_id: dto.parent_id || undefined,
         status: dto.status || "active",
       })
@@ -67,11 +65,7 @@ export class CategoriesService {
 
     const data: any = { ...cat, ...dto, parent_id: dto.parent_id ?? cat.parent_id };
 
-    if (file) {
-      const oldPath = path.join(__dirname, "..", "..", "uploads", cat.icon?.replace("/uploads/", "") || "");
-      try { if (cat.icon && fs.existsSync(oldPath)) fs.unlinkSync(oldPath); } catch {}
-      data.icon = `/uploads/${file.filename}`;
-    }
+    if (file) data.icon = file.filename;
 
     return this.repo.save(data);
   }

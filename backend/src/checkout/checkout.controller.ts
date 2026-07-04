@@ -17,24 +17,9 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname, join } from "path";
-import { existsSync, mkdirSync } from "fs";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CheckoutService } from "./checkout.service";
-
-const PROOF_DEST = "./uploads/proofs";
-
-function ensureDir(dir: string) {
-  return (_req: any, _file: any, cb: (err: Error | null, dir: string) => void) => {
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  };
-}
-
-function fileName(_req: any, file: Express.Multer.File, cb: (err: Error | null, name: string) => void) {
-  cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`);
-}
+import { R2Storage } from "../r2/r2-storage";
 
 @Controller("checkout")
 export class CheckoutController {
@@ -62,7 +47,7 @@ export class CheckoutController {
   @Post("submit")
   @UseInterceptors(
     FileInterceptor("proof", {
-      storage: diskStorage({ destination: ensureDir(PROOF_DEST), filename: fileName }),
+      storage: new R2Storage({ folder: "proofs" }),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\//)) {
           cb(new BadRequestException("Solo se permiten imágenes"), false);
@@ -95,7 +80,7 @@ export class CheckoutController {
       throw new BadRequestException("Debe incluir al menos un producto");
     }
 
-    const proofUrl = `/uploads/proofs/${file.filename}`;
+    const proofUrl = file.filename;
     const total = items.reduce((sum, i) => sum + i.price, 0);
 
     const order = await this.checkoutService.createOrder({

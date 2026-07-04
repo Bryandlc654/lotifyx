@@ -13,9 +13,8 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
 import { BannersService } from "./banners.service";
+import { R2Storage } from "../r2/r2-storage";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/permissions.decorator";
@@ -35,13 +34,7 @@ export class BannersController {
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
     FileInterceptor("image", {
-      storage: diskStorage({
-        destination: "./uploads",
-        filename: (_req, file, cb) => {
-          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, uniqueSuffix + extname(file.originalname));
-        },
-      }),
+      storage: new R2Storage({ folder: "banners" }),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\//)) {
           cb(new Error("Solo se permiten imágenes"), false);
@@ -62,13 +55,7 @@ export class BannersController {
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
     FileInterceptor("image", {
-      storage: diskStorage({
-        destination: "./uploads",
-        filename: (_req, file, cb) => {
-          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          cb(null, uniqueSuffix + extname(file.originalname));
-        },
-      }),
+      storage: new R2Storage({ folder: "banners" }),
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\//)) {
           cb(new Error("Solo se permiten imágenes"), false);
@@ -84,7 +71,6 @@ export class BannersController {
     @Body("title") title: string,
     @UploadedFile() file?: Express.Multer.File
   ) {
-    console.log("update called", id, title, file?.filename);
     return this.bannersService.update(id, title, file);
   }
 
