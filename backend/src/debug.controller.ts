@@ -1,5 +1,6 @@
 import { Controller, Get, Post } from '@nestjs/common';
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import * as net from "net";
 import { MailService } from "./mail/mail.service";
 import { SettingsService } from "./settings/settings.service";
 
@@ -39,6 +40,29 @@ export class DebugController {
     } catch (err: any) {
       return { status: "ERROR", message: err.message, code: err.code };
     }
+  }
+
+  @Get('smtp-connect')
+  async testSmtpConnect() {
+    const host = await this.settings.get("smtp_host");
+    const port = parseInt((await this.settings.get("smtp_port")) || "587");
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(5000);
+      socket.on("connect", () => {
+        socket.destroy();
+        resolve({ status: "OK", host, port, message: "Conexion TCP exitosa" });
+      });
+      socket.on("timeout", () => {
+        socket.destroy();
+        resolve({ status: "TIMEOUT", host, port, message: "No respondio en 5s" });
+      });
+      socket.on("error", (err: NodeJS.ErrnoException) => {
+        socket.destroy();
+        resolve({ status: "ERROR", host, port, code: err.code, message: err.message });
+      });
+      socket.connect(port, host!);
+    });
   }
 
   @Get('r2')
