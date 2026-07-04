@@ -25,7 +25,7 @@ export class MailService implements OnModuleInit {
     const pass = await this.settings.get("smtp_pass");
 
     if (!host || !user || !pass) {
-      console.warn("[MailService] SMTP no configurado en panel admin. Los correos no se enviarán.");
+      console.warn("[MailService] SMTP no configurado. Ve a Admin > Configuración para configurarlo.");
       return;
     }
 
