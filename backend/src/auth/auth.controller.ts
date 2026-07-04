@@ -178,7 +178,6 @@ export class AuthController {
     return { url };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post("resend-verification")
   @HttpCode(HttpStatus.OK)
   resendVerification(@Body("email") email: string) {
