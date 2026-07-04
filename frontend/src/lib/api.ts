@@ -1480,6 +1480,14 @@ export interface Review {
   user_email?: string;
   user_first_name?: string;
   user_last_name?: string;
+  seller_first_name?: string;
+  seller_last_name?: string;
+}
+
+export async function getProductReviews(productId: string): Promise<Review[]> {
+  const res = await fetch(`${API_URL}/reviews/product/${productId}`);
+  if (!res.ok) throw new Error("Error al obtener reseñas");
+  return res.json();
 }
 
 export async function createReview(dto: { product_id: string; order_id: string; rating: number; comment?: string; images?: string[] }): Promise<Review> {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, Product, CategoryField } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [descExpanded, setDescExpanded] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const cart = useCart();
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       getActiveProducts(p.category_id).then(relatedProducts => {
         setRelated(relatedProducts.filter(r => r.id !== id).slice(0, 4));
       }).catch(() => {});
+      getProductReviews(id).then(setReviews).catch(() => {});
       const uid = getCurrentUserId();
       setIsOwn(uid === p.user_id);
       if (uid) {
@@ -411,6 +413,81 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               </button>
             </div>
           </div>
+
+          {/* Product Reviews */}
+          {reviews.length > 0 && (
+            <section className="mt-12 max-w-5xl mx-auto space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-800">Opiniones de este producto</h2>
+                  {reviews[0]?.seller_first_name && (
+                    <p className="text-xs text-gray-400 mt-0.5">Vendido por {reviews[0].seller_first_name} {reviews[0].seller_last_name}</p>
+                  )}
+                </div>
+                <div className="p-8 flex flex-col md:flex-row items-center md:items-start gap-12">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-6xl font-extrabold text-gray-900">
+                        {(() => {
+                          const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+                          return avg % 1 === 0 ? avg.toFixed(0) : avg.toFixed(1);
+                        })()}
+                      </span>
+                      <svg className="w-10 h-10 text-amber-400 fill-current" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-500">Basado en {reviews.length} reseña{reviews.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  <div className="flex-1 w-full max-w-xs space-y-1">
+                    {[5, 4, 3, 2, 1].map(star => {
+                      const count = reviews.filter(r => r.rating === star).length;
+                      const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                      return (
+                        <div key={star} className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600 w-4">{star} <span className="text-purple-600">★</span></span>
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="bg-purple-600 h-full rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {reviews.map(r => (
+                  <div key={r.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                          {(r.user_first_name?.[0] || "U").toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-800">{r.user_first_name} {r.user_last_name}</h4>
+                          <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString("es-PE")}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <span key={s} className={s <= r.rating ? "text-amber-400" : "text-gray-300"}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>}
+                    {r.images && r.images.length > 0 && (
+                      <div className="flex gap-2 mt-3">
+                        {r.images.map((img, i) => (
+                          <img key={i} src={getImageUrl(img)} alt="" className="w-16 h-16 object-cover rounded-lg border" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Related Products */}
           {related.length > 0 && (

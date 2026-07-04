@@ -73,11 +73,15 @@ export class ReviewsService implements OnModuleInit {
 
   async getProductReviews(productId: string) {
     return this.dataSource.query(
-      `SELECT r.*, u.email as user_email,
-              up.first_name as user_first_name, up.last_name as user_last_name
+      `SELECT r.*,
+              u.email as user_email,
+              up.first_name as user_first_name, up.last_name as user_last_name,
+              sup.first_name as seller_first_name, sup.last_name as seller_last_name
        FROM reviews r
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN user_profiles up ON up.user_id = r.user_id
+       LEFT JOIN products p ON p.id = r.product_id
+       LEFT JOIN user_profiles sup ON sup.user_id = p.user_id
        WHERE r.product_id = $1 AND r.is_active = true
        ORDER BY r.created_at DESC`,
       [productId],

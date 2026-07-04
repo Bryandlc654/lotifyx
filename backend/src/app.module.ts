@@ -39,6 +39,7 @@ import { ReviewsModule } from "./reviews/reviews.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
+import { ValidateRucController } from "./validate-ruc.controller";
 
 @Module({
   imports: [
@@ -132,7 +133,7 @@ import { DebugController } from "./debug.controller";
     ReviewsModule,
   ],
 
-  controllers: [DebugController],
+  controllers: [DebugController, ValidateRucController],
 
   // ─── Global rate limit guard ──────────────
   providers: [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,8 @@ export function RegistrationForm() {
   const [resending, setResending] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [rucValidating, setRucValidating] = useState(false);
+  const [rucResult, setRucResult] = useState<{ valid: boolean; message?: string; razonSocial?: string } | null>(null);
   const router = useRouter();
 
   const {
@@ -31,6 +33,7 @@ export function RegistrationForm() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<RegistroFormData>({
     resolver: zodResolver(registroSchema),
@@ -55,6 +58,31 @@ export function RegistrationForm() {
 
   const aceptaTerminos = watch("aceptaTerminos");
   const accountType = watch("accountType");
+  const rucValue = watch("ruc");
+
+  // RUC validation on 11 digits
+  useEffect(() => {
+    if (accountType !== "Quiero vender" || !rucValue || rucValue.length !== 11) {
+      setRucResult(null);
+      return;
+    }
+    setRucValidating(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    fetch(`${apiUrl}/api/validate-ruc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ruc: rucValue }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setRucResult(data);
+        if (data.valid && data.razonSocial) {
+          setValue("razonSocial", data.razonSocial);
+        }
+      })
+      .catch(() => setRucResult({ valid: false, message: "Error al validar RUC" }))
+      .finally(() => setRucValidating(false));
+  }, [rucValue, accountType]);
 
   const onSubmit = async (data: RegistroFormData) => {
     setIsSubmitting(true);
@@ -185,7 +213,14 @@ export function RegistrationForm() {
           <section>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 min-w-0">
-                <Input label="RUC" maxLength={11} inputMode="numeric" {...register("ruc")} error={errors.ruc?.message} />
+                <Input label="RUC" maxLength={11} inputMode="numeric" {...register("ruc")} error={errors.ruc?.message || (!rucValidating && rucResult && !rucResult.valid ? rucResult.message : undefined)} />
+                {rucValidating && <p className="text-xs text-gray-400 mt-1">Validando RUC...</p>}
+                {!rucValidating && rucResult?.valid && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                    RUC válido
+                  </p>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <Input label="Razón social (Opcional)" {...register("razonSocial")} error={errors.razonSocial?.message} />
