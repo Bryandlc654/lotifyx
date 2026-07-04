@@ -1,35 +1,44 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
-import * as net from 'net';
+import { MailService } from "./mail/mail.service";
+import { SettingsService } from "./settings/settings.service";
 
 @Controller('debug')
 export class DebugController {
-  @Get('postgres')
-  test() {
-    return new Promise((resolve) => {
-      const socket = net.createConnection({
-        host: '51.222.9.248',
-        port: 5432,
-        timeout: 5000,
-      });
+  constructor(
+    private readonly mailService: MailService,
+    private readonly settings: SettingsService,
+  ) {}
+  @Get('smtp')
+  async debugSmtp() {
+    const host = await this.settings.get("smtp_host");
+    const port = await this.settings.get("smtp_port");
+    const user = await this.settings.get("smtp_user");
+    const pass = await this.settings.get("smtp_pass");
+    const transporterHost = (this.mailService as any).transporter?.options?.host;
 
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve({ status: 'CONNECTED' });
-      });
+    return {
+      configured: !!host && !!user && !!pass,
+      db_host: host,
+      db_port: port,
+      db_user: user ? "***" + user.slice(-4) : null,
+      db_pass: pass ? "***" : null,
+      transporter_host: transporterHost || "no configurado",
+    };
+  }
 
-      socket.on('timeout', () => {
-        resolve({ status: 'TIMEOUT' });
-      });
-
-      socket.on('error', (err: NodeJS.ErrnoException) => {
-        resolve({
-          status: 'ERROR',
-          code: err.code,
-          message: err.message,
-        });
-      });
-    });
+  @Post('test-email')
+  async testEmail() {
+    try {
+      await (this.mailService as any).sendVerificationCode(
+        (await this.settings.get("smtp_user")),
+        "123456",
+        "Test",
+      );
+      return { status: "OK", message: "Correo de prueba enviado" };
+    } catch (err: any) {
+      return { status: "ERROR", message: err.message, code: err.code };
+    }
   }
 
   @Get('r2')
