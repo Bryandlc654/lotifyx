@@ -50,6 +50,7 @@ export class DebugController {
     });
 
     const results: any[] = [];
+    results.push({ test: "config", publicUrl: process.env.R2_PUBLIC_URL || "(no configurado)" });
 
     // Test 1: List objects in loti bucket
     try {
