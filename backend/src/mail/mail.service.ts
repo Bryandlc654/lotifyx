@@ -36,7 +36,7 @@ export class MailService {
     if (!res.ok) {
       const errBody = await res.text();
       console.error(`[MailService] Error Brevo API (${res.status}):`, errBody);
-      throw new Error(`Error al enviar correo: ${res.status}`);
+      throw new Error(`Error al enviar correo (${res.status}): ${errBody.slice(0, 200)}`);
     }
 
     console.log(`[MailService] Correo enviado a ${to}`);
