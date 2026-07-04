@@ -15,6 +15,7 @@ export const r2ClientProvider = {
       region: "auto",
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: { accessKeyId: accessKey || "", secretAccessKey: secretKey || "" },
+      forcePathStyle: true,
     });
   },
 };

@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { S3Client, ListBucketsCommand } from "@aws-sdk/client-s3";
 import * as net from 'net';
 
 @Controller('debug')
@@ -29,5 +30,36 @@ export class DebugController {
         });
       });
     });
+  }
+
+  @Get('r2')
+  async testR2() {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKey = process.env.R2_ACCESS_KEY_ID;
+    const secretKey = process.env.R2_SECRET_ACCESS_KEY;
+
+    if (!accountId || !accessKey || !secretKey) {
+      return { status: "ERROR", message: "Faltan variables de entorno R2" };
+    }
+
+    const client = new S3Client({
+      region: "auto",
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
+      forcePathStyle: true,
+    });
+
+    try {
+      const result = await client.send(new ListBucketsCommand({}));
+      return { status: "OK", buckets: result.Buckets?.map(b => b.Name) };
+    } catch (err: any) {
+      return {
+        status: "ERROR",
+        name: err.name,
+        message: err.message,
+        code: err.Code,
+        statusCode: err.$metadata?.httpStatusCode,
+      };
+    }
   }
 }
