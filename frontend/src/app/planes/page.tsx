@@ -33,11 +33,12 @@ export default function PlanesPage() {
   async function handleSelect(planId: string, price: number) {
     setSaving(planId);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/select-plan`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/select-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
         body: JSON.stringify({ plan_id: planId }),
       });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
       toast.success("¡Plan seleccionado!");
       router.push("/checkout?source=plan");
     } catch (e: any) {
