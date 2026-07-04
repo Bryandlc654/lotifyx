@@ -17,7 +17,8 @@ export class MessagesService {
 
   async getConversations(userId: string) {
     const rows: any[] = await this.convRepo.query(
-      `SELECT c.*,
+      `SELECT c.id::text, c.buyer_id::text, c.seller_id::text, c.product_id::text,
+        c.last_message, c.last_message_at, c.created_at, c.updated_at,
         buyer.email AS buyer_email,
         buyer_profile.first_name AS buyer_first_name,
         buyer_profile.last_name AS buyer_last_name,
@@ -28,11 +29,11 @@ export class MessagesService {
         seller_profile.avatar_url AS seller_avatar,
         p.title AS product_title
        FROM conversations c
-       LEFT JOIN users buyer ON buyer.id::text = c.buyer_id
-       LEFT JOIN user_profiles buyer_profile ON buyer_profile.user_id::text = c.buyer_id
-       LEFT JOIN users seller ON seller.id::text = c.seller_id
-       LEFT JOIN user_profiles seller_profile ON seller_profile.user_id::text = c.seller_id
-       LEFT JOIN products p ON p.id::text = c.product_id
+       LEFT JOIN users buyer ON buyer.id = c.buyer_id
+       LEFT JOIN user_profiles buyer_profile ON buyer_profile.user_id = c.buyer_id
+       LEFT JOIN users seller ON seller.id = c.seller_id
+       LEFT JOIN user_profiles seller_profile ON seller_profile.user_id = c.seller_id
+       LEFT JOIN products p ON p.id = c.product_id
        WHERE c.buyer_id = $1 OR c.seller_id = $1
        ORDER BY COALESCE(c.last_message_at, c.created_at) DESC`,
       [userId]
@@ -41,11 +42,10 @@ export class MessagesService {
     let unreadCounts: Record<string, number> = {};
     if (convIds.length) {
       const unreadRows = await this.convRepo.query(
-        `SELECT c.id AS conv_id, COUNT(*)::int AS cnt
+        `SELECT m.conversation_id::text AS conv_id, COUNT(*)::int AS cnt
          FROM messages m
-         INNER JOIN conversations c ON c.id = m.conversation_id::uuid
-         WHERE c.id = ANY($1::uuid[]) AND m.sender_id != $2 AND m.read_at IS NULL
-         GROUP BY c.id`,
+         WHERE m.conversation_id = ANY($1) AND m.sender_id != $2 AND m.read_at IS NULL
+         GROUP BY m.conversation_id`,
         [convIds, userId]
       );
       for (const ur of unreadRows) {
