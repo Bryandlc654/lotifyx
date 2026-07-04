@@ -27,7 +27,7 @@ export class DebugController {
     };
   }
 
-  @Post('test-email')
+  @Get('test-email')
   async testEmail() {
     try {
       await (this.mailService as any).sendVerificationCode(
