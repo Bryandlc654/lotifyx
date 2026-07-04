@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { S3Client, ListBucketsCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import * as net from 'net';
 
 @Controller('debug')
@@ -49,17 +49,29 @@ export class DebugController {
       forcePathStyle: true,
     });
 
+    const results: any[] = [];
+
+    // Test 1: List objects in loti bucket
     try {
-      const result = await client.send(new ListBucketsCommand({}));
-      return { status: "OK", buckets: result.Buckets?.map(b => b.Name) };
+      const list = await client.send(new ListObjectsV2Command({ Bucket: "loti", MaxKeys: 5 }));
+      results.push({ test: "list", status: "OK", objects: list.KeyCount });
     } catch (err: any) {
-      return {
-        status: "ERROR",
-        name: err.name,
-        message: err.message,
-        code: err.Code,
-        statusCode: err.$metadata?.httpStatusCode,
-      };
+      results.push({ test: "list", status: "ERROR", name: err.name, message: err.message, code: err.Code });
     }
+
+    // Test 2: Upload a small test file
+    try {
+      await client.send(new PutObjectCommand({
+        Bucket: "loti",
+        Key: "_test_r2.txt",
+        Body: "R2 connection test",
+        ContentType: "text/plain",
+      }));
+      results.push({ test: "upload", status: "OK" });
+    } catch (err: any) {
+      results.push({ test: "upload", status: "ERROR", name: err.name, message: err.message, code: err.Code });
+    }
+
+    return results;
   }
 }
