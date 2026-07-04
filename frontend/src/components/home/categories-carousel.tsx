@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCategories, Category, getImageUrl } from "@/lib/api";
 
@@ -11,6 +12,7 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
   showTitle?: boolean; bgWhite?: boolean; showArrows?: boolean; compact?: boolean;
   selectedCategoryId?: string; onCategorySelect?: (id: string) => void;
 }) {
+  const router = useRouter();
   const [cats, setCats] = useState<Category[]>([]);
   const [current, setCurrent] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -77,7 +79,13 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
                 return (
                   <button
                     key={`${cat.id}-${i}`}
-                    onClick={() => onCategorySelect?.(cat.id === selectedCategoryId ? "" : cat.id)}
+                    onClick={() => {
+                      if (onCategorySelect) {
+                        onCategorySelect(cat.id === selectedCategoryId ? "" : cat.id);
+                      } else {
+                        router.push(`/categorias?cat=${cat.id}`);
+                      }
+                    }}
                     className={`flex items-center gap-4 rounded-xl px-4 py-3 flex-shrink-0 mx-2 transition-all ${
                       selectedCategoryId === cat.id
                         ? "bg-[#8234FE] text-white shadow-md ring-2 ring-[#8234FE]/30"

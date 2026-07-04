@@ -13,12 +13,15 @@ export default function MarqueesPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [name, setName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editFile, setEditFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Marquee | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -34,17 +37,19 @@ export default function MarqueesPage() {
     setUploading(true);
     try {
       await createMarquee(name.trim(), file);
-      toast.success("Logo creado");
-      setName(""); if (fileRef.current) fileRef.current.value = "";
+      toast.success(`Logo "${name.trim()}" creado correctamente`);
+      setName(""); setSelectedFile(null); if (fileRef.current) fileRef.current.value = "";
       load();
     } catch (e: any) { toast.error(e.message); }
     finally { setUploading(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este logo?")) return;
-    try { await deleteMarquee(id); toast.success("Logo eliminado"); setItems(p => p.filter(i => i.id !== id)); }
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try { await deleteMarquee(deleteTarget.id); toast.success("Logo eliminado"); setItems(p => p.filter(i => i.id !== deleteTarget.id)); setDeleteTarget(null); }
     catch (e: any) { toast.error(e.message); }
+    finally { setDeleting(false); }
   }
 
   function startEdit(item: Marquee) { setEditingId(item.id); setEditName(item.name); setEditFile(null); }
@@ -76,9 +81,9 @@ export default function MarqueesPage() {
             <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nombre del logo"
               className="flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
             <div className="flex gap-3">
-              <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
-                <Upload className="h-4 w-4" /> Seleccionar imagen
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" />
+              <label className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors ${selectedFile ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+                <Upload className="h-4 w-4" /> {selectedFile ? selectedFile.name : "Seleccionar imagen"}
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => setSelectedFile(e.target.files?.[0] || null)} />
               </label>
               <button onClick={handleCreate} disabled={uploading}
                 className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-5 py-2.5 text-sm font-semibold text-white hover:from-[#7428F0] hover:to-[#1EA8E8] transition-all shadow-sm disabled:opacity-60">
@@ -120,7 +125,7 @@ export default function MarqueesPage() {
                         <p className="text-xs text-gray-400 mt-0.5">{new Date(item.created_at).toLocaleDateString("es-PE")}{item.is_active ? " · Activo" : " · Inactivo"}</p>
                       </div>
                       <button onClick={() => startEdit(item)} className="p-2 rounded-lg text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => setDeleteTarget(item)} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                     </>
                   )}
                 </div>
@@ -129,6 +134,23 @@ export default function MarqueesPage() {
           )}
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Eliminar logo</h3>
+            <p className="text-sm text-gray-500 mb-6">¿Estás seguro de eliminar <span className="font-semibold text-gray-700">{deleteTarget.name}</span>?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
+              <button onClick={confirmDelete} disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-60">
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

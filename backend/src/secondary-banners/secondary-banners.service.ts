@@ -32,7 +32,7 @@ export class SecondaryBannersService {
     if (dto.subtitle !== undefined) b.subtitle = dto.subtitle;
     if (dto.link_url !== undefined) b.link_url = dto.link_url;
     if (dto.button_text !== undefined) b.button_text = dto.button_text;
-    if (dto.is_active !== undefined) b.is_active = dto.is_active;
+    if (dto.is_active !== undefined) b.is_active = String(dto.is_active) === "true";
     if (dto.type !== undefined) b.type = dto.type;
 
     if (file) {

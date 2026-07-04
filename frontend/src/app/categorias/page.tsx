@@ -20,11 +20,18 @@ export default function CategoriasPage() {
   const [page, setPage] = useState(1);
   const perPage = 9;
 
+  // Read URL params once on mount
   useEffect(() => {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("q") || "";
+    const cat = url.searchParams.get("cat") || "";
     setSearchQuery(q);
+    if (cat) setSelectedCategory(cat);
+  }, []);
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get("q") || "";
     const catId = selectedSubcategory || selectedCategory || undefined;
     Promise.all([
       getActiveProducts(catId, q || undefined),

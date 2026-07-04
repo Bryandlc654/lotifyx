@@ -5,7 +5,7 @@ let socket: Socket | null = null;
 let pendingJoins = new Set<string>();
 let listenersSetup = false;
 
-const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/ws/messages";
+const SOCKET_URL = (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/ws/messages";
 
 function setupSocket(s: Socket) {
   if (listenersSetup) return;

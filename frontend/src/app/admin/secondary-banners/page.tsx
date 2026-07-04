@@ -18,6 +18,7 @@ export default function SecondaryBannersPage() {
 
   // Create
   const [form, setForm] = useState({ title: "", subtitle: "", link_url: "", button_text: "" });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Edit
@@ -29,7 +30,7 @@ export default function SecondaryBannersPage() {
 
   async function load() {
     setLoading(true);
-    try { setItems(await getSecondaryBanners(tab)); }
+    try { const all = await getSecondaryBanners(); setItems(all.filter(b => b.type === tab)); }
     catch (e: any) { toast.error("Error al cargar"); }
     finally { setLoading(false); }
   }
@@ -41,8 +42,9 @@ export default function SecondaryBannersPage() {
     setSaving(true);
     try {
       await createSecondaryBanner({ title: form.title, subtitle: form.subtitle, type: tab, link_url: form.link_url, button_text: form.button_text }, file);
-      toast.success("Banner creado");
+      toast.success(`Banner "${form.title}" creado correctamente`);
       setForm({ title: "", subtitle: "", link_url: "", button_text: "" });
+      setSelectedFile(null);
       if (fileRef.current) fileRef.current.value = "";
       load();
     } catch (e: any) { toast.error(e.message); }
@@ -60,10 +62,15 @@ export default function SecondaryBannersPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteSecondaryBanner(id); toast.success("Eliminado"); load(); }
+  const [deleteTarget, setDeleteTarget] = useState<SecondaryBanner | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try { await deleteSecondaryBanner(deleteTarget.id); toast.success("Banner eliminado"); load(); setDeleteTarget(null); }
     catch (e: any) { toast.error(e.message); }
+    finally { setDeleting(false); }
   }
 
   function startEdit(b: SecondaryBanner) {
@@ -109,9 +116,9 @@ export default function SecondaryBannersPage() {
               placeholder="Texto del botón" className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
           </div>
           <div className="flex gap-3">
-            <label className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer">
-              <Upload className="h-4 w-4" /> Seleccionar imagen
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" />
+            <label className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors ${selectedFile ? "border-primary-300 bg-primary-50 text-primary-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+              <Upload className="h-4 w-4" /> {selectedFile ? selectedFile.name : "Seleccionar imagen"}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => setSelectedFile(e.target.files?.[0] || null)} />
             </label>
             <button onClick={handleCreate} disabled={saving}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] px-5 py-2.5 text-sm font-semibold text-white shadow-sm">
@@ -168,7 +175,7 @@ export default function SecondaryBannersPage() {
                         <p className="text-xs text-gray-400 mt-0.5">{b.link_url || "Sin enlace"} · {b.button_text || "Sin botón"} {!b.is_active && "· Inactivo"}</p>
                       </div>
                       <button onClick={() => startEdit(b)} className="p-2 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(b.id)} className="p-2 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => setDeleteTarget(b)} className="p-2 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                     </>
                   )}
                 </div>
@@ -177,6 +184,23 @@ export default function SecondaryBannersPage() {
           )}
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Eliminar banner</h3>
+            <p className="text-sm text-gray-500 mb-6">¿Estás seguro de eliminar <span className="font-semibold text-gray-700">{deleteTarget.title}</span>?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancelar</button>
+              <button onClick={confirmDelete} disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-60">
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
