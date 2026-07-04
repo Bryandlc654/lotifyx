@@ -62,6 +62,10 @@ export class ProductsService {
     while (await this.repo.findOne({ where: { sku } })) {
       sku = generateSku();
     }
+    const specs = (dto.specifications || {}) as Record<string, string>;
+    if (dto.stock === undefined || dto.stock === null) {
+      (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
+    }
     const product = await this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
     this.audit.log({ userId: dto.user_id, action: "product_created", entity: "product", entityId: product.id, details: { title: dto.title } });
     return product;
@@ -69,6 +73,10 @@ export class ProductsService {
 
   async update(id: string, dto: Partial<Product>) {
     const p = await this.findOne(id);
+    const specs = (dto.specifications || {}) as Record<string, string>;
+    if ((dto.stock === undefined || dto.stock === null) && specs) {
+      (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
+    }
     return this.repo.save({ ...p, ...dto });
   }
 
