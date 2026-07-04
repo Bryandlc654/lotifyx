@@ -41,31 +41,35 @@ export default function PedidoPage() {
   const [shipNotes, setShipNotes] = useState("");
   const [trackNum, setTrackNum] = useState("");
   const [trackNote, setTrackNote] = useState("");
+  const [estimatedDate, setEstimatedDate] = useState("");
   const [orderReviews, setOrderReviews] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
-    getProfile()
-      .then((data) => {
-        const u = (data as any).user as any;
+    (async () => {
+      try {
+        const profileData = await getProfile();
+        const u = (profileData as any).user as any;
         setProfile(u);
-        return authFetch(`${API_URL}/checkout/orders/${orderId}`);
-      })
-      .then(async (res) => {
+        const res = await authFetch(`${API_URL}/checkout/orders/${orderId}`);
         const data = await res.json();
         setOrder(data);
-        setIsSeller(data.seller_id === profile?.id);
+        setIsSeller(data.seller_id === u.id);
         setShipAddress(data.shipping_address || "");
         setShipCity(data.shipping_city || "");
         setShipRef(data.shipping_reference || "");
         setShipNotes(data.shipping_notes || "");
         setTrackNum(data.tracking_number || "");
+        setEstimatedDate(data.tracking_estimated_at || "");
         if (data.status === "completed") {
           getOrderReviews(orderId).then(setOrderReviews).catch(() => {});
         }
-      })
-      .catch(() => { removeTokens(); router.push("/"); })
-      .finally(() => setLoading(false));
+      } catch {
+        removeTokens(); router.push("/");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [orderId, router]);
 
   async function handleUpdateTracking(status: string) {
@@ -81,6 +85,7 @@ export default function PedidoPage() {
           shipping_reference: shipRef || undefined,
           shipping_notes: shipNotes || undefined,
           tracking_number: trackNum || undefined,
+          estimated_at: estimatedDate || undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -178,12 +183,12 @@ export default function PedidoPage() {
             </div>
           </header>
 
-          {/* Stepper */}
+          {/* Stepper - always visible */}
           {(order.status === "paid" || order.status === "completed") && (
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
               <h2 className="text-lg font-semibold mb-8 text-gray-700">Estado del pedido</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                <div className="lg:col-span-2 relative">
+              <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex-1 relative">
                   <div className="absolute top-4 left-[10%] right-[10%] h-[2px] bg-gray-200" />
                   <div className="absolute top-4 left-[10%]" style={{ width: `${Math.max(0, currentStep) * 33}%`, height: "2px", backgroundColor: "#8B5CF6" }} />
                   <div className="relative flex justify-between">
@@ -193,18 +198,21 @@ export default function PedidoPage() {
                           {idx < currentStep ? <Check className="w-4 h-4 text-white" /> : <span className={`text-xs font-bold ${showStep(idx) ? "text-white" : "text-gray-500"}`}>{idx + 1}</span>}
                         </div>
                         <p className={`text-xs font-bold ${showStep(idx) ? "text-gray-700" : "text-gray-400"}`}>{STEP_NAMES[label]}</p>
-                        <p className="text-[10px] text-gray-400">
-                          {label === "coordination" && order.tracking_coordination_at ? formatDate(order.tracking_coordination_at)
-                            : label === "shipping" && order.tracking_shipping_at ? formatDate(order.tracking_shipping_at)
-                            : label === "delivered" && order.tracking_delivered_at ? formatDate(order.tracking_delivered_at)
-                            : label === "pending" ? formatDate(order.created_at)
-                            : ""}
-                        </p>
+                          <p className="text-[10px] text-gray-400">
+                            {label === "coordination" && order.tracking_coordination_at ? formatDate(order.tracking_coordination_at)
+                              : label === "shipping" && order.tracking_shipping_at ? formatDate(order.tracking_shipping_at)
+                              : label === "delivered" && order.tracking_delivered_at ? formatDate(order.tracking_delivered_at)
+                              : label === "pending" ? formatDate(order.created_at)
+                              : ""}
+                          </p>
+                          {label === "shipping" && order.tracking_estimated_at && (
+                            <p className="text-[9px] text-purple-600 font-semibold mt-0.5">Est. {formatDate(order.tracking_estimated_at)}</p>
+                          )}
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="border-l-0 lg:border-l border-gray-100 lg:pl-8">
+                <div className="lg:border-l border-gray-100 lg:pl-8">
                   <h3 className="text-md font-semibold text-gray-800 leading-snug">
                     {order.tracking_status === "delivered" ? "Pedido entregado" 
                       : order.tracking_status === "shipping" ? "Pedido en camino"
@@ -353,40 +361,61 @@ export default function PedidoPage() {
               )}
 
               {/* Seller tracking controls */}
-              {isSeller && order.status === "paid" && (
+              {isSeller && ["paid", "completed"].includes(order.status) && (
                 <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-lg font-semibold mb-6 text-gray-700">Gestionar envío</h2>
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-3">
-                      {["coordination", "shipping", "delivered"].map((step) => {
-                        const stepIdx = getStepIndex(step);
-                        const current = getStepIndex(order.tracking_status);
-                        if (stepIdx <= current) return null;
-                        return (
-                          <button
-                            key={step}
-                            onClick={() => {
-                              if (step === "shipping" || step === "delivered") setShowShippingForm(true);
-                              else handleUpdateTracking(step);
-                            }}
-                            disabled={saving || stepIdx !== current + 1}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {step === "coordination" ? "Marcar en coordinación"
-                              : step === "shipping" ? "Marcar como enviado"
-                              : "Marcar como entregado"}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-4">
+                    {STEP_LABELS.map((step, idx) => {
+                      const stepIdx = getStepIndex(step);
+                      const current = getStepIndex(order.tracking_status);
+                      const completed = stepIdx <= current;
+                      const dateField = step === "coordination" ? order.tracking_coordination_at
+                        : step === "shipping" ? order.tracking_shipping_at
+                        : step === "delivered" ? order.tracking_delivered_at
+                        : order.created_at;
+                      return (
+                        <div key={step} className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${completed ? "bg-purple-500" : "bg-gray-200"}`}>
+                              {completed ? <Check className="w-4 h-4 text-white" /> : <span className="text-xs font-bold text-gray-500">{idx + 1}</span>}
+                            </div>
+                            <div>
+                              <p className={`text-sm font-semibold ${completed ? "text-gray-700" : "text-gray-400"}`}>{STEP_NAMES[step]}</p>
+                              <p className="text-[10px] text-gray-400">{dateField ? formatDate(dateField) : "Pendiente"}</p>
+                            </div>
+                          </div>
+                          {!completed && stepIdx === current + 1 && step === "coordination" && (
+                            <button onClick={() => handleUpdateTracking(step)} disabled={saving}
+                              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-40">
+                              {saving ? "..." : "Marcar"}
+                            </button>
+                          )}
+                          {!completed && stepIdx === current + 1 && step === "shipping" && (
+                            <button onClick={() => setShowShippingForm(true)}
+                              className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700">
+                              Gestionar
+                            </button>
+                          )}
+                          {!completed && stepIdx === current + 1 && step === "delivered" && (
+                            <button onClick={() => handleUpdateTracking(step)} disabled={saving}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-40">
+                              {saving ? "..." : "Entregado"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
 
                     {showShippingForm && (
-                      <div className="mt-4 p-4 bg-gray-50 rounded-xl space-y-3">
+                      <div className="p-4 bg-gray-50 rounded-xl space-y-3">
                         <h3 className="text-sm font-semibold text-gray-700">Datos de envío</h3>
-                        <input value={shipAddress} onChange={(e) => setShipAddress(e.target.value)} placeholder="Dirección de envío" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
-                        <input value={shipCity} onChange={(e) => setShipCity(e.target.value)} placeholder="Ciudad" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
-                        <input value={shipRef} onChange={(e) => setShipRef(e.target.value)} placeholder="Referencia" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
-                        <input value={trackNum} onChange={(e) => setTrackNum(e.target.value)} placeholder="Número de seguimiento" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
+                        <div className="grid grid-cols-2 gap-3">
+                          <input value={shipAddress} onChange={(e) => setShipAddress(e.target.value)} placeholder="Dirección de envío" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg col-span-2" />
+                          <input value={shipCity} onChange={(e) => setShipCity(e.target.value)} placeholder="Ciudad" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
+                          <input value={shipRef} onChange={(e) => setShipRef(e.target.value)} placeholder="Referencia" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
+                          <input type="date" value={estimatedDate} onChange={(e) => setEstimatedDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
+                          <input value={trackNum} onChange={(e) => setTrackNum(e.target.value)} placeholder="Número de seguimiento" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" />
+                        </div>
                         <textarea value={shipNotes} onChange={(e) => setShipNotes(e.target.value)} placeholder="Notas adicionales" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg" rows={2} />
                         <div className="flex gap-2">
                           <button onClick={() => setShowShippingForm(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100">Cancelar</button>

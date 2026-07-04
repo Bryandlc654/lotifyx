@@ -216,7 +216,7 @@ export default function MisComprasPage() {
                             Reseña
                           </button>
                         )}
-                        {order.status === "completed" && order.items[0]?.seller?.id && (
+                        {order.items[0]?.seller?.id && (
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();

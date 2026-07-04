@@ -161,7 +161,7 @@ function MensajesContent() {
       <main className="min-h-screen bg-[#f5f6f8]">
         <div className="max-w-7xl mx-auto px-4 md:px-8 pt-28 pb-8 flex items-start justify-center gap-32">
           {/* Sidebar */}
-          <nav className="w-44 flex-shrink-0 pt-8 space-y-1 hidden md:block">
+          <nav className="w-44 flex-shrink-0 pt-8 space-y-1">
             <button onClick={() => router.push("/perfil")}
               className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
               Editar Perfil

@@ -339,7 +339,7 @@ export class CheckoutService {
   async updateOrderTracking(
     orderId: string,
     userId: string,
-    data: { status: string; note?: string; shipping_address?: string; shipping_reference?: string; shipping_city?: string; shipping_notes?: string; tracking_number?: string },
+    data: { status: string; note?: string; shipping_address?: string; shipping_reference?: string; shipping_city?: string; shipping_notes?: string; tracking_number?: string; estimated_at?: string },
   ) {
     const [order] = await this.dataSource.query(
       `SELECT o.*, p.user_id AS seller_id FROM orders o
@@ -358,10 +358,11 @@ export class CheckoutService {
       : data.status === "shipping" ? "tracking_shipping_at"
       : "tracking_delivered_at";
 
+      const extraUpdates = data.estimated_at ? `, tracking_estimated_at = $3::timestamp` : "";
       await this.dataSource.query(
-        `UPDATE orders SET tracking_status = $1, ${dateColumn} = NOW(), updated_at = NOW()
+        `UPDATE orders SET tracking_status = $1, ${dateColumn} = NOW(), updated_at = NOW()${extraUpdates}
          WHERE id = $2::uuid`,
-        [data.status, orderId],
+        data.estimated_at ? [data.status, orderId, data.estimated_at] : [data.status, orderId],
     );
 
     if (data.shipping_address || data.shipping_reference || data.shipping_city || data.shipping_notes || data.tracking_number) {
