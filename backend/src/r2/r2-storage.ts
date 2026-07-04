@@ -21,8 +21,7 @@ function getDefaultClient(): S3Client {
 }
 
 function getBaseUrl(): string {
-  if (!ACCOUNT_ID) throw new Error("R2_ACCOUNT_ID no configurado");
-  return `https://${ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}`;
+  return process.env.R2_PUBLIC_URL || `https://${ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}`;
 }
 
 export class R2Storage implements multer.StorageEngine {
