@@ -98,24 +98,31 @@ export class CheckoutController {
 
     // Link bid to order and add auction product as order item
     if (body.bid_id) {
-      const [bid] = await this.dataSource.query(
-        `UPDATE auction_bids SET checkout_id = $1 WHERE id = $2 AND estado = 'pendiente' RETURNING *`,
-        [order.id, body.bid_id],
-      );
-      if (bid) {
-        const [auction] = await this.dataSource.query(
-          `SELECT product_id FROM auctions WHERE id = $1`, [bid.auction_id]
+      try {
+        const bidResult = await this.dataSource.query(
+          `UPDATE auction_bids SET checkout_id = $1 WHERE id = $2 AND estado = 'pendiente' RETURNING *`,
+          [order.id, body.bid_id],
         );
-        if (auction?.product_id) {
-          await this.dataSource.query(
-            `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ($1, $2, $3, NOW())`,
-            [order.id, auction.product_id, parseFloat(body.amount)],
+        if (bidResult.length > 0) {
+          const bid = bidResult[0];
+          const auctionResult = await this.dataSource.query(
+            `SELECT product_id FROM auctions WHERE id = $1`, [bid.auction_id]
           );
-          await this.dataSource.query(
-            `UPDATE orders SET total_amount = $1 WHERE id = $2`,
-            [parseFloat(body.amount), order.id],
-          );
+          if (auctionResult.length > 0 && auctionResult[0].product_id) {
+            const pid = auctionResult[0].product_id;
+            await this.dataSource.query(
+              `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ($1, $2, $3, NOW())`,
+              [order.id, pid, parseFloat(body.amount)],
+            );
+            await this.dataSource.query(
+              `UPDATE orders SET total_amount = $1 WHERE id = $2`,
+              [parseFloat(body.amount), order.id],
+            );
+            console.log(`[Checkout] Auction item added: order=${order.id.slice(0,8)} product=${pid.slice(0,8)}`);
+          }
         }
+      } catch (e: any) {
+        console.error(`[Checkout] Error linking bid:`, e.message);
       }
     }
 
