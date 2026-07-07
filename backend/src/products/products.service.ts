@@ -74,6 +74,32 @@ export class ProductsService {
     }
     const product = await this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
     this.audit.log({ userId: dto.user_id, action: "product_created", entity: "product", entityId: product.id, details: { title: dto.title } });
+
+    // Auto-create auction/lot records based on metodo_pago
+    try {
+      if ((dto as any).metodo_pago === "subasta" && (dto as any).precio_inicial) {
+        await this.dataSource.query(
+          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'activo')
+           ON CONFLICT (product_id) DO NOTHING`,
+          [product.id, dto.user_id, (dto as any).precio_inicial, (dto as any).incremento_minimo || 1,
+           (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
+        );
+      }
+      if ((dto as any).metodo_pago === "venta_por_lote" && (dto as any).precio_lote) {
+        await this.dataSource.query(
+          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, fecha_cierre, estado)
+           VALUES ($1, $2, $3, $4, $5, $6, 'abierto')
+           ON CONFLICT (product_id) DO NOTHING`,
+          [product.id, dto.user_id, (dto as any).precio_lote, (dto as any).precio_individual || 0,
+           (dto as any).participantes_minimos || 1,
+           (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : null]
+        );
+      }
+    } catch (e) {
+      console.error("[ProductsService] Error creating auction/lot:", (e as any).message);
+    }
+
     return product;
   }
 

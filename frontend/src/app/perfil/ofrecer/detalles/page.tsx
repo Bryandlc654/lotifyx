@@ -233,12 +233,18 @@ function DetallesContent() {
     try {
       const titleKey = Object.keys(form).find(k => /t[ií]tulo|title|nombre/i.test(k));
       const title = titleKey ? form[titleKey] : categoryName;
-      const payload = {
+      const payload: any = {
         category_id: categoryId,
         title,
         specifications: form,
         ...conditions,
         costo_envio: parseFloat(conditions.costo_envio) || 0,
+        precio_base: conditions.precio_base ? parseFloat(conditions.precio_base) : undefined,
+        precio_inicial: conditions.precio_inicial ? parseFloat(conditions.precio_inicial) : undefined,
+        incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
+        precio_lote: conditions.precio_lote ? parseFloat(conditions.precio_lote) : undefined,
+        precio_individual: conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined,
+        participantes_minimos: conditions.participantes_minimos ? parseInt(conditions.participantes_minimos) : undefined,
       };
       if (isEditing) {
         await updateProduct(editingId, payload);

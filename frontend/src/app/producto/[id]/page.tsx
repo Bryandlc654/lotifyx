@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, Product, CategoryField, Review } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [auction, setAuction] = useState<any>(null);
   const cart = useCart();
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
         setRelated(relatedProducts.filter(r => r.id !== id).slice(0, 4));
       }).catch(() => {});
       getProductReviews(id).then(setReviews).catch(() => {});
+      if (p.metodo_pago === "subasta") getAuctionByProduct(id).then(setAuction).catch(() => {});
       const uid = getCurrentUserId();
       setIsOwn(uid === p.user_id);
       if (uid) {
@@ -175,123 +177,199 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               )}
             </div>
 
-            {/* Product info sidebar */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              {product.sku && (
-                <span className="inline-block mb-1 px-3 py-1 rounded-lg bg-gray-100 text-xs font-mono font-medium text-gray-500">
-                  SKU: {product.sku}
-                </span>
-              )}
-              <h1 className="text-2xl font-bold text-[#344054]">
-                {product.title}
-              </h1>
+            {/* Product info sidebar - Auction */}
+            {product.metodo_pago === "subasta" && auction ? (
+              <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
+                <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {sidebarSpecs.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {sidebarSpecs.map(([k, v]) => {
+                      const val = String(v ?? "");
+                      if (!val) return null;
+                      return (
+                        <span key={k} className="px-3 py-1 bg-[#f3efff] text-[#a885f7] text-[12px] font-semibold rounded-full">
+                          {val}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-[13px] text-gray-500 font-medium mb-6">
+                  <p>Estado: <span className="text-gray-700">Nuevo</span></p>
+                  <p>LOT: <span className="text-gray-700 font-bold uppercase">{product.sku || product.id.slice(0, 8)}</span></p>
+                </div>
 
-              {sidebarSpecs.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {sidebarSpecs.map(([k, v]) => {
-                    const val = String(v ?? "");
-                    if (!val) return null;
-                    return (
-                      <div key={k} className="flex gap-2 text-sm">
-                        <span className="text-gray-400 w-32 flex-shrink-0">{getFieldLabel(k)}</span>
-                        <span className="text-gray-800 font-medium">{val}</span>
+                <div className="border border-gray-200 rounded-2xl overflow-hidden mb-6">
+                  <div className="bg-[#f8f6ff] p-4 flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <h3 className="text-[#8b5cf6] font-bold text-[16px]">Esta publicación es una subasta</h3>
+                      <p className="text-gray-500 text-[13px]">Realiza tu mejor oferta y gana el producto</p>
+                    </div>
+                    <svg className="w-8 h-8 text-[#8b5cf6] opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                      <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                      <path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" />
+                    </svg>
+                  </div>
+                  <div className="divide-y border-[#e5e7eb]">
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Precio base</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.precio_inicial).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-start p-4 bg-white">
+                      <span className="text-gray-500 text-[15px] pt-1">Puja actual</span>
+                      <div className="text-right">
+                        <div className="text-[#8b5cf6] font-bold text-[18px]">S/ {Number(auction.precio_actual).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                        <div className="text-[11px] text-gray-400">Realizado por: <span className="text-gray-600 font-semibold">-</span></div>
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Incremento mínimo</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.incremento_minimo).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Cierre de subasta</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">{new Date(auction.fecha_fin).toLocaleDateString("es-PE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-              {(product.stock != null && product.stock !== undefined) && (
-                <div className="mt-2 flex gap-2 text-sm">
-                  <span className="text-gray-400 w-32 flex-shrink-0">Stock</span>
-                  <span className={`font-medium ${product.stock > 0 ? "text-green-700" : "text-red-600"}`}>
-                    {product.stock > 0 ? `${product.stock} disponibles` : "Agotado"}
-                  </span>
-                </div>
-              )}
 
-              <div className="flex items-center gap-6 mt-4">
-                <div className="flex items-center gap-1.5 text-sm text-gray-400">
-                  <Eye className="h-4 w-4" />
-                  <span>{product.views || 0} vistas</span>
+                <div className="bg-[#fffaf0] rounded-2xl p-5 mb-8 border border-orange-50 relative">
+                  <div className="flex justify-between">
+                    <div>
+                      <h3 className="text-gray-700 font-bold text-[15px] mb-1">Garantía requerida para participar</h3>
+                      <p className="text-[#d97706] font-bold text-[22px] mb-2">S/ {Number(auction.precio_inicial * 0.1).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <svg className="w-9 h-9 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      <circle cx="12" cy="11.5" r="2.5" />
+                      <path d="m9 11.5 2 2 4-4" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500 text-[12px] leading-snug">La garantía es reembolsable sino resultas ganador. Podrás solicitar tu devolución o reutilizar en futuras subastas.</p>
                 </div>
-                <button onClick={async () => {
-                  if (!getCurrentUserId()) { toast.error("Inicia sesión para guardar productos"); return; }
-                  try {
-                    const res = await toggleProductSave(id);
-                    setSaved(res.saved);
-                    setSavesCount(c => res.saved ? c + 1 : Math.max(0, c - 1));
-                  } catch { toast.error("Error al guardar"); }
-                }} className="flex items-center gap-1.5 text-sm transition-colors">
-                  <Heart className={`h-4 w-4 ${saved ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"}`} />
-                  <span className={saved ? "text-red-500" : "text-gray-400"}>{savesCount} guardados</span>
+
+                <button className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                  Participar en subasta
                 </button>
               </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                {product.sku && (
+                  <span className="inline-block mb-1 px-3 py-1 rounded-lg bg-gray-100 text-xs font-mono font-medium text-gray-500">
+                    SKU: {product.sku}
+                  </span>
+                )}
+                <h1 className="text-2xl font-bold text-[#344054]">
+                  {product.title}
+                </h1>
 
-              {priceEntries.length > 0 && (
-                <div className="mt-6 mb-3">
-                  {priceRegular && (
-                    <p className="text-sm text-gray-400 line-through">S/ {Number(priceRegular[1]).toFixed(2)}</p>
-                  )}
-                  <p className={`font-bold text-gray-900 ${priceRegular ? "text-3xl" : "text-2xl"}`}>
-                    S/ {Number((priceCurrent || priceEntries[0])[1]).toFixed(2)}
-                  </p>
-                </div>
-              )}
-
-              {/* TYC for non-logged-in users */}
-              {!getCurrentUserId() && (
-                <div className="mb-3">
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
-                    <span className="text-xs text-gray-500 leading-tight">
-                      Al crear una cuenta significa que aceptas los{" "}
-                      <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Términos y condiciones</a>{" "}
-                      y nuestra{" "}
-                      <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Política de privacidad</a>
+                {sidebarSpecs.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {sidebarSpecs.map(([k, v]) => {
+                      const val = String(v ?? "");
+                      if (!val) return null;
+                      return (
+                        <div key={k} className="flex gap-2 text-sm">
+                          <span className="text-gray-400 w-32 flex-shrink-0">{getFieldLabel(k)}</span>
+                          <span className="text-gray-800 font-medium">{val}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {(product.stock != null && product.stock !== undefined) && (
+                  <div className="mt-2 flex gap-2 text-sm">
+                    <span className="text-gray-400 w-32 flex-shrink-0">Stock</span>
+                    <span className={`font-medium ${product.stock > 0 ? "text-green-700" : "text-red-600"}`}>
+                      {product.stock > 0 ? `${product.stock} disponibles` : "Agotado"}
                     </span>
-                  </label>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-6 mt-4">
+                  <div className="flex items-center gap-1.5 text-sm text-gray-400">
+                    <Eye className="h-4 w-4" />
+                    <span>{product.views || 0} vistas</span>
+                  </div>
+                  <button onClick={async () => {
+                    if (!getCurrentUserId()) { toast.error("Inicia sesión para guardar productos"); return; }
+                    try {
+                      const res = await toggleProductSave(id);
+                      setSaved(res.saved);
+                      setSavesCount(c => res.saved ? c + 1 : Math.max(0, c - 1));
+                    } catch { toast.error("Error al guardar"); }
+                  }} className="flex items-center gap-1.5 text-sm transition-colors">
+                    <Heart className={`h-4 w-4 ${saved ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"}`} />
+                    <span className={saved ? "text-red-500" : "text-gray-400"}>{savesCount} guardados</span>
+                  </button>
                 </div>
-              )}
-              <div className="flex gap-3">
-                {isOwn && (
-                  <p className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">Es tu propio producto</p>
+
+                {priceEntries.length > 0 && (
+                  <div className="mt-6 mb-3">
+                    {priceRegular && (
+                      <p className="text-sm text-gray-400 line-through">S/ {Number(priceRegular[1]).toFixed(2)}</p>
+                    )}
+                    <p className={`font-bold text-gray-900 ${priceRegular ? "text-3xl" : "text-2xl"}`}>
+                      S/ {Number((priceCurrent || priceEntries[0])[1]).toFixed(2)}
+                    </p>
+                  </div>
                 )}
-                {product.envio_delivery && !isOwn && (
-                  <button disabled={product.stock != null && product.stock <= 0}
-                    onClick={() => {
-                      if (product.stock != null && product.stock <= 0) return;
-                      if (!getCurrentUserId()) {
-                        if (!acceptTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
-                        setShowLoginModal(true);
-                        return;
-                      }
-                      cart.addItem({
-                        id: product.id,
-                        title: product.title,
-                        sku: product.sku,
-                        image: mainImage,
-                        price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
-                        regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
-                      });
-                      setShowCartSuccess(true);
-                    }}
-                    className={`flex-1 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-md transition-all ${
-                      product.stock != null && product.stock <= 0
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : "bg-gradient-to-br from-purple-600 to-cyan-400 text-white hover:shadow-lg"
-                    }`}>
-                    {product.stock != null && product.stock <= 0 ? "Agotado" : "Comprar"}
-                  </button>
+
+                {!getCurrentUserId() && (
+                  <div className="mb-3">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                      <span className="text-xs text-gray-500 leading-tight">
+                        Al crear una cuenta significa que aceptas los{" "}
+                        <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Términos y condiciones</a>{" "}
+                        y nuestra{" "}
+                        <a href="#" className="text-purple-600 hover:underline" onClick={e => e.preventDefault()}>Política de privacidad</a>
+                      </span>
+                    </label>
+                  </div>
                 )}
-                {product.envio_courier && (
-                  <button className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-purple-600 px-4 py-3.5 text-sm font-semibold text-purple-600 hover:bg-purple-50 transition-all">
-                    <Store className="h-5 w-5" />
-                    Recojo en tienda
-                  </button>
-                )}
+                <div className="flex gap-3">
+                  {isOwn && (
+                    <p className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">Es tu propio producto</p>
+                  )}
+                  {product.envio_delivery && !isOwn && (
+                    <button disabled={product.stock != null && product.stock <= 0}
+                      onClick={() => {
+                        if (product.stock != null && product.stock <= 0) return;
+                        if (!getCurrentUserId()) {
+                          if (!acceptTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
+                          setShowLoginModal(true);
+                          return;
+                        }
+                        cart.addItem({
+                          id: product.id,
+                          title: product.title,
+                          sku: product.sku,
+                          image: mainImage,
+                          price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
+                          regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
+                        });
+                        setShowCartSuccess(true);
+                      }}
+                      className={`flex-1 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-md transition-all ${
+                        product.stock != null && product.stock <= 0
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-gradient-to-br from-purple-600 to-cyan-400 text-white hover:shadow-lg"
+                      }`}>
+                      {product.stock != null && product.stock <= 0 ? "Agotado" : "Comprar"}
+                    </button>
+                  )}
+                  {product.envio_courier && (
+                    <button className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-purple-600 px-4 py-3.5 text-sm font-semibold text-purple-600 hover:bg-purple-50 transition-all">
+                      <Store className="h-5 w-5" />
+                      Recojo en tienda
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 mb-6">
@@ -403,15 +481,15 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
             {/* Agendar visita */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-1">Agendar visita</h3>
-              <p className="text-xs text-gray-500 mb-3">Las visitas requieren cita previa. Te brindamos la ubicación al agendarla.</p>
-              <button className="flex items-center gap-2 w-fit rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 hover:opacity-80 transition-opacity" style={{ backgroundColor: "#F4F6F7" }}>
-                <span className="bg-green-500 rounded-full p-1.5 flex items-center justify-center">
-                  <svg className="h-4 w-4" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                </span>
-                Agendar cita
-              </button>
-            </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Agendar visita</h3>
+                <p className="text-xs text-gray-500 mb-3">Las visitas requieren cita previa. Te brindamos la ubicación al agendarla.</p>
+                <button className="flex items-center gap-2 w-fit rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 hover:opacity-80 transition-opacity" style={{ backgroundColor: "#F4F6F7" }}>
+                  <span className="bg-green-500 rounded-full p-1.5 flex items-center justify-center">
+                    <svg className="h-4 w-4" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  </span>
+                  Agendar cita
+                </button>
+              </div>
           </div>
 
           {/* Product Reviews */}

@@ -17,6 +17,7 @@ export default function CategoriasPage() {
   const [sortBy, setSortBy] = useState("relevancia");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
+  const [selectedModalidad, setSelectedModalidad] = useState<string>("");
   const [page, setPage] = useState(1);
   const perPage = 9;
 
@@ -47,7 +48,10 @@ export default function CategoriasPage() {
 
   useEffect(() => { setPage(1); setSelectedSubcategory(""); }, [selectedCategory]);
 
-  const sorted = [...products].sort((a, b) => {
+  const filteredByModalidad = selectedModalidad
+    ? products.filter(p => p.metodo_pago === selectedModalidad || (!selectedModalidad))
+    : products;
+  const sorted = [...filteredByModalidad].sort((a, b) => {
     if (sortBy === "nuevos") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     const aPrecio = parseFloat(a.specifications?.["Precio Unitario"] || "0");
     const bPrecio = parseFloat(b.specifications?.["Precio Unitario"] || "0");
@@ -159,6 +163,39 @@ export default function CategoriasPage() {
                     </div>
                   );
                 })()}
+
+                {/* Modalidad */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-[#6941C6] mb-3">Modalidad</h4>
+                  <div className="space-y-2.5">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input type="radio" name="modalidad" checked={selectedModalidad === ""}
+                        onChange={() => setSelectedModalidad("")} className="sr-only" />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        selectedModalidad === "" ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
+                      }`}>
+                        {selectedModalidad === "" && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-sm text-[#161A3A]">Todas</span>
+                    </label>
+                    {[
+                      { value: "plataforma", label: "Venta directa" },
+                      { value: "subasta", label: "Subasta" },
+                      { value: "venta_por_lote", label: "Venta por lote" },
+                    ].map(m => (
+                      <label key={m.value} className="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="modalidad" checked={selectedModalidad === m.value}
+                          onChange={() => setSelectedModalidad(m.value)} className="sr-only" />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                          selectedModalidad === m.value ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
+                        }`}>
+                          {selectedModalidad === m.value && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                        <span className="text-sm text-[#161A3A] font-medium">{m.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </aside>
 

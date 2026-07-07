@@ -1491,6 +1491,12 @@ export interface Review {
   seller_last_name?: string;
 }
 
+export async function getAuctionByProduct(productId: string): Promise<any> {
+  const res = await fetch(`${API_URL}/auctions/product/${productId}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function getProductReviews(productId: string): Promise<Review[]> {
   const res = await fetch(`${API_URL}/reviews/product/${productId}`);
   if (!res.ok) throw new Error("Error al obtener reseñas");
