@@ -296,6 +296,24 @@ export default function CheckoutPage() {
                           <p className="text-lg font-bold text-gray-900">S/ {planPrice.toFixed(2)}</p>
                         </div>
                       </div>
+                    ) : auctionMode ? (
+                      <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div className="p-3 bg-amber-50 rounded-xl">
+                          <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                            <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                            <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                            <path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" />
+                          </svg>
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <h3 className="text-sm font-semibold text-gray-800">Garantía de subasta</h3>
+                          <p className="text-xs text-gray-400">Reembolsable si no resultas ganador</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-gray-400">Total a pagar</p>
+                          <p className="text-lg font-bold text-gray-900">S/ {auctionGuarantee.toFixed(2)}</p>
+                        </div>
+                      </div>
                     ) : (
                       items.map(item => (
                         <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
@@ -894,11 +912,11 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {(items.length > 0 || planMode) && (
+                {(items.length > 0 || planMode || auctionMode) && (
                   <div className="mt-6 pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-500">Total</span>
-                      <span className="text-lg font-bold text-gray-800">S/ {planMode ? planPrice.toFixed(2) : total.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-gray-800">S/ {planMode ? planPrice.toFixed(2) : auctionMode ? auctionGuarantee.toFixed(2) : total.toFixed(2)}</span>
                     </div>
                   </div>
                 )}
