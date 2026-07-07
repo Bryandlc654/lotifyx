@@ -110,6 +110,14 @@ export class CheckoutService {
       orderParams,
     );
 
+    const orderIds = [...new Set(orders.map((r: any) => r.id))];
+    const bidsForOrders = orderIds.length ? await this.dataSource.query(
+      `SELECT checkout_id, monto AS bid_amount FROM auction_bids WHERE checkout_id = ANY($1) AND estado = 'confirmada'`,
+      [orderIds],
+    ) : [];
+    const bidMap: Record<string, any> = {};
+    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount };
+
     const grouped: Record<string, any> = {};
     for (const row of orders) {
       if (!grouped[row.id]) {
@@ -128,6 +136,7 @@ export class CheckoutService {
             ? { first_name: row.buyer_first_name, last_name: row.buyer_last_name, email: row.buyer_email }
             : null,
           items: [],
+          bid_info: bidMap[row.id] || null,
         };
       }
       if (row.product_id) {

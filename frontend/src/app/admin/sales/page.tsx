@@ -193,6 +193,16 @@ export default function AdminSalesPage() {
                     </td>
                     <td className="px-5 py-3">
                       <div className="space-y-0.5">
+                        {order.bid_info && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full mb-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                              <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0l0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                              <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0l0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                              <path d="m15 11 3-3" /><path d="m8 4 3 3" />
+                            </svg>
+                            Subasta S/ {Number(order.bid_info.bid_amount).toFixed(2)}
+                          </span>
+                        )}
                         {order.items.map(item => (
                           <div key={item.id} className="flex items-center justify-between text-xs gap-2">
                             <span className="text-gray-700 truncate max-w-[140px]">{item.product_title || "Producto"}</span>
@@ -287,6 +297,18 @@ export default function AdminSalesPage() {
                 <div><span className="text-gray-500 block mb-2">Comprobante</span><img src={getImageUrl(detail.proof_image)} alt="Comprobante" className="rounded-lg border max-h-48 w-full object-contain bg-gray-50" /></div>
               )}
 
+              {detail.bid_info && (
+                <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-lg p-2.5 mb-3">
+                  <svg className="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0l0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                    <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0l0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                    <path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-purple-700">Subasta - Puja de S/ {Number(detail.bid_info.bid_amount).toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
               <div className="pt-3 border-t border-gray-100">
                 <span className="text-gray-500 block mb-2">Productos</span>
                 {detail.items.map((item) => (
