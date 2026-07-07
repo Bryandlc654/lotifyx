@@ -23,6 +23,27 @@ export class Product {
   @Column({ length: 50, default: "plataforma" })
   metodo_pago: string;
 
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_base: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_inicial: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  incremento_minimo: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_lote: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_individual: number;
+
+  @Column({ type: "int", nullable: true })
+  participantes_minimos: number;
+
+  @Column({ type: "timestamp", nullable: true })
+  cierre_estimado: Date;
+
   @Column({ default: false })
   envio_delivery: boolean;
 

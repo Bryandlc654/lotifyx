@@ -524,6 +524,13 @@ export interface Product {
   views?: number;
   saves_count?: number;
   metodo_pago: string;
+  precio_base?: number;
+  precio_inicial?: number;
+  incremento_minimo?: number;
+  precio_lote?: number;
+  precio_individual?: number;
+  participantes_minimos?: number;
+  cierre_estimado?: string;
   envio_delivery: boolean;
   envio_courier: boolean;
   costo_envio: number;

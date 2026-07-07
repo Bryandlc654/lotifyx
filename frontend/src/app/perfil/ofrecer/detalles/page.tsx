@@ -25,6 +25,13 @@ function DetallesContent() {
   const [activeSection, setActiveSection] = useState<"especificaciones" | "condiciones">("especificaciones");
   const [conditions, setConditions] = useState({
     metodo_pago: "",
+    precio_base: "",
+    precio_inicial: "",
+    incremento_minimo: "",
+    cierre_estimado: "",
+    precio_lote: "",
+    precio_individual: "",
+    participantes_minimos: "",
     envio_delivery: false,
     envio_courier: false,
     costo_envio: "",
@@ -65,6 +72,13 @@ function DetallesContent() {
           setForm(specForm);
           setConditions({
             metodo_pago: p.metodo_pago || "",
+            precio_base: String(p.precio_base ?? ""),
+            precio_inicial: String(p.precio_inicial ?? ""),
+            incremento_minimo: String(p.incremento_minimo ?? ""),
+            cierre_estimado: p.cierre_estimado || "",
+            precio_lote: String(p.precio_lote ?? ""),
+            precio_individual: String(p.precio_individual ?? ""),
+            participantes_minimos: String(p.participantes_minimos ?? ""),
             envio_delivery: p.envio_delivery,
             envio_courier: p.envio_courier,
             costo_envio: String(p.costo_envio || ""),
@@ -365,6 +379,53 @@ function DetallesContent() {
                       <option value="venta_por_lote">Venta por lote</option>
                     </select>
                   </div>
+
+                  {/* Auction fields */}
+                  {conditions.metodo_pago === "subasta" && (
+                    <>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Precio base</label>
+                        <input type="number" step="0.01" value={conditions.precio_base} onChange={e => setConditions({ ...conditions, precio_base: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Incremento mínimo</label>
+                        <input type="number" step="0.01" value={conditions.incremento_minimo} onChange={e => setConditions({ ...conditions, incremento_minimo: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Cierre de subasta</label>
+                        <input type="datetime-local" value={conditions.cierre_estimado} onChange={e => setConditions({ ...conditions, cierre_estimado: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Venta por lote fields */}
+                  {conditions.metodo_pago === "venta_por_lote" && (
+                    <>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Precio por lote</label>
+                        <input type="number" step="0.01" value={conditions.precio_lote} onChange={e => setConditions({ ...conditions, precio_lote: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Precio individual</label>
+                        <input type="number" step="0.01" value={conditions.precio_individual} onChange={e => setConditions({ ...conditions, precio_individual: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Participantes mínimos</label>
+                        <input type="number" value={conditions.participantes_minimos} onChange={e => setConditions({ ...conditions, participantes_minimos: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Cierre de convocatoria</label>
+                        <input type="datetime-local" value={conditions.cierre_estimado} onChange={e => setConditions({ ...conditions, cierre_estimado: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" />
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                     <label className="form-label pt-2">Envío</label>
