@@ -549,20 +549,24 @@ export class AuthService {
   }
 
   async updateBankAccount(userId: string, accountId: string, dto: { bank_name?: string; account_number?: string; account_holder?: string; account_type?: string }) {
-    const result = await this.userRepository.query(
+    const raw = await this.userRepository.query(
       `UPDATE bank_accounts SET bank_name = COALESCE($1, bank_name), account_number = COALESCE($2, account_number), account_holder = COALESCE($3, account_holder), account_type = COALESCE($4, account_type) WHERE id = $5 AND user_id = $6 RETURNING *`,
       [dto.bank_name || null, dto.account_number || null, dto.account_holder || null, dto.account_type || null, accountId, userId]
     );
-    if (!result.length) throw new NotFoundException("Cuenta no encontrada");
-    return result[0];
+    // TypeORM returns [rows, rowCount] for UPDATE queries
+    const rows = Array.isArray(raw?.[0]) ? raw[0] : (raw || []);
+    if (!rows.length) throw new NotFoundException("Cuenta no encontrada");
+    return rows[0];
   }
 
   async deleteBankAccount(userId: string, accountId: string) {
-    const result = await this.userRepository.query(
+    const raw = await this.userRepository.query(
       `DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2 RETURNING id`,
       [accountId, userId]
     );
-    if (!result.length) throw new NotFoundException("Cuenta no encontrada");
+    // TypeORM returns [rows, rowCount] for DELETE queries
+    const rows = Array.isArray(raw?.[0]) ? raw[0] : (raw || []);
+    if (!rows.length) throw new NotFoundException("Cuenta no encontrada");
     return { message: "Cuenta eliminada" };
   }
 
