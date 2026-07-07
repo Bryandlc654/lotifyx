@@ -1,16 +1,40 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
+import { Injectable, OnModuleInit, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { AuditService } from "../audit/audit.service";
 import { MailService } from "../mail/mail.service";
 
 @Injectable()
-export class CheckoutService {
+export class CheckoutService implements OnModuleInit {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
     private readonly mail: MailService,
   ) {}
+
+  async onModuleInit() {
+    // Fix legacy auction orders missing order_items records
+    try {
+      const missing = await this.dataSource.query(
+        `SELECT o.id, o.total_amount, a.product_id
+         FROM orders o
+         INNER JOIN auction_bids ab ON ab.checkout_id = o.id
+         INNER JOIN auctions a ON a.id = ab.auction_id
+         WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id)`
+      );
+      for (const row of missing) {
+        await this.dataSource.query(
+          `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING`,
+          [row.id, row.product_id, row.total_amount]
+        );
+      }
+      if (missing.length > 0) {
+        console.log(`[CheckoutService] Fixed ${missing.length} legacy auction orders missing order_items`);
+      }
+    } catch (e: any) {
+      console.error("[CheckoutService] Error fixing legacy auction orders:", e.message);
+    }
+  }
 
   async getOrders(userId: string) {
     const orders = await this.dataSource.query(
