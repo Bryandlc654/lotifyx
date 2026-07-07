@@ -35,15 +35,16 @@ export class LotsService {
     const existing = await this.repo.findOne({ where: { product_id: dto.product_id } });
     if (existing) throw new BadRequestException("Este producto ya tiene una venta por lote activa");
 
-    return this.repo.save(this.repo.create({
+    const data: any = {
       product_id: dto.product_id,
       vendedor_id: dto.vendedor_id,
       precio_lote: dto.precio_lote,
       precio_individual: dto.precio_individual,
       participantes_minimos: dto.participantes_minimos || 1,
-      fecha_cierre: dto.fecha_cierre ? new Date(dto.fecha_cierre) : null,
       estado: "abierto",
-    }));
+    };
+    if (dto.fecha_cierre) data.fecha_cierre = new Date(dto.fecha_cierre);
+    return this.repo.save(this.repo.create(data));
   }
 
   async join( lotSaleId: string, compradorId: string, cantidad: number = 1) {

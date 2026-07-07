@@ -33,7 +33,7 @@ export class Auction {
   estado: string;
 
   @Column({ type: "uuid", nullable: true })
-  ganador_id: string;
+  ganador_id: string | null;
 
   @CreateDateColumn()
   created_at: Date;

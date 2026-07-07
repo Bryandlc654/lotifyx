@@ -101,7 +101,7 @@ export class AuctionsService {
         order: { monto: "DESC" },
       });
       auction.estado = "cerrado";
-      auction.ganador_id = highestBid?.postor_id || undefined;
+      auction.ganador_id = highestBid?.postor_id || null;
       await this.repo.save(auction);
     }
     return expired.length;
