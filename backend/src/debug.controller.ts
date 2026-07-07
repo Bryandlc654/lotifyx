@@ -87,6 +87,25 @@ export class DebugController {
        WHERE ab.checkout_id IS NOT NULL
        ORDER BY o.created_at DESC`
     );
-    return { count: orders.length, orders };
+    // Check the bids directly
+    const bids = await this.dataSource.query(
+      `SELECT ab.id as bid_id, ab.checkout_id, ab.auction_id, ab.estado, ab.monto,
+              a.product_id, a.precio_inicial,
+              p.title as product_title
+       FROM auction_bids ab
+       LEFT JOIN auctions a ON a.id = ab.auction_id
+       LEFT JOIN products p ON p.id = a.product_id
+       WHERE ab.checkout_id IS NOT NULL
+       ORDER BY ab.updated_at DESC`
+    );
+    // Check when the order_items fix scripts were run or if they exist
+    const itemCheck = await this.dataSource.query(
+      `SELECT o.id, o.created_at, o.updated_at,
+              (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as item_count
+       FROM orders o
+       WHERE (SELECT COUNT(*) FROM auction_bids ab WHERE ab.checkout_id = o.id) > 0
+       ORDER BY o.created_at DESC`
+    );
+    return { count: orders.length, orders, bids, item_stats: itemCheck };
   }
 }
