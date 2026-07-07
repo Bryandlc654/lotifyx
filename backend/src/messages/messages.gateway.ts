@@ -41,11 +41,25 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     client.leave(`conv:${conversationId}`);
   }
 
+  @SubscribeMessage("join_product")
+  handleJoinProduct(client: Socket, productId: string) {
+    client.join(`product:${productId}`);
+  }
+
+  @SubscribeMessage("leave_product")
+  handleLeaveProduct(client: Socket, productId: string) {
+    client.leave(`product:${productId}`);
+  }
+
   notifyNewMessage(conversationId: string, message: any) {
     this.server.to(`conv:${conversationId}`).emit("new_message", message);
   }
 
   notifyUnreadUpdate(userId: string, unread: number) {
     this.server.to(`user:${userId}`).emit("unread_update", { unread });
+  }
+
+  notifyNewBid(productId: string, data: { precio_actual: number; bid_count: number; highest_bid: number }) {
+    this.server.to(`product:${productId}`).emit("auction_update", data);
   }
 }

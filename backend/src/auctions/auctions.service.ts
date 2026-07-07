@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThan, MoreThan } from "typeorm";
+import { Repository, LessThan } from "typeorm";
 import { Auction } from "./auction.entity";
 import { AuctionBid } from "./auction-bid.entity";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
+import { MessagesGateway } from "../messages/messages.gateway";
 
 @Injectable()
 export class AuctionsService {
@@ -14,10 +15,18 @@ export class AuctionsService {
     @InjectRepository(AuctionBid)
     private readonly bidsRepo: Repository<AuctionBid>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly gateway: MessagesGateway,
   ) {}
 
   async findByProduct(productId: string) {
-    return this.repo.findOne({ where: { product_id: productId } });
+    const auction = await this.repo.findOne({ where: { product_id: productId } });
+    if (!auction) return null;
+    const bidCount = await this.bidsRepo.count({ where: { auction_id: auction.id } });
+    const highestBid = await this.bidsRepo.findOne({
+      where: { auction_id: auction.id },
+      order: { monto: "DESC" },
+    });
+    return { ...auction, bid_count: bidCount, highest_bid: highestBid?.monto || null };
   }
 
   async findActive() {
@@ -76,6 +85,13 @@ export class AuctionsService {
 
     auction.precio_actual = monto;
     await this.repo.save(auction);
+
+    const bidCount = await this.bidsRepo.count({ where: { auction_id: auctionId } });
+    this.gateway.notifyNewBid(auction.product_id, {
+      precio_actual: monto,
+      bid_count: bidCount,
+      highest_bid: monto,
+    });
 
     return bid;
   }

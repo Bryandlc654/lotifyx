@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, Product, CategoryField, Review } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2 } from "lucide-react";
+import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
 import { toast } from "sonner";
 import { LoginModal } from "@/components/layout/login-modal";
 
@@ -29,6 +30,9 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [auction, setAuction] = useState<any>(null);
+  const [showBidModal, setShowBidModal] = useState(false);
+  const [bidAmount, setBidAmount] = useState("");
+  const [bidding, setBidding] = useState(false);
   const cart = useCart();
 
   useEffect(() => {
@@ -48,7 +52,13 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
         setRelated(relatedProducts.filter(r => r.id !== id).slice(0, 4));
       }).catch(() => {});
       getProductReviews(id).then(setReviews).catch(() => {});
-      if (p.metodo_pago === "subasta") getAuctionByProduct(id).then(setAuction).catch(() => {});
+      if (p.metodo_pago === "subasta") {
+        getAuctionByProduct(id).then(setAuction).catch(() => {});
+        joinProductAuction(id);
+        onAuctionUpdate((data) => {
+          setAuction((prev: any) => prev ? { ...prev, ...data } : prev);
+        });
+      }
       const uid = getCurrentUserId();
       setIsOwn(uid === p.user_id);
       if (uid) {
@@ -56,6 +66,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       }
     }).catch(() => {})
     .finally(() => setLoading(false));
+    return () => {
+      leaveProductAuction(id);
+      offAuctionUpdate();
+    };
   }, [id]);
 
   if (loading) {
@@ -216,13 +230,20 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <span className="text-gray-500 text-[15px]">Precio base</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.precio_inicial).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between items-start p-4 bg-white">
-                      <span className="text-gray-500 text-[15px] pt-1">Puja actual</span>
-                      <div className="text-right">
-                        <div className="text-[#8b5cf6] font-bold text-[18px]">S/ {Number(auction.precio_actual).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
-                        <div className="text-[11px] text-gray-400">Realizado por: <span className="text-gray-600 font-semibold">-</span></div>
+                    {auction.bid_count > 0 ? (
+                      <div className="flex justify-between items-start p-4 bg-white">
+                        <span className="text-gray-500 text-[15px] pt-1">Puja actual</span>
+                        <div className="text-right">
+                          <div className="text-[#8b5cf6] font-bold text-[18px]">S/ {Number(auction.precio_actual).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                          <div className="text-[11px] text-gray-400">{auction.bid_count} puja{auction.bid_count > 1 ? "s" : ""}</div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex justify-between items-center p-4">
+                        <span className="text-gray-500 text-[15px]">Puja actual</span>
+                        <span className="text-gray-400 text-[15px]">Sin pujas aún</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Incremento mínimo</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.incremento_minimo).toFixed(2)}</span>
@@ -249,7 +270,14 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   <p className="text-gray-500 text-[12px] leading-snug">La garantía es reembolsable sino resultas ganador. Podrás solicitar tu devolución o reutilizar en futuras subastas.</p>
                 </div>
 
-                <button className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                <button onClick={() => {
+                  if (!getCurrentUserId()) { setShowLoginModal(true); return; }
+                  const minBid = auction.highest_bid
+                    ? Number(auction.highest_bid) + Number(auction.incremento_minimo)
+                    : Number(auction.precio_inicial);
+                  setBidAmount(String(minBid));
+                  setShowBidModal(true);
+                }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
                   Participar en subasta
                 </button>
               </div>
@@ -683,6 +711,85 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               onMouseOver={e => e.currentTarget.style.backgroundColor = "#586375"}
               onMouseOut={e => e.currentTarget.style.backgroundColor = "#6b778d"}>
               Ir a pagar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bid Modal */}
+      {showBidModal && auction && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowBidModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <button onClick={() => setShowBidModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Realizar puja</h3>
+            <p className="text-sm text-gray-500 mb-6">Ingresa el monto de tu puja para este producto</p>
+
+            <div className="bg-purple-50 rounded-xl p-4 mb-6 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Puja mínima</span>
+                <span className="font-semibold text-gray-800">
+                  S/ {(Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo)).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Incremento mínimo</span>
+                <span className="font-semibold text-gray-800">S/ {Number(auction.incremento_minimo).toFixed(2)}</span>
+              </div>
+              {auction.bid_count > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Puja actual</span>
+                  <span className="font-semibold text-gray-800">S/ {Number(auction.precio_actual).toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Tu puja</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">S/</span>
+                <input type="number" step="0.01" value={bidAmount}
+                  onChange={e => setBidAmount(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 pl-8 pr-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">Monto mínimo: S/ {(Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo)).toFixed(2)}</p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Garantía requerida</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Al realizar la puja, se te redirigirá al checkout para pagar la garantía de S/ {Number(auction.precio_inicial * 0.1).toFixed(2)}. Este monto es reembolsable.</p>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={async () => {
+              const minBid = Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo);
+              const amount = parseFloat(bidAmount);
+              if (!amount || amount < minBid) {
+                toast.error(`La puja mínima es S/ ${minBid.toFixed(2)}`);
+                return;
+              }
+              setBidding(true);
+              try {
+                await placeAuctionBid(auction.id, amount);
+                toast.success("Puja realizada con éxito");
+                setShowBidModal(false);
+                router.push(`/checkout?source=auction&auction_id=${auction.id}&amount=${(Number(auction.precio_inicial) * 0.1).toFixed(2)}`);
+              } catch (e: any) {
+                toast.error(e.message || "Error al realizar puja");
+              } finally {
+                setBidding(false);
+              }
+            }} disabled={bidding}
+              className="w-full bg-gradient-to-r from-purple-600 to-cyan-400 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-sm disabled:opacity-50">
+              {bidding ? "Procesando..." : "Confirmar puja"}
             </button>
           </div>
         </div>

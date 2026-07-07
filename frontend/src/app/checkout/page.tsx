@@ -84,6 +84,8 @@ export default function CheckoutPage() {
   const [planMode, setPlanMode] = useState(false);
   const [planPrice, setPlanPrice] = useState(0);
   const [planName, setPlanName] = useState("");
+  const [auctionMode, setAuctionMode] = useState(false);
+  const [auctionGuarantee, setAuctionGuarantee] = useState(0);
 
   useEffect(() => {
     setAuthed(isAuthenticated());
@@ -109,6 +111,14 @@ export default function CheckoutPage() {
           } catch {}
         }
       }).catch(() => {});
+    }
+    if (url.searchParams.get("source") === "auction") {
+      setAuctionMode(true);
+      const amt = url.searchParams.get("amount");
+      if (amt) {
+        setAuctionGuarantee(parseFloat(amt));
+        setTransferAmount(amt);
+      }
     }
   }, [authed]);
 

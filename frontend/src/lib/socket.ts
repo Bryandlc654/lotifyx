@@ -84,3 +84,27 @@ export function leaveConversation(conversationId: string) {
     s.emit("leave_conversation", conversationId);
   }
 }
+
+export function joinProductAuction(productId: string) {
+  const s = getSocket();
+  if (s?.connected) {
+    s.emit("join_product", productId);
+  }
+}
+
+export function leaveProductAuction(productId: string) {
+  const s = getSocket();
+  if (s?.connected) {
+    s.emit("leave_product", productId);
+  }
+}
+
+export function onAuctionUpdate(callback: (data: any) => void) {
+  const s = getSocket();
+  if (s) s.on("auction_update", callback);
+}
+
+export function offAuctionUpdate() {
+  const s = getSocket();
+  if (s) s.off("auction_update");
+}

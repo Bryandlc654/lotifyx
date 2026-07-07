@@ -1497,6 +1497,21 @@ export async function getAuctionByProduct(productId: string): Promise<any> {
   return res.json();
 }
 
+export async function placeAuctionBid(auctionId: string, monto: number): Promise<any> {
+  const res = await authFetch(`${API_URL}/auctions/${auctionId}/bid`, {
+    method: "POST",
+    body: JSON.stringify({ monto }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function getAuctionBids(auctionId: string): Promise<any[]> {
+  const res = await fetch(`${API_URL}/auctions/${auctionId}/bids`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function getProductReviews(productId: string): Promise<Review[]> {
   const res = await fetch(`${API_URL}/reviews/product/${productId}`);
   if (!res.ok) throw new Error("Error al obtener reseñas");
