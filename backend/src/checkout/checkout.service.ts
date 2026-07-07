@@ -495,15 +495,15 @@ export class CheckoutService {
     amount: number;
     proofUrl: string;
   }) {
-    const productIds = data.items.map(i => i.id);
-
-    const ownProducts = await this.dataSource.query(
-      `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2`,
-      [productIds, data.userId],
-    );
-
-    if (ownProducts.length > 0) {
-      throw new BadRequestException("No puedes comprar tus propios productos");
+    if (data.items.length > 0) {
+      const productIds = data.items.map(i => i.id);
+      const ownProducts = await this.dataSource.query(
+        `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2`,
+        [productIds, data.userId],
+      );
+      if (ownProducts.length > 0) {
+        throw new BadRequestException("No puedes comprar tus propios productos");
+      }
     }
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -517,13 +517,15 @@ export class CheckoutService {
         [data.userId, data.total, data.originAccountId, data.operationNumber, data.amount, data.proofUrl],
       );
 
-      const values = data.items.map((_, i) => `($1, $${2 + i * 2}, $${3 + i * 2}, NOW())`).join(", ");
-      const params = [order.id];
-      for (const item of data.items) { params.push(item.id, item.price); }
-      await queryRunner.query(
-        `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ${values}`,
-        params,
-      );
+      if (data.items.length > 0) {
+        const values = data.items.map((_, i) => `($1, $${2 + i * 2}, $${3 + i * 2}, NOW())`).join(", ");
+        const params = [order.id];
+        for (const item of data.items) { params.push(item.id, item.price); }
+        await queryRunner.query(
+          `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ${values}`,
+          params,
+        );
+      }
 
       await queryRunner.commitTransaction();
       this.audit.log({ userId: data.userId, action: "order_created", entity: "order", entityId: order.id, details: { items: data.items.length, total: data.total } });
