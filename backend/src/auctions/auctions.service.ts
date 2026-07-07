@@ -21,12 +21,13 @@ export class AuctionsService {
   async findByProduct(productId: string) {
     const auction = await this.repo.findOne({ where: { product_id: productId } });
     if (!auction) return null;
-    const bidCount = await this.bidsRepo.count({ where: { auction_id: auction.id } });
-    const highestBid = await this.bidsRepo.findOne({
-      where: { auction_id: auction.id },
+    const confirmedBidsCount = await this.bidsRepo.count({ where: { auction_id: auction.id, estado: "confirmada" } });
+    const highestConfirmed = await this.bidsRepo.findOne({
+      where: { auction_id: auction.id, estado: "confirmada" },
       order: { monto: "DESC" },
     });
-    return { ...auction, bid_count: bidCount, highest_bid: highestBid?.monto || null };
+    const precioActual = highestConfirmed?.monto || auction.precio_inicial;
+    return { ...auction, bid_count: confirmedBidsCount, highest_bid: highestConfirmed?.monto || null, precio_actual: Number(precioActual) };
   }
 
   async findActive() {
@@ -73,27 +74,58 @@ export class AuctionsService {
     if (auction.estado !== "activo") throw new BadRequestException("La subasta no está activa");
     if (auction.vendedor_id === postorId) throw new ForbiddenException("No puedes pujar en tu propia subasta");
     if (new Date() > new Date(auction.fecha_fin)) throw new BadRequestException("La subasta ya terminó");
-    if (monto < auction.precio_actual + auction.incremento_minimo) {
-      throw new BadRequestException(`La puja debe ser al menos S/ ${(auction.precio_actual + auction.incremento_minimo).toFixed(2)}`);
+
+    // Check against confirmed bids only
+    const highestConfirmed = await this.bidsRepo.findOne({
+      where: { auction_id: auctionId, estado: "confirmada" },
+      order: { monto: "DESC" },
+    });
+    const precioActual = highestConfirmed?.monto || auction.precio_inicial;
+    if (monto < Number(precioActual) + Number(auction.incremento_minimo)) {
+      throw new BadRequestException(`La puja debe ser al menos S/ ${(Number(precioActual) + Number(auction.incremento_minimo)).toFixed(2)}`);
     }
 
     const bid = await this.bidsRepo.save(this.bidsRepo.create({
       auction_id: auctionId,
       postor_id: postorId,
       monto,
+      estado: "pendiente",
     }));
 
     auction.precio_actual = monto;
     await this.repo.save(auction);
 
-    const bidCount = await this.bidsRepo.count({ where: { auction_id: auctionId } });
-    this.gateway.notifyNewBid(auction.product_id, {
-      precio_actual: monto,
-      bid_count: bidCount,
-      highest_bid: monto,
+    // Do NOT emit WebSocket - bid is pending payment
+    return bid;
+  }
+
+  async confirmBid(bidId: string) {
+    const bid = await this.bidsRepo.findOne({ where: { id: bidId } });
+    if (!bid) throw new NotFoundException("Puja no encontrada");
+    if (bid.estado !== "pendiente") throw new BadRequestException("La puja ya fue procesada");
+
+    bid.estado = "confirmada";
+    await this.bidsRepo.save(bid);
+
+    const auction = await this.repo.findOne({ where: { id: bid.auction_id } });
+    if (!auction) throw new NotFoundException("Subasta no encontrada");
+
+    const bidCount = await this.bidsRepo.count({ where: { auction_id: bid.auction_id, estado: "confirmada" } });
+    const highestConfirmed = await this.bidsRepo.findOne({
+      where: { auction_id: bid.auction_id, estado: "confirmada" },
+      order: { monto: "DESC" },
     });
 
-    return bid;
+    auction.precio_actual = highestConfirmed?.monto || auction.precio_inicial;
+    await this.repo.save(auction);
+
+    this.gateway.notifyNewBid(auction.product_id, {
+      precio_actual: auction.precio_actual,
+      bid_count: bidCount,
+      highest_bid: highestConfirmed?.monto || auction.precio_inicial,
+    });
+
+    return { message: "Puja confirmada" };
   }
 
   async getBids(auctionId: string) {

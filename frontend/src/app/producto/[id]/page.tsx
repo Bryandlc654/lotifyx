@@ -778,10 +778,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               }
               setBidding(true);
               try {
-                await placeAuctionBid(auction.id, amount);
-                toast.success("Puja realizada con éxito");
+                const bid = await placeAuctionBid(auction.id, amount);
+                toast.success("Puja registrada. Ahora paga la garantía para confirmarla.");
                 setShowBidModal(false);
-                router.push(`/checkout?source=auction&auction_id=${auction.id}&amount=${(Number(auction.precio_inicial) * 0.1).toFixed(2)}`);
+                router.push(`/checkout?source=auction_bid&bid_id=${bid.id}&amount=${(Number(auction.precio_inicial) * 0.1).toFixed(2)}`);
               } catch (e: any) {
                 toast.error(e.message || "Error al realizar puja");
               } finally {

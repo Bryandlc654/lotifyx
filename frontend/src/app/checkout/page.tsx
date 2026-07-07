@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useCart } from "@/lib/cart-context";
-import { saveBankAccount, getBankAccounts, getImageUrl, isAuthenticated, submitCheckout, submitPlanPayment, getPlans, getProfile } from "@/lib/api";
+import { saveBankAccount, getBankAccounts, getImageUrl, isAuthenticated, submitCheckout, submitPlanPayment, getPlans, getProfile, confirmAuctionBid } from "@/lib/api";
 import {
   Check, ArrowLeft, Lock, Shield, Clock, Banknote, LogIn,
   Building2, Plus, Copy, X, Upload, CheckCircle,
@@ -86,6 +86,7 @@ export default function CheckoutPage() {
   const [planName, setPlanName] = useState("");
   const [auctionMode, setAuctionMode] = useState(false);
   const [auctionGuarantee, setAuctionGuarantee] = useState(0);
+  const [pendingBidId, setPendingBidId] = useState<string | null>(null);
 
   useEffect(() => {
     setAuthed(isAuthenticated());
@@ -112,13 +113,15 @@ export default function CheckoutPage() {
         }
       }).catch(() => {});
     }
-    if (url.searchParams.get("source") === "auction") {
+    if (url.searchParams.get("source") === "auction_bid") {
       setAuctionMode(true);
       const amt = url.searchParams.get("amount");
+      const bidId = url.searchParams.get("bid_id");
       if (amt) {
         setAuctionGuarantee(parseFloat(amt));
         setTransferAmount(amt);
       }
+      if (bidId) setPendingBidId(bidId);
     }
   }, [authed]);
 
@@ -171,6 +174,15 @@ export default function CheckoutPage() {
           origin_account_id: selectedAccount,
           proof: proofFile,
         });
+      } else if (auctionMode && pendingBidId) {
+        await confirmAuctionBid(pendingBidId);
+        await submitCheckout({
+          items: [],
+          origin_account_id: selectedAccount,
+          operation_number: operationNumber.trim(),
+          amount: parseFloat(transferAmount),
+          proof: proofFile,
+        });
       } else {
         await submitCheckout({
           items: items.map(i => ({ id: i.id, price: i.price })),
@@ -190,8 +202,8 @@ export default function CheckoutPage() {
 
   function handleSuccessClose() {
     setShowSuccess(false);
-    if (!planMode) clearCart();
-    router.push(planMode ? "/perfil" : "/perfil/mis-compras");
+    if (!planMode && !auctionMode) clearCart();
+    router.push(planMode ? "/perfil" : auctionMode ? "/perfil/mensajes" : "/perfil/mis-compras");
   }
 
   if (authed === null) return null;

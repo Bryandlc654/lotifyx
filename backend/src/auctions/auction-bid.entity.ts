@@ -14,6 +14,12 @@ export class AuctionBid {
   @Column({ type: "decimal", precision: 10, scale: 2 })
   monto: number;
 
+  @Column({ length: 20, default: "pendiente" })
+  estado: string;
+
+  @Column({ type: "uuid", nullable: true })
+  checkout_id: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

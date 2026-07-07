@@ -29,6 +29,13 @@ export class AuctionsController {
     return this.service.placeBid(id, req.user.id, monto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post("bids/:bidId/confirm")
+  @HttpCode(HttpStatus.OK)
+  confirmBid(@Param("bidId") bidId: string) {
+    return this.service.confirmBid(bidId);
+  }
+
   @Get(":id/bids")
   getBids(@Param("id") id: string) { return this.service.getBids(id); }
 }

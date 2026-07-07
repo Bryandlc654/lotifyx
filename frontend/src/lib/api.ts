@@ -1506,6 +1506,12 @@ export async function placeAuctionBid(auctionId: string, monto: number): Promise
   return res.json();
 }
 
+export async function confirmAuctionBid(bidId: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/auctions/bids/${bidId}/confirm`, { method: "POST" });
+  if (!res.ok) throw new Error("Error al confirmar puja");
+  return res.json();
+}
+
 export async function getAuctionBids(auctionId: string): Promise<any[]> {
   const res = await fetch(`${API_URL}/auctions/${auctionId}/bids`);
   if (!res.ok) return [];
