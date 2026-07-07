@@ -1359,14 +1359,16 @@ export async function submitCheckout(data: {
   operation_number: string;
   amount: number;
   proof: File;
+  bid_id?: string;
 }) {
   const token = getAccessToken();
   const fd = new FormData();
-  fd.append("items", JSON.stringify(data.items));
+  if (data.items.length > 0) fd.append("items", JSON.stringify(data.items));
   fd.append("origin_account_id", data.origin_account_id);
   fd.append("operation_number", data.operation_number);
   fd.append("amount", String(data.amount));
   fd.append("proof", data.proof);
+  if (data.bid_id) fd.append("bid_id", data.bid_id);
 
   let res = await fetch(`${API_URL}/checkout/submit`, {
     method: "POST",

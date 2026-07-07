@@ -17,13 +17,18 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { InjectDataSource } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CheckoutService } from "./checkout.service";
 import { R2Storage } from "../r2/r2-storage";
 
 @Controller("checkout")
 export class CheckoutController {
-  constructor(private readonly checkoutService: CheckoutService) {}
+  constructor(
+    private readonly checkoutService: CheckoutService,
+    @InjectDataSource() private readonly dataSource: DataSource,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get("orders")
