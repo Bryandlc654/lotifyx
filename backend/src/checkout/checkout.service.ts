@@ -517,11 +517,12 @@ export class CheckoutService {
     await queryRunner.startTransaction();
 
     try {
+      const totalAmount = data.total > 0 ? data.total : data.amount;
       const [order] = await queryRunner.query(
         `INSERT INTO orders (user_id, total_amount, status, origin_account_id, operation_number, amount, proof_image, created_at, updated_at)
          VALUES ($1, $2, 'pending_payment', $3, $4, $5, $6, NOW(), NOW())
          RETURNING *`,
-        [data.userId, data.total, data.originAccountId, data.operationNumber, data.amount, data.proofUrl],
+        [data.userId, totalAmount, data.originAccountId, data.operationNumber, data.amount, data.proofUrl],
       );
 
       if (data.items.length > 0) {
