@@ -32,7 +32,7 @@ export class CheckoutService {
     const grouped: Record<string, any> = {};
     const orderIds = [...new Set(orders.map((r: any) => r.id))];
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT ab.checkout_id, ab.monto AS bid_amount FROM auction_bids ab WHERE ab.checkout_id = ANY($1) AND ab.estado = 'confirmada'`,
+      `SELECT ab.checkout_id, ab.monto AS bid_amount FROM auction_bids ab WHERE ab.checkout_id = ANY($1)`,
       [orderIds],
     ) : [];
     const bidMap: Record<string, any> = {};
@@ -112,7 +112,7 @@ export class CheckoutService {
 
     const orderIds = [...new Set(orders.map((r: any) => r.id))];
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT checkout_id, monto AS bid_amount FROM auction_bids WHERE checkout_id = ANY($1) AND estado = 'confirmada'`,
+      `SELECT checkout_id, monto AS bid_amount FROM auction_bids WHERE checkout_id = ANY($1)`,
       [orderIds],
     ) : [];
     const bidMap: Record<string, any> = {};
