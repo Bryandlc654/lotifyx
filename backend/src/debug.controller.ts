@@ -98,4 +98,28 @@ export class DebugController {
       return { error: e.message, stack: e.stack?.split('\n').slice(0, 3).join('\n') };
     }
   }
+
+  @Get('fix-auction-items')
+  async fixAuctionItems() {
+    const missing = await this.dataSource.query(
+      `SELECT o.id, o.total_amount, a.product_id
+       FROM orders o
+       INNER JOIN auction_bids ab ON ab.checkout_id = o.id
+       INNER JOIN auctions a ON a.id = ab.auction_id
+       WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id)`
+    );
+    let fixed = 0;
+    for (const row of missing) {
+      try {
+        await this.dataSource.query(
+          `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING`,
+          [row.id, row.product_id, row.total_amount]
+        );
+        fixed++;
+      } catch (e: any) {
+        console.error(`[Debug] Fix error for ${row.id.slice(0,8)}:`, e.message);
+      }
+    }
+    return { found: missing.length, fixed };
+  }
 }
