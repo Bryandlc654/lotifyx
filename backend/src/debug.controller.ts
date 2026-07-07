@@ -1,13 +1,16 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { S3Client, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { ConfigService } from "@nestjs/config";
 import { MailService } from "./mail/mail.service";
+import { DataSource } from "typeorm";
+import { InjectDataSource } from "@nestjs/typeorm";
 
 @Controller('debug')
 export class DebugController {
   constructor(
     private readonly mailService: MailService,
     private readonly config: ConfigService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   @Get('brevo')
@@ -70,5 +73,20 @@ export class DebugController {
     }
 
     return results;
+  }
+
+  @Get('orders-auction')
+  async debugAuctionOrders() {
+    const orders = await this.dataSource.query(
+      `SELECT o.id, o.status, oi.id as item_id, oi.product_id, oi.price as item_price,
+              p.title as product_title, ab.monto as bid_amount, ab.estado as bid_status
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN products p ON p.id = oi.product_id
+       LEFT JOIN auction_bids ab ON ab.checkout_id = o.id
+       WHERE ab.checkout_id IS NOT NULL
+       ORDER BY o.created_at DESC`
+    );
+    return { count: orders.length, orders };
   }
 }
