@@ -99,17 +99,19 @@ export class CheckoutController {
     // Link bid to order and add auction product as order item
     if (body.bid_id) {
       try {
-        const bidResult = await this.dataSource.query(
+        const result = await this.dataSource.query(
           `UPDATE auction_bids SET checkout_id = $1 WHERE id = $2 AND estado = 'pendiente' RETURNING *`,
           [order.id, body.bid_id],
         );
-        if (bidResult.length > 0) {
-          const bid = bidResult[0];
-          const auctionResult = await this.dataSource.query(
+        // TypeORM returns [rows, rowCount] for UPDATE queries, not just rows[]
+        const bidRows = Array.isArray(result?.[0]) ? result[0] : (result || []);
+        const bid = bidRows.length > 0 ? bidRows[0] : null;
+        if (bid) {
+          const auction = await this.dataSource.query(
             `SELECT product_id FROM auctions WHERE id = $1`, [bid.auction_id]
           );
-          if (auctionResult.length > 0 && auctionResult[0].product_id) {
-            const pid = auctionResult[0].product_id;
+          if (auction.length > 0 && auction[0].product_id) {
+            const pid = auction[0].product_id;
             await this.dataSource.query(
               `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ($1, $2, $3, NOW())`,
               [order.id, pid, parseFloat(body.amount)],
