@@ -30,6 +30,14 @@ export class CheckoutService {
     );
 
     const grouped: Record<string, any> = {};
+    const orderIds = [...new Set(orders.map((r: any) => r.id))];
+    const bidsForOrders = orderIds.length ? await this.dataSource.query(
+      `SELECT ab.checkout_id, ab.monto AS bid_amount FROM auction_bids ab WHERE ab.checkout_id = ANY($1) AND ab.estado = 'confirmada'`,
+      [orderIds],
+    ) : [];
+    const bidMap: Record<string, any> = {};
+    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount };
+
     for (const row of orders) {
       if (!grouped[row.id]) {
         grouped[row.id] = {
@@ -44,6 +52,7 @@ export class CheckoutService {
           rejected_reason: row.rejected_reason,
           created_at: row.created_at,
           items: [],
+          bid_info: bidMap[row.id] || null,
         };
       }
       if (row.product_id) {
@@ -340,7 +349,17 @@ export class CheckoutService {
       [orderId],
     );
 
-    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking };
+    // Get auction bid info if this order is for a guarantee payment
+    const [bidInfo] = await this.dataSource.query(
+      `SELECT ab.monto AS bid_amount, a.precio_inicial, a.incremento_minimo, a.fecha_fin
+       FROM auction_bids ab
+       INNER JOIN auctions a ON a.id = ab.auction_id
+       WHERE ab.checkout_id = $1 AND ab.estado = 'confirmada'
+       LIMIT 1`,
+      [orderId],
+    );
+
+    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking, bid_info: bidInfo || null };
   }
 
   async updateOrderTracking(

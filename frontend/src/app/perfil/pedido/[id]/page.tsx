@@ -465,6 +465,19 @@ export default function PedidoPage() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-lg font-semibold mb-6 text-gray-700 border-b border-gray-100 pb-2">Resumen rápido</h2>
                 <div className="space-y-5">
+                  {order.bid_info && (
+                    <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-lg p-3 mb-2">
+                      <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                        <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0l0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                        <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0l0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                        <path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-semibold text-purple-700">Subasta - Puja de S/ {Number(order.bid_info.bid_amount).toFixed(2)}</p>
+                        <p className="text-[10px] text-purple-500">Garantía pagada: S/ {Number(order.total_amount).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Estado actual</span>
                     <span className="flex items-center gap-1.5 px-2 py-0.5 bg-green-50 text-green-700 rounded-md text-[11px] font-medium border border-green-100">
