@@ -61,7 +61,7 @@ export class CheckoutController {
   @HttpCode(HttpStatus.CREATED)
   async submit(
     @Req() req,
-    @Body() body: { items: string; origin_account_id: string; operation_number: string; amount: string },
+    @Body() body: { items: string; origin_account_id: string; operation_number: string; amount: string; bid_id?: string },
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("El comprobante de pago es obligatorio");
@@ -90,6 +90,14 @@ export class CheckoutController {
       amount: parseFloat(body.amount),
       proofUrl,
     });
+
+    // If this is an auction guarantee payment, link bid to order
+    if (body.bid_id) {
+      await this.dataSource.query(
+        `UPDATE auction_bids SET checkout_id = $1, estado = 'confirmada' WHERE id = $2 AND estado = 'pendiente'`,
+        [order.id, body.bid_id],
+      );
+    }
 
     return { message: "Depósito enviado correctamente", order };
   }

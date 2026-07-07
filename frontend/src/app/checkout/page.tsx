@@ -175,13 +175,13 @@ export default function CheckoutPage() {
           proof: proofFile,
         });
       } else if (auctionMode && pendingBidId) {
-        await confirmAuctionBid(pendingBidId);
         await submitCheckout({
           items: [],
           origin_account_id: selectedAccount,
           operation_number: operationNumber.trim(),
           amount: parseFloat(transferAmount),
           proof: proofFile,
+          bid_id: pendingBidId,
         });
       } else {
         await submitCheckout({
