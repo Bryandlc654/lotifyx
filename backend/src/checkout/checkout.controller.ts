@@ -65,19 +65,17 @@ export class CheckoutController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("El comprobante de pago es obligatorio");
-    if (!body.items || !body.origin_account_id || !body.operation_number || !body.amount) {
+    if (!body.origin_account_id || !body.operation_number || !body.amount) {
       throw new BadRequestException("Todos los campos son obligatorios");
     }
 
-    let items: { id: string; price: number }[];
-    try {
-      items = JSON.parse(body.items);
-    } catch {
-      throw new BadRequestException("items debe ser un JSON válido");
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
-      throw new BadRequestException("Debe incluir al menos un producto");
+    let items: { id: string; price: number }[] = [];
+    if (body.items) {
+      try {
+        items = JSON.parse(body.items);
+      } catch {
+        throw new BadRequestException("items debe ser un JSON válido");
+      }
     }
 
     const proofUrl = file.filename;
