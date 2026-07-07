@@ -234,6 +234,13 @@ export class CheckoutService {
 
       await queryRunner.commitTransaction();
       this.audit.log({ action: "order_approved", entity: "order", entityId: id });
+
+      // Confirm pending auction bid linked to this order (non-blocking)
+      this.dataSource.query(
+        `UPDATE auction_bids SET estado = 'confirmada' WHERE checkout_id = $1 AND estado = 'pendiente'`,
+        [id],
+      ).catch(e => console.error("[CheckoutService] Error confirming bid:", e.message));
+
       return { message: "Pago aprobado y stock actualizado" };
     } catch (err) {
       await queryRunner.rollbackTransaction();
