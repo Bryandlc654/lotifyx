@@ -66,6 +66,12 @@ export class ProductsService {
     if (dto.stock === undefined || dto.stock === null) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
     }
+    // Clean empty decimal/date fields for auction/lot
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cierre_estimado"]) {
+      if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
+        delete (dto as any)[field];
+      }
+    }
     const product = await this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
     this.audit.log({ userId: dto.user_id, action: "product_created", entity: "product", entityId: product.id, details: { title: dto.title } });
     return product;
@@ -76,6 +82,11 @@ export class ProductsService {
     const specs = (dto.specifications || {}) as Record<string, string>;
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
+    }
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cierre_estimado"]) {
+      if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
+        delete (dto as any)[field];
+      }
     }
     return this.repo.save({ ...p, ...dto });
   }
