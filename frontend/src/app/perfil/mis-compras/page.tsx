@@ -234,6 +234,18 @@ export default function MisComprasPage() {
                         )}
                       </div>
 
+                      {order.bid_info && (
+                        <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-lg p-2.5 mb-3">
+                          <svg className="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                            <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0l0 0a2.12 2.12 0 0 1 0-3L11 10" />
+                            <path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0l0 0a2.12 2.12 0 0 0 0-3L19 13" />
+                            <path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" />
+                          </svg>
+                          <div>
+                            <p className="text-xs font-semibold text-purple-700">Subasta - Puja de S/ {Number(order.bid_info.bid_amount).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         {order.items.map((item) => (
                           <div key={item.id} className="flex items-center justify-between text-sm">
