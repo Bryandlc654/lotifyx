@@ -85,13 +85,15 @@ export class CheckoutService implements OnModuleInit {
           product_id: row.product_id,
           product_title: row.product_title,
           price: row.item_price,
-          seller: {
-            id: row.seller_id,
-            first_name: row.seller_first_name,
-            last_name: row.seller_last_name,
-            email: row.seller_email,
-            phone: row.seller_phone,
-          },
+          seller: row.seller_id
+            ? {
+                id: row.seller_id,
+                first_name: row.seller_first_name,
+                last_name: row.seller_last_name,
+                email: row.seller_email,
+                phone: row.seller_phone,
+              }
+            : null,
         });
       }
     }
