@@ -239,6 +239,9 @@ export class CheckoutService implements OnModuleInit {
   }
 
   async approveOrder(id: string) {
+    // Ensure column exists (migration-less approach)
+    try { await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`); } catch {}
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -249,32 +252,49 @@ export class CheckoutService implements OnModuleInit {
         [id],
       );
 
-      await queryRunner.query(
-        `UPDATE products SET stock = GREATEST(stock - 1, 0)
-         WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1) AND stock > 0`,
+      // Check if this order is an auction guarantee payment (linked to a bid)
+      const [bidLink] = await queryRunner.query(
+        `SELECT id FROM auction_bids WHERE checkout_id = $1 LIMIT 1`,
+        [id],
+      );
+      // Check if this is the remaining balance order for an auction winner
+      const [isRemainingOrder] = await queryRunner.query(
+        `SELECT 1 FROM auctions WHERE remaining_order_id = $1 LIMIT 1`,
         [id],
       );
 
-      await queryRunner.query(
-        `UPDATE funds SET pending_balance = pending_balance + (
-           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1
-         )
-         WHERE user_id = (
-           SELECT p.user_id FROM order_items oi
+      // Deduct stock/funds for:
+      // - Regular orders (no bid link)
+      // - Auction remaining balance orders (winner's final payment)
+      // Skip for auction guarantee payments (stock already deducted when remaining is paid)
+      if (!bidLink || isRemainingOrder) {
+        await queryRunner.query(
+          `UPDATE products SET stock = GREATEST(stock - 1, 0)
+           WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1) AND stock > 0`,
+          [id],
+        );
+
+        await queryRunner.query(
+          `UPDATE funds SET pending_balance = pending_balance + (
+             SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1
+           )
+           WHERE user_id = (
+             SELECT p.user_id FROM order_items oi
+             INNER JOIN products p ON p.id = oi.product_id
+             WHERE oi.order_id = $1 LIMIT 1
+           )`,
+          [id],
+        );
+
+        await queryRunner.query(
+          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+           SELECT p.user_id, 0, 0, 0 FROM order_items oi
            INNER JOIN products p ON p.id = oi.product_id
-           WHERE oi.order_id = $1 LIMIT 1
-         )`,
-        [id],
-      );
-
-      await queryRunner.query(
-        `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
-         SELECT p.user_id, 0, 0, 0 FROM order_items oi
-         INNER JOIN products p ON p.id = oi.product_id
-         WHERE oi.order_id = $1
-         ON CONFLICT (user_id) DO NOTHING`,
-        [id],
-      );
+           WHERE oi.order_id = $1
+           ON CONFLICT (user_id) DO NOTHING`,
+          [id],
+        );
+      }
 
       await queryRunner.commitTransaction();
       this.audit.log({ action: "order_approved", entity: "order", entityId: id });

@@ -1520,6 +1520,24 @@ export async function getAuctionBids(auctionId: string): Promise<any[]> {
   return res.json();
 }
 
+export async function adminCloseAuction(auctionId: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/auctions/${auctionId}/close`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function adminGetAuctions(): Promise<any[]> {
+  const res = await authFetch(`${API_URL}/admin/auctions`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function adminGetEndedAuctions(): Promise<any[]> {
+  const res = await authFetch(`${API_URL}/admin/auctions/ended`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function getProductReviews(productId: string): Promise<Review[]> {
   const res = await fetch(`${API_URL}/reviews/product/${productId}`);
   if (!res.ok) throw new Error("Error al obtener reseñas");

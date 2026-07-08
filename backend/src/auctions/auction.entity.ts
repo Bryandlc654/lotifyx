@@ -35,6 +35,9 @@ export class Auction {
   @Column({ type: "uuid", nullable: true })
   ganador_id: string | null;
 
+  @Column({ type: "uuid", nullable: true })
+  remaining_order_id: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

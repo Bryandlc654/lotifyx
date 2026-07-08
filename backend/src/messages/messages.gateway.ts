@@ -59,7 +59,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.server.to(`user:${userId}`).emit("unread_update", { unread });
   }
 
-  notifyNewBid(productId: string, data: { precio_actual: number; bid_count: number; highest_bid: number }) {
+  notifyNewBid(productId: string, data: { precio_actual: number; bid_count: number; highest_bid: number; estado?: string; ganador_id?: string }) {
     this.server.to(`product:${productId}`).emit("auction_update", data);
   }
 }

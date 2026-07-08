@@ -270,16 +270,41 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   <p className="text-gray-500 text-[12px] leading-snug">La garantía es reembolsable sino resultas ganador. Podrás solicitar tu devolución o reutilizar en futuras subastas.</p>
                 </div>
 
-                <button onClick={() => {
-                  if (!getCurrentUserId()) { setShowLoginModal(true); return; }
-                  const minBid = auction.highest_bid
-                    ? Number(auction.highest_bid) + Number(auction.incremento_minimo)
-                    : Number(auction.precio_inicial);
-                  setBidAmount(String(minBid));
-                  setShowBidModal(true);
-                }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
-                  Participar en subasta
-                </button>
+                {auction.estado === "cerrado" ? (
+                  <div className="space-y-3">
+                    {!auction.ganador_id ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                        <p className="text-gray-600 font-semibold">Subasta cerrada</p>
+                        <p className="text-gray-500 text-sm mt-1">Esta subasta finalizó sin participantes ganadores.</p>
+                      </div>
+                    ) : getCurrentUserId() === auction.ganador_id ? (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                        <p className="text-green-700 font-bold text-lg">¡Felicidades, ganaste la subasta!</p>
+                        <p className="text-green-600 text-sm mt-1">Tu puja de S/ {Number(auction.highest_bid || auction.precio_actual).toFixed(2)} fue la ganadora.</p>
+                        <button onClick={() => router.push(auction.remaining_order_id ? `/perfil/pedido/${auction.remaining_order_id}` : "/perfil/mis-compras")}
+                          className="mt-3 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors text-sm">
+                          Pagar saldo pendiente
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                        <p className="text-gray-600 font-semibold">Subasta cerrada</p>
+                        <p className="text-gray-500 text-sm mt-1">Esta subasta ya finalizó. No resultaste ganador.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button onClick={() => {
+                    if (!getCurrentUserId()) { setShowLoginModal(true); return; }
+                    const minBid = auction.highest_bid
+                      ? Number(auction.highest_bid) + Number(auction.incremento_minimo)
+                      : Number(auction.precio_inicial);
+                    setBidAmount(String(minBid));
+                    setShowBidModal(true);
+                  }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                    Participar en subasta
+                  </button>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
