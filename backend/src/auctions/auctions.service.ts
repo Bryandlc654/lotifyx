@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, LessThan } from "typeorm";
 import { Cron, CronExpression } from "@nestjs/schedule";
@@ -9,7 +9,20 @@ import { DataSource } from "typeorm";
 import { MessagesGateway } from "../messages/messages.gateway";
 
 @Injectable()
-export class AuctionsService {
+export class AuctionsService implements OnModuleInit {
+
+  async onModuleInit() {
+    try {
+      // Ensure column exists before any queries
+      await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`);
+      const closed = await this.closeExpired();
+      if (closed > 0) {
+        console.log(`[Auction] ${closed} subasta(s) vencida(s) cerrada(s) al iniciar`);
+      }
+    } catch (e: any) {
+      console.error("[Auction] Error en onModuleInit:", e.message);
+    }
+  }
   constructor(
     @InjectRepository(Auction)
     private readonly repo: Repository<Auction>,
@@ -151,13 +164,19 @@ export class AuctionsService {
         fecha_fin: LessThan(new Date()),
       },
     });
+    let closed = 0;
     for (const auction of expired) {
-      await this.closeSingle(auction.id);
+      try {
+        await this.closeSingle(auction.id);
+        closed++;
+      } catch (e: any) {
+        console.error(`[Auction] Error cerrando subasta ${auction.id.slice(0,8)}:`, e.message);
+      }
     }
-    if (expired.length > 0) {
-      console.log(`[Cron] ${expired.length} subasta(s) cerrada(s) automáticamente`);
+    if (closed > 0) {
+      console.log(`[Auction] ${closed} subasta(s) cerrada(s) automáticamente`);
     }
-    return expired.length;
+    return closed;
   }
 
   async closeSingle(auctionId: string) {
