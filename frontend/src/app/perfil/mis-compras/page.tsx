@@ -253,11 +253,11 @@ export default function MisComprasPage() {
                           <div key={item.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-700">{item.product_title || "Producto"}</span>
                             <span className="font-semibold text-gray-800">S/ {Number(item.price).toFixed(2)}</span>
-                   </div>
-                 );})}
+                    </div>
+                  ))}
                </div>
 
-                      <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
+                       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
                         <span className="font-bold text-gray-800">Total</span>
                         <span className="text-lg font-bold text-gray-900">S/ {Number(order.total_amount).toFixed(2)}</span>
                       </div>
@@ -350,10 +350,11 @@ export default function MisComprasPage() {
                          </button>
                        </div>
                      )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
+                   </div>
+                 );
+               })}
+               </div>
+               <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
                 <span>Total</span>
                 <span>S/ {Number(selectedOrder.total_amount).toFixed(2)}</span>
               </div>
