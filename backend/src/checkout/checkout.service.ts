@@ -56,11 +56,14 @@ export class CheckoutService implements OnModuleInit {
     const grouped: Record<string, any> = {};
     const orderIds = [...new Set(orders.map((r: any) => r.id))];
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT ab.checkout_id, ab.monto AS bid_amount FROM auction_bids ab WHERE ab.checkout_id = ANY($1)`,
+      `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
+       FROM auction_bids ab
+       LEFT JOIN auctions a ON a.id = ab.auction_id
+       WHERE ab.checkout_id = ANY($1)`,
       [orderIds],
     ) : [];
     const bidMap: Record<string, any> = {};
-    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount };
+    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
 
     for (const row of orders) {
       if (!grouped[row.id]) {
@@ -138,11 +141,14 @@ export class CheckoutService implements OnModuleInit {
 
     const orderIds = [...new Set(orders.map((r: any) => r.id))];
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT checkout_id, monto AS bid_amount FROM auction_bids WHERE checkout_id = ANY($1)`,
+      `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
+       FROM auction_bids ab
+       LEFT JOIN auctions a ON a.id = ab.auction_id
+       WHERE ab.checkout_id = ANY($1)`,
       [orderIds],
     ) : [];
     const bidMap: Record<string, any> = {};
-    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount };
+    for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
 
     const grouped: Record<string, any> = {};
     for (const row of orders) {
@@ -406,7 +412,8 @@ export class CheckoutService implements OnModuleInit {
 
     // Get auction bid info if this order is for a guarantee payment
     const [bidInfo] = await this.dataSource.query(
-      `SELECT ab.monto AS bid_amount, a.precio_inicial, a.incremento_minimo, a.fecha_fin
+      `SELECT ab.monto AS bid_amount, a.precio_inicial, a.incremento_minimo, a.fecha_fin,
+              a.ganador_id, a.estado AS auction_estado
        FROM auction_bids ab
        INNER JOIN auctions a ON a.id = ab.auction_id
        WHERE ab.checkout_id = $1 AND ab.estado = 'confirmada'

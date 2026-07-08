@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import {
   isAuthenticated, removeTokens, getProfile, authFetch,
-  getImageUrl, createOrGetConversation, getAccessToken, getOrderReviews,
+  getImageUrl, createOrGetConversation, getAccessToken, getOrderReviews, getCurrentUserId,
 } from "@/lib/api";
 import { toast } from "sonner";
 import {
@@ -302,6 +302,7 @@ export default function PedidoPage() {
                         )}
                       </div>
                     </div>
+                    {(isSeller || !order.bid_info || (order.bid_info.ganador_id && getCurrentUserId() === order.bid_info.ganador_id)) && (
                     <button
                       onClick={() => handleContact(isSeller ? order.user_id : order.seller_id)}
                       className="border border-purple-500 text-purple-600 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-purple-50 transition-colors flex items-center gap-2"
@@ -309,6 +310,7 @@ export default function PedidoPage() {
                       <MessageCircle className="w-4 h-4" />
                       Contactar
                     </button>
+                    )}
                   </div>
                 </div>
               </article>

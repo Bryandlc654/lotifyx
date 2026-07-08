@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
+import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId } from "@/lib/api";
 import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet, Star } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +33,7 @@ interface Order {
   proof_image: string;
   created_at: string;
   items: OrderItem[];
+  bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -182,6 +183,7 @@ export default function MisComprasPage() {
               {orders.map((order) => {
                 const cfg = statusConfig[order.status] || { label: order.status, color: "text-gray-600 bg-gray-50", icon: AlertCircle };
                 const Icon = cfg.icon;
+                const showChat = order.items[0]?.seller?.id && (!order.bid_info || (order.bid_info.ganador_id && getCurrentUserId() === order.bid_info.ganador_id));
                 return (
                   <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6">
@@ -216,7 +218,7 @@ export default function MisComprasPage() {
                             Reseña
                           </button>
                         )}
-                        {order.items[0]?.seller?.id && (
+                        {showChat && (
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
@@ -251,9 +253,9 @@ export default function MisComprasPage() {
                           <div key={item.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-700">{item.product_title || "Producto"}</span>
                             <span className="font-semibold text-gray-800">S/ {Number(item.price).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
+                   </div>
+                 );})}
+               </div>
 
                       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
                         <span className="font-bold text-gray-800">Total</span>
@@ -305,13 +307,15 @@ export default function MisComprasPage() {
               )}
               <div className="pt-3 border-t border-gray-100">
                 <span className="text-gray-500 block mb-2">Productos</span>
-                {selectedOrder.items.map((item) => (
+                {selectedOrder.items.map((item) => {
+                  const showSeller = item.seller && (!selectedOrder.bid_info || (selectedOrder.bid_info.ganador_id && getCurrentUserId() === selectedOrder.bid_info.ganador_id));
+                  return (
                   <div key={item.id}>
                     <div className="flex justify-between py-1">
                       <span className="text-gray-700">{item.product_title || "Producto"}</span>
                       <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>
                     </div>
-                    {item.seller && (
+                    {showSeller && (
                        <div className="ml-2 mb-2 bg-gray-50 rounded-lg p-3 space-y-1">
                          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>
                          <div className="flex items-center gap-1.5 text-xs text-gray-700">
