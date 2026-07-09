@@ -12,28 +12,27 @@ export class MailService {
   private queueMail(method: string, to: string, subject: string, html: string) {
     this.queue.enqueue(`mail:${method}:${to.slice(0, 4)}`, async () => {
       console.log(`[MailService] Enviando ${method} a ${to}`);
-      const provider = this.config.get<string>("MAIL_PROVIDER", "resend");
       const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
-      const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "onboarding@resend.dev");
 
-      if (provider === "resend") {
-        const apiKey = this.config.get<string>("RESEND_API_KEY");
-        if (!apiKey) throw new Error("RESEND_API_KEY no configurada");
+      const resendKey = this.config.get<string>("RESEND_API_KEY");
+      const brevoKey = this.config.get<string>("BREVO_API_KEY");
+
+      if (resendKey) {
+        const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "onboarding@resend.dev");
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
           body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: [to], subject, html }),
         });
         if (!res.ok) {
           const errBody = await res.text();
           throw new Error(`Resend ${res.status}: ${errBody.slice(0, 200)}`);
         }
-      } else {
-        const apiKey = this.config.get<string>("BREVO_API_KEY");
-        if (!apiKey) throw new Error("BREVO_API_KEY no configurada");
+      } else if (brevoKey) {
+        const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "b0e5d2001@smtp-brevo.com");
         const res = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "api-key": apiKey },
+          headers: { "Content-Type": "application/json", "api-key": brevoKey },
           body: JSON.stringify({
             sender: { name: fromName, email: fromEmail },
             to: [{ email: to }],
@@ -45,6 +44,8 @@ export class MailService {
           const errBody = await res.text();
           throw new Error(`Brevo ${res.status}: ${errBody.slice(0, 200)}`);
         }
+      } else {
+        throw new Error("No hay API key configurada (RESEND_API_KEY ni BREVO_API_KEY)");
       }
       console.log(`[MailService] ${method} enviado a ${to}`);
     });
