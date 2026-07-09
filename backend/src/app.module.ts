@@ -100,7 +100,7 @@ import { ValidateRucController } from "./validate-ruc.controller";
           base.database = config.get<string>("DB_DATABASE", "lotifyx");
         }
         base.autoLoadEntities = true;
-        base.synchronize = config.get<string>("NODE_ENV") !== "production";
+        base.synchronize = false;
         base.connectTimeoutMS = 5000;
         base.retryAttempts = 2;
         base.extra = { client_encoding: "UTF8" };

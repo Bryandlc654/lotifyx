@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
   ManyToOne,
   JoinColumn,
 } from "typeorm";
@@ -26,6 +27,7 @@ export class RefreshToken {
   @JoinColumn({ name: "user_id" })
   user: User;
 
+  @Index()
   @Column()
   user_id: string;
 

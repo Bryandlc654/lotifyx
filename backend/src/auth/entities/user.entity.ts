@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
   ManyToOne,
   OneToOne,
   JoinColumn,
@@ -20,6 +21,7 @@ export class User {
   @JoinColumn({ name: "role_id" })
   role: Role;
 
+  @Index()
   @Column({ nullable: true })
   role_id: string;
 
@@ -44,6 +46,7 @@ export class User {
   @Column({ nullable: true })
   referral_code: string;
 
+  @Index()
   @Column({ type: "uuid", nullable: true })
   referred_by: string;
 

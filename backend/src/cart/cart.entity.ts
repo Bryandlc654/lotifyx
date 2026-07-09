@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
 
 @Entity("carts")
 export class Cart {
@@ -8,6 +8,7 @@ export class Cart {
   @Column({ length: 36, unique: true })
   cart_id: string;
 
+  @Index()
   @Column({ type: "uuid", nullable: true })
   user_id: string;
 
@@ -23,9 +24,11 @@ export class CartItem {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Index()
   @Column({ length: 36 })
   cart_id: string;
 
+  @Index()
   @Column({ type: "uuid" })
   product_id: string;
 

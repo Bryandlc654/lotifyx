@@ -50,6 +50,7 @@ export class AuctionsService implements OnModuleInit {
     return this.repo.find({
       where: { estado: "activo" },
       order: { fecha_fin: "ASC" },
+      take: 100,
     });
   }
 
@@ -57,6 +58,7 @@ export class AuctionsService implements OnModuleInit {
     return this.repo.find({
       where: { estado: "cerrado" },
       order: { updated_at: "DESC" },
+      take: 100,
     });
   }
 

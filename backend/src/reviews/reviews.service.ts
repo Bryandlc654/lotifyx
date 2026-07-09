@@ -1,28 +1,10 @@
-import { Injectable, OnModuleInit, NotFoundException, ForbiddenException } from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 
 @Injectable()
-export class ReviewsService implements OnModuleInit {
+export class ReviewsService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
-
-  async onModuleInit() {
-    await this.dataSource.query(`
-      CREATE TABLE IF NOT EXISTS reviews (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        product_id UUID NOT NULL REFERENCES products(id),
-        user_id UUID NOT NULL REFERENCES users(id),
-        order_id UUID NOT NULL REFERENCES orders(id),
-        rating SMALLINT NOT NULL CHECK (rating >= 0 AND rating <= 5),
-        comment TEXT NOT NULL DEFAULT '',
-        images TEXT[] DEFAULT '{}',
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_id, product_id, order_id)
-      )
-    `);
-  }
 
   async createReview(userId: string, productId: string, orderId: string, rating: number, comment: string, images: string[]) {
     const [existing] = await this.dataSource.query(
@@ -51,7 +33,8 @@ export class ReviewsService implements OnModuleInit {
        LEFT JOIN products p ON p.id = r.product_id
        LEFT JOIN orders o ON o.id = r.order_id
        WHERE r.user_id = $1
-       ORDER BY r.created_at DESC`,
+       ORDER BY r.created_at DESC
+       LIMIT 100`,
       [userId],
     );
   }
@@ -83,7 +66,8 @@ export class ReviewsService implements OnModuleInit {
        LEFT JOIN products p ON p.id = r.product_id
        LEFT JOIN user_profiles sup ON sup.user_id = p.user_id
        WHERE r.product_id = $1 AND r.is_active = true
-       ORDER BY r.created_at DESC`,
+       ORDER BY r.created_at DESC
+       LIMIT 100`,
       [productId],
     );
   }
@@ -99,7 +83,8 @@ export class ReviewsService implements OnModuleInit {
        LEFT JOIN orders o ON o.id = r.order_id
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN user_profiles up ON up.user_id = r.user_id
-       ORDER BY r.created_at DESC`,
+       ORDER BY r.created_at DESC
+       LIMIT 100`,
       [sellerId],
     );
   }

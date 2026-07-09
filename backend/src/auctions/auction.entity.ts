@@ -1,13 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
 
 @Entity("auctions")
 export class Auction {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Index()
   @Column({ type: "uuid" })
   product_id: string;
 
+  @Index()
   @Column({ type: "uuid" })
   vendedor_id: string;
 
@@ -32,9 +34,11 @@ export class Auction {
   @Column({ length: 20, default: "pendiente" })
   estado: string;
 
+  @Index()
   @Column({ type: "uuid", nullable: true })
   ganador_id: string | null;
 
+  @Index()
   @Column({ type: "uuid", nullable: true })
   remaining_order_id: string | null;
 
