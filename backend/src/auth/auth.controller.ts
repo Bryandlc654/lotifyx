@@ -27,6 +27,10 @@ import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { CreateBankAccountDto, UpdateBankAccountDto } from "./dto/bank-account.dto";
+import { SubmitPaymentDto } from "./dto/submit-payment.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 
 @Controller("auth")
@@ -162,7 +166,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Put("me")
   @HttpCode(HttpStatus.OK)
-  async updateProfile(@Req() req, @Body() dto: any) {
+  async updateProfile(@Req() req, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(req.user.id, dto);
   }
 
@@ -192,7 +196,7 @@ export class AuthController {
 
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)
-  resetPassword(@Body() dto: { token: string; password: string }) {
+  resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);
   }
   @UseGuards(JwtAuthGuard)
@@ -217,14 +221,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post("bank-account")
   @HttpCode(HttpStatus.CREATED)
-  saveBankAccount(@Req() req, @Body() dto: { bank_name: string; account_number: string; account_holder?: string; account_type?: string }) {
+  saveBankAccount(@Req() req, @Body() dto: CreateBankAccountDto) {
     return this.authService.saveBankAccount(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put("bank-account/:id")
   @HttpCode(HttpStatus.OK)
-  updateBankAccount(@Req() req, @Param("id") id: string, @Body() dto: { bank_name?: string; account_number?: string; account_holder?: string; account_type?: string }) {
+  updateBankAccount(@Req() req, @Param("id") id: string, @Body() dto: UpdateBankAccountDto) {
     return this.authService.updateBankAccount(req.user.id, id, dto);
   }
 
@@ -253,7 +257,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   submitPayment(
     @Req() req,
-    @Body() body: { operation_number: string; amount: string; origin_account_id?: string },
+    @Body() body: SubmitPaymentDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("El comprobante es obligatorio");

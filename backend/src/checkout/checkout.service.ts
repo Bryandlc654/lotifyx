@@ -89,8 +89,6 @@ export class CheckoutService implements OnModuleInit {
   }
 
   async approveOrder(id: string) {
-    try { await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`); } catch {}
-
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();

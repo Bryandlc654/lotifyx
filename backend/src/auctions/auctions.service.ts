@@ -13,8 +13,6 @@ export class AuctionsService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      // Ensure column exists before any queries
-      await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`);
       const closed = await this.closeExpired();
       if (closed > 0) {
         console.log(`[Auction] ${closed} subasta(s) vencida(s) cerrada(s) al iniciar`);
@@ -33,8 +31,6 @@ export class AuctionsService implements OnModuleInit {
   ) {}
 
   async findByProduct(productId: string) {
-    // Ensure column exists
-    try { await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`); } catch {}
     const auction = await this.repo.findOne({ where: { product_id: productId } });
     if (!auction) return null;
     const confirmedBidsCount = await this.bidsRepo.count({ where: { auction_id: auction.id, estado: "confirmada" } });
@@ -180,9 +176,6 @@ export class AuctionsService implements OnModuleInit {
   }
 
   async closeSingle(auctionId: string) {
-    // Ensure column exists (migration-less approach)
-    try { await this.dataSource.query(`ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`); } catch {}
-
     const auction = await this.repo.findOne({ where: { id: auctionId } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
     if (auction.estado !== "activo") throw new BadRequestException("La subasta no está activa");

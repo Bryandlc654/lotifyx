@@ -12,9 +12,6 @@ import { AdminReviewsController } from "./admin-reviews.controller";
 import { AdminAuctionsController } from "./admin-auctions.controller";
 import { ProductsModule } from "../products/products.module";
 import { CheckoutModule } from "../checkout/checkout.module";
-import { AuditModule } from "../audit/audit.module";
-import { ReviewsModule } from "../reviews/reviews.module";
-import { AuctionsModule } from "../auctions/auctions.module";
 import { User } from "../auth/entities/user.entity";
 import { UserProfile } from "../auth/entities/user-profile.entity";
 import { UserVerification } from "../auth/entities/user-verification.entity";
@@ -23,7 +20,7 @@ import { Permission } from "../auth/entities/permission.entity";
 import { RolePermission } from "../auth/entities/role-permission.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, CheckoutModule, AuditModule, ReviewsModule, AuctionsModule],
+  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, CheckoutModule],
   controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController],
   providers: [AdminUsersService, AdminRbacService],
 })

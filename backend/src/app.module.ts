@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
+import { Module, MiddlewareConsumer, NestModule, RequestMethod } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtModule } from "@nestjs/jwt";
@@ -153,6 +153,49 @@ import { ValidateRucController } from "./validate-ruc.controller";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthMiddleware).forRoutes("*");
+    consumer
+      .apply(AuthMiddleware)
+      .exclude(
+        { path: "uploads/(.*)", method: RequestMethod.ALL },
+        { path: "api/auth/login", method: RequestMethod.POST },
+        { path: "api/auth/register", method: RequestMethod.POST },
+        { path: "api/auth/forgot-password", method: RequestMethod.POST },
+        { path: "api/auth/reset-password", method: RequestMethod.POST },
+        { path: "api/auth/verify-email", method: RequestMethod.POST },
+        { path: "api/auth/verify-phone", method: RequestMethod.POST },
+        { path: "api/auth/send-code", method: RequestMethod.POST },
+        { path: "api/auth/google", method: RequestMethod.POST },
+        { path: "api/auth/refresh", method: RequestMethod.POST },
+        { path: "api/auctions/active", method: RequestMethod.GET },
+        { path: "api/auctions/ended", method: RequestMethod.GET },
+        { path: "api/auctions/product/:productId", method: RequestMethod.GET },
+        { path: "api/auctions/:id/bids", method: RequestMethod.GET },
+        { path: "api/lots/open", method: RequestMethod.GET },
+        { path: "api/lots/product/:productId", method: RequestMethod.GET },
+        { path: "api/products", method: RequestMethod.GET },
+        { path: "api/products/active", method: RequestMethod.GET },
+        { path: "api/products/:id", method: RequestMethod.GET },
+        { path: "api/categories", method: RequestMethod.GET },
+        { path: "api/category-fields", method: RequestMethod.GET },
+        { path: "api/validate-ruc", method: RequestMethod.POST },
+        { path: "api/debug/(.*)", method: RequestMethod.ALL },
+        { path: "api/blog", method: RequestMethod.GET },
+        { path: "api/blog/:slug", method: RequestMethod.GET },
+        { path: "api/faqs", method: RequestMethod.GET },
+        { path: "api/press", method: RequestMethod.GET },
+        { path: "api/tutorials", method: RequestMethod.GET },
+        { path: "api/events", method: RequestMethod.GET },
+        { path: "api/help", method: RequestMethod.GET },
+        { path: "api/testimonials", method: RequestMethod.GET },
+        { path: "api/banners", method: RequestMethod.GET },
+        { path: "api/marquees", method: RequestMethod.GET },
+        { path: "api/secondary-banners", method: RequestMethod.GET },
+        { path: "api/plans", method: RequestMethod.GET },
+        { path: "api/newsletter", method: RequestMethod.POST },
+        { path: "api/leads", method: RequestMethod.POST },
+        { path: "api/reviews/product/:productId", method: RequestMethod.GET },
+        { path: "api/backing/product/:productId", method: RequestMethod.GET },
+      )
+      .forRoutes("*");
   }
 }

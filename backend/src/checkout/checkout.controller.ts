@@ -22,6 +22,7 @@ import { CheckoutService } from "./checkout.service";
 import { OrdersService } from "./orders.service";
 import { FundsService } from "./funds.service";
 import { ClaimsService } from "./claims.service";
+import { SubmitCheckoutDto } from "./dto/submit-checkout.dto";
 import { R2Storage } from "../r2/r2-storage";
 
 @Controller("checkout")
@@ -70,7 +71,7 @@ export class CheckoutController {
   @HttpCode(HttpStatus.CREATED)
   async submit(
     @Req() req,
-    @Body() body: { items: string; origin_account_id: string; operation_number: string; amount: string; bid_id?: string },
+    @Body() body: SubmitCheckoutDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("El comprobante de pago es obligatorio");
