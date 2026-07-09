@@ -63,16 +63,28 @@ export class AdminUsersService {
 
   async findOne(id: string) {
     if (!isUUID(id)) throw new NotFoundException("Usuario no encontrado");
-    const [user] = await this.dataSource.query(
-      `SELECT u.*, r.name AS role_name, r.is_admin AS role_is_admin,
-              up.first_name, up.last_name, up.document_type, up.document_number, up.account_type
+    const [row] = await this.dataSource.query(
+      `SELECT u.id, u.email, u.phone, u.role_id, u.status, u.is_verified, u.created_at, u.updated_at,
+              r.name AS role_name, r.is_admin AS role_is_admin,
+              up.first_name, up.last_name, up.document_type, up.document_number, up.account_type,
+              up.ruc, up.razon_social
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
        LEFT JOIN user_profiles up ON up.user_id = u.id
        WHERE u.id = $1`, [id]
     );
-    if (!user) throw new NotFoundException("Usuario no encontrado");
-    return user;
+    if (!row) throw new NotFoundException("Usuario no encontrado");
+    return {
+      id: row.id, email: row.email, phone: row.phone, role_id: row.role_id,
+      status: row.status, is_verified: row.is_verified,
+      created_at: row.created_at, updated_at: row.updated_at,
+      role: row.role_name ? { id: row.role_id, name: row.role_name, is_admin: row.role_is_admin } : null,
+      profile: {
+        first_name: row.first_name, last_name: row.last_name,
+        document_type: row.document_type, document_number: row.document_number,
+        account_type: row.account_type, ruc: row.ruc, razon_social: row.razon_social,
+      },
+    };
   }
 
   async create(dto: {
