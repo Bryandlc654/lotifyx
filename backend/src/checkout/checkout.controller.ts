@@ -13,39 +13,43 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
-  NotFoundException,
-  ForbiddenException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CheckoutService } from "./checkout.service";
+import { OrdersService } from "./orders.service";
+import { FundsService } from "./funds.service";
+import { ClaimsService } from "./claims.service";
 import { R2Storage } from "../r2/r2-storage";
 
 @Controller("checkout")
 export class CheckoutController {
   constructor(
     private readonly checkoutService: CheckoutService,
+    private readonly ordersService: OrdersService,
+    private readonly fundsService: FundsService,
+    private readonly claimsService: ClaimsService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get("orders")
   getOrders(@Req() req) {
-    return this.checkoutService.getOrders(req.user.id);
+    return this.ordersService.getOrders(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("dashboard")
   getDashboard(@Req() req) {
-    return this.checkoutService.getDashboard(req.user.id);
+    return this.ordersService.getDashboard(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("sales")
   getSales(@Req() req) {
-    return this.checkoutService.getSales(req.user.id);
+    return this.ordersService.getSales(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -103,7 +107,6 @@ export class CheckoutController {
           `UPDATE auction_bids SET checkout_id = $1 WHERE id = $2 AND estado = 'pendiente' RETURNING *`,
           [order.id, body.bid_id],
         );
-        // TypeORM returns [rows, rowCount] for UPDATE queries, not just rows[]
         const bidRows = Array.isArray(result?.[0]) ? result[0] : (result || []);
         const bid = bidRows.length > 0 ? bidRows[0] : null;
         if (bid) {
@@ -138,7 +141,7 @@ export class CheckoutController {
     if (!body.order_id || !body.reason || !body.description || !body.solution) {
       throw new BadRequestException("Todos los campos son obligatorios");
     }
-    return this.checkoutService.createClaim({
+    return this.claimsService.createClaim({
       userId: req.user.id,
       orderId: body.order_id,
       reason: body.reason,
@@ -151,7 +154,7 @@ export class CheckoutController {
   @UseGuards(JwtAuthGuard)
   @Get("orders/:id")
   async getOrder(@Req() req, @Param("id") id: string) {
-    return this.checkoutService.getOrderDetail(id, req.user.id);
+    return this.ordersService.getOrderDetail(id, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -167,13 +170,13 @@ export class CheckoutController {
   @UseGuards(JwtAuthGuard)
   @Get("funds")
   async getFunds(@Req() req) {
-    return this.checkoutService.getFunds(req.user.id);
+    return this.fundsService.getFunds(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("funds/withdrawals")
   async getWithdrawals(@Req() req, @Query("page") page?: number, @Query("limit") limit?: number) {
-    return this.checkoutService.getWithdrawals(req.user.id, page || 1, limit || 10);
+    return this.fundsService.getWithdrawals(req.user.id, page || 1, limit || 10);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -183,6 +186,6 @@ export class CheckoutController {
     if (!body.amount || !body.bank_name || !body.account_number || !body.account_holder) {
       throw new BadRequestException("Todos los campos son obligatorios");
     }
-    return this.checkoutService.requestWithdrawal(req.user.id, body);
+    return this.fundsService.requestWithdrawal(req.user.id, body);
   }
 }

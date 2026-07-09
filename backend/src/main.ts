@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { json, urlencoded } from "express";
 import * as cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { AllExceptionsFilter } from "./common/filters/http-exception.filter";
 
 function getCorsOrigins(): string[] {
   return (process.env.CORS_ORIGINS || "http://localhost:3000,https://devspro.xyz,https://www.devspro.xyz,https://loti.nextboostperu.com")
@@ -35,6 +36,7 @@ async function bootstrap() {
     transform: true,
     transformOptions: { enableImplicitConversion: true },
   }));
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.setGlobalPrefix("api", { exclude: ["uploads/(.*)"] });
   app.enableShutdownHooks();
 

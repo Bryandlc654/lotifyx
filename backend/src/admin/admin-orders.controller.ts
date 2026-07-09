@@ -1,5 +1,7 @@
 import { Controller, Get, Patch, Param, Query, Body, UseGuards } from "@nestjs/common";
 import { CheckoutService } from "../checkout/checkout.service";
+import { OrdersService } from "../checkout/orders.service";
+import { ClaimsService } from "../checkout/claims.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/permissions.decorator";
@@ -7,7 +9,11 @@ import { RequirePermission } from "../auth/decorators/permissions.decorator";
 @Controller("admin/orders")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminOrdersController {
-  constructor(private readonly checkoutService: CheckoutService) {}
+  constructor(
+    private readonly checkoutService: CheckoutService,
+    private readonly ordersService: OrdersService,
+    private readonly claimsService: ClaimsService,
+  ) {}
 
   @Get()
   @RequirePermission("orders.read")
@@ -16,7 +22,7 @@ export class AdminOrdersController {
     @Query("page") page?: number,
     @Query("limit") limit?: number,
   ) {
-    return this.checkoutService.findAllOrders(status, page || 1, limit || 20);
+    return this.ordersService.findAllOrders(status, page || 1, limit || 20);
   }
 
   @Patch(":id/approve")
@@ -40,12 +46,12 @@ export class AdminOrdersController {
   @Get("claims")
   @RequirePermission("orders.read")
   findClaims() {
-    return this.checkoutService.findAllClaims();
+    return this.claimsService.findAllClaims();
   }
 
   @Patch("claims/:id")
   @RequirePermission("orders.approve")
   updateClaim(@Param("id") id: string, @Body("status") status: string) {
-    return this.checkoutService.updateClaimStatus(id, status);
+    return this.claimsService.updateClaimStatus(id, status);
   }
 }

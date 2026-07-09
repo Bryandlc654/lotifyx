@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtModule } from "@nestjs/jwt";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { ScheduleModule } from "@nestjs/schedule";
+import { CacheModule } from "@nestjs/cache-manager";
 import { APP_GUARD } from "@nestjs/core";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
@@ -57,6 +58,9 @@ import { ValidateRucController } from "./validate-ruc.controller";
 
     // ─── Cron jobs ──────────────────────────
     ScheduleModule.forRoot(),
+
+    // ─── Cache (in-memory, swap to Redis for production) ──
+    CacheModule.register({ isGlobal: true, ttl: 30 }),
 
     // ─── Cloudflare R2 ────────────────────────
     R2Module,
