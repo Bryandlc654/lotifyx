@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, getImageUrl, Product } from "@/lib/api";
-import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet } from "lucide-react";
+import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, getImageUrl, getAuctionByProduct, reopenAuction, Product } from "@/lib/api";
+import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MisProductosPage() {
@@ -248,6 +248,24 @@ export default function MisProductosPage() {
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar">
                             <Trash2 className="h-4 w-4" />
                           </button>
+                          {p.metodo_pago === "subasta" && (
+                            <button onClick={async () => {
+                              try {
+                                const auction = await getAuctionByProduct(p.id);
+                                if (!auction) { toast.error("No hay subasta asociada"); return; }
+                                if (auction.estado !== "cerrado" || auction.ganador_id) {
+                                  toast.error("La subasta está activa o tuvo ganador"); return;
+                                }
+                                const fecha = prompt("Nueva fecha de cierre (YYYY-MM-DD HH:MM):");
+                                if (!fecha) return;
+                                const isoDate = new Date(fecha).toISOString();
+                                await reopenAuction(auction.id, isoDate);
+                                toast.success("Subasta reabierta");
+                              } catch { toast.error("Error al reabrir"); }
+                            }} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors" title="Reabrir subasta">
+                              <RefreshCw className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

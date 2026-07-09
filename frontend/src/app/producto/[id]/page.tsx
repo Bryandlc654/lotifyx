@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, reopenAuction, Product, CategoryField, Review } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2 } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
@@ -298,20 +298,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                         <p className="text-gray-600 font-semibold">Subasta cerrada</p>
                         <p className="text-gray-500 text-sm mt-1">Esta subasta finalizó sin participantes ganadores.</p>
-                        {getCurrentUserId() === auction.vendedor_id && (
-                          <button onClick={async () => {
-                            const fecha = prompt("Nueva fecha de cierre (YYYY-MM-DD HH:MM):");
-                            if (!fecha) return;
-                            try {
-                              const isoDate = new Date(fecha).toISOString();
-                              await reopenAuction(auction.id, isoDate);
-                              toast.success("Subasta reabierta");
-                              getAuctionByProduct(id).then(setAuction).catch(() => {});
-                            } catch { toast.error("Error al reabrir"); }
-                          }} className="mt-3 w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700 transition-colors text-sm">
-                            Reabrir subasta
-                          </button>
-                        )}
+
                       </div>
                     ) : getCurrentUserId() === auction.ganador_id ? (
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
