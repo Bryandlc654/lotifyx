@@ -13,6 +13,29 @@ export class AuctionsService implements OnModuleInit {
 
   async onModuleInit() {
     try {
+      // Crear registros de subasta faltantes para productos existentes
+      const missing = await this.dataSource.query(
+        `SELECT p.id, p.user_id,
+                COALESCE(p.precio_inicial, p.precio_base, 0) AS precio_inicial,
+                p.incremento_minimo, p.cierre_estimado
+         FROM products p
+         LEFT JOIN auctions a ON a.product_id = p.id
+         WHERE p.metodo_pago = 'subasta' AND a.id IS NULL`
+      );
+      for (const p of missing) {
+        if (!p.precio_inicial || Number(p.precio_inicial) <= 0) continue;
+        await this.dataSource.query(
+          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'activo')
+           ON CONFLICT (product_id) DO NOTHING`,
+          [p.id, p.user_id, p.precio_inicial, p.incremento_minimo || 1,
+           p.cierre_estimado ? new Date(p.cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
+        );
+      }
+      if (missing.length > 0) {
+        console.log(`[Auction] ${missing.length} registro(s) de subasta faltante(s) creado(s)`);
+      }
+
       const closed = await this.closeExpired();
       if (closed > 0) {
         console.log(`[Auction] ${closed} subasta(s) vencida(s) cerrada(s) al iniciar`);

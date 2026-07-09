@@ -240,7 +240,8 @@ function DetallesContent() {
         ...conditions,
         costo_envio: parseFloat(conditions.costo_envio) || 0,
         precio_base: conditions.precio_base ? parseFloat(conditions.precio_base) : undefined,
-        precio_inicial: conditions.precio_inicial ? parseFloat(conditions.precio_inicial) : undefined,
+        precio_inicial: conditions.metodo_pago === "subasta" && conditions.precio_base
+          ? parseFloat(conditions.precio_base) : undefined,
         incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
         precio_lote: conditions.precio_lote ? parseFloat(conditions.precio_lote) : undefined,
         precio_individual: conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined,
