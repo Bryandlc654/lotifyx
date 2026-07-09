@@ -315,23 +315,23 @@ export default function MisComprasPage() {
                       <span className="text-gray-700">{item.product_title || "Producto"}</span>
                       <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>
                     </div>
-                    {showSeller && (
+                    {item.seller != null && showSeller && (
                        <div className="ml-2 mb-2 bg-gray-50 rounded-lg p-3 space-y-1">
                          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>
                          <div className="flex items-center gap-1.5 text-xs text-gray-700">
                            <Store className="w-3 h-3 text-purple-500" />
-                           {item.seller.first_name} {item.seller.last_name}
+                           {item.seller!.first_name} {item.seller!.last_name}
                          </div>
-                         {item.seller.email && (
+                         {item.seller!.email && (
                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
                              <Mail className="w-3 h-3" />
-                             {item.seller.email}
+                             {item.seller!.email}
                            </div>
                          )}
-                         {item.seller.phone && (
+                         {item.seller!.phone && (
                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
                              <Phone className="w-3 h-3" />
-                             {item.seller.phone}
+                             {item.seller!.phone}
                            </div>
                          )}
                          <button

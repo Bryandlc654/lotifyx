@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { SessionProvider } from "@/components/layout/session-provider";
+import { UserProvider } from "@/lib/user-context";
 import { CartProvider } from "@/lib/cart-context";
 import { CartButton } from "@/components/layout/cart-button";
 import { CartSidebar } from "@/components/layout/cart-sidebar";
@@ -25,14 +26,16 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <SessionProvider>
-          <CartProvider>
-            <NotificationProvider>
-              {children}
-              <CartButton />
-              <CartSidebar />
-              <CookieConsent />
-            </NotificationProvider>
-          </CartProvider>
+          <UserProvider>
+            <CartProvider>
+              <NotificationProvider>
+                {children}
+                <CartButton />
+                <CartSidebar />
+                <CookieConsent />
+              </NotificationProvider>
+            </CartProvider>
+          </UserProvider>
         </SessionProvider>
         <Toaster
           position="top-right"

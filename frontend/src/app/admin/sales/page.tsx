@@ -12,7 +12,7 @@ interface Seller {
 
 interface OrderItem {
   id: string; product_id: string; product_title: string; product_sku: string;
-  price: number; seller: Seller | null;
+  price: number; seller?: Seller | null;
 }
 
 interface Order {
@@ -21,6 +21,7 @@ interface Order {
   rejected_reason?: string;
   created_at: string; buyer: { first_name: string; last_name: string; email: string } | null;
   items: OrderItem[];
+  bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
 }
 
 const STATUS_FILTERS = [
@@ -314,12 +315,12 @@ export default function AdminSalesPage() {
                 {detail.items.map((item) => (
                   <div key={item.id} className="mb-2">
                     <div className="flex justify-between py-1"><span className="text-gray-700">{item.product_title || "Producto"}</span><span className="font-medium">S/ {Number(item.price).toFixed(2)}</span></div>
-                    {item.seller && (
+                    {item.seller != null && (
                       <div className="ml-2 bg-gray-50 rounded-lg p-3 space-y-1">
                         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-700"><Store className="w-3 h-3 text-purple-500" />{item.seller.first_name} {item.seller.last_name}</div>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500"><Mail className="w-3 h-3" />{item.seller.email}</div>
-                        {item.seller.phone && <div className="flex items-center gap-1.5 text-xs text-gray-500"><Phone className="w-3 h-3" />{item.seller.phone}</div>}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-700"><Store className="w-3 h-3 text-purple-500" />{item.seller!.first_name} {item.seller!.last_name}</div>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500"><Mail className="w-3 h-3" />{item.seller!.email}</div>
+                        {item.seller!.phone && <div className="flex items-center gap-1.5 text-xs text-gray-500"><Phone className="w-3 h-3" />{item.seller!.phone}</div>}
                       </div>
                     )}
                   </div>
