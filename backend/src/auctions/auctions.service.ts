@@ -30,9 +30,26 @@ export class AuctionsService implements OnModuleInit {
     private readonly gateway: MessagesGateway,
   ) {}
 
+  /** Cierra la subasta on-demand si ya expiró pero sigue activa */
+  private async closeIfExpired(auction: Auction) {
+    if (auction.estado === "activo" && new Date() > new Date(auction.fecha_fin)) {
+      await this.closeSingle(auction.id);
+      return true;
+    }
+    return false;
+  }
+
   async findByProduct(productId: string) {
-    const auction = await this.repo.findOne({ where: { product_id: productId } });
+    let auction = await this.repo.findOne({ where: { product_id: productId } });
     if (!auction) return null;
+
+    // Cierre en tiempo real si expiró
+    const wasClosed = await this.closeIfExpired(auction);
+    if (wasClosed) {
+      const updated = await this.repo.findOne({ where: { id: auction.id } });
+      if (updated) auction = updated;
+    }
+
     const confirmedBidsCount = await this.bidsRepo.count({ where: { auction_id: auction.id, estado: "confirmada" } });
     const highestConfirmed = await this.bidsRepo.findOne({
       where: { auction_id: auction.id, estado: "confirmada" },
@@ -87,8 +104,16 @@ export class AuctionsService implements OnModuleInit {
   }
 
   async placeBid(auctionId: string, postorId: string, monto: number) {
-    const auction = await this.repo.findOne({ where: { id: auctionId } });
+    let auction = await this.repo.findOne({ where: { id: auctionId } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
+
+    // Cierre en tiempo real si expiró
+    const wasClosed = await this.closeIfExpired(auction);
+    if (wasClosed) {
+      auction = await this.repo.findOne({ where: { id: auctionId } });
+      throw new BadRequestException("La subasta ya terminó");
+    }
+
     if (auction.estado !== "activo") throw new BadRequestException("La subasta no está activa");
     if (auction.vendedor_id === postorId) throw new ForbiddenException("No puedes pujar en tu propia subasta");
     if (new Date() > new Date(auction.fecha_fin)) throw new BadRequestException("La subasta ya terminó");
@@ -128,6 +153,12 @@ export class AuctionsService implements OnModuleInit {
     const auction = await this.repo.findOne({ where: { id: bid.auction_id } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
 
+    // Si con esta puja la subasta alcanzó su fin, cerrar en tiempo real
+    if (new Date() > new Date(auction.fecha_fin) && auction.estado === "activo") {
+      await this.closeSingle(auction.id);
+      return { message: "Puja confirmada. Subasta cerrada." };
+    }
+
     const bidCount = await this.bidsRepo.count({ where: { auction_id: bid.auction_id, estado: "confirmada" } });
     const highestConfirmed = await this.bidsRepo.findOne({
       where: { auction_id: bid.auction_id, estado: "confirmada" },
@@ -154,7 +185,7 @@ export class AuctionsService implements OnModuleInit {
     });
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_MINUTE)
   async closeExpired() {
     let closed = 0;
     let page = 0;

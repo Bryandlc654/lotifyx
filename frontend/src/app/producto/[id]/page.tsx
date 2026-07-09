@@ -9,6 +9,7 @@ import { getProduct, getCategories, getCategoryFields, getActiveProducts, getIma
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2 } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
+import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
 import { LoginModal } from "@/components/layout/login-modal";
 
@@ -251,6 +252,11 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Cierre de subasta</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">{new Date(auction.fecha_fin).toLocaleDateString("es-PE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="px-4 pb-4">
+                      <AuctionCountdown endDate={auction.fecha_fin} onEnded={() => {
+                        getAuctionByProduct(id).then(setAuction).catch(() => {});
+                      }} />
                     </div>
                   </div>
                 </div>
