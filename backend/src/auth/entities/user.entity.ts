@@ -5,11 +5,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  ManyToOne,
   OneToOne,
-  JoinColumn,
 } from "typeorm";
-import { Role } from "./role.entity";
 import { UserProfile } from "./user-profile.entity";
 
 @Entity("users")
@@ -17,13 +14,13 @@ export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @ManyToOne(() => Role, (role) => role.users)
-  @JoinColumn({ name: "role_id" })
-  role: Role;
+
 
   @Index()
   @Column({ nullable: true })
   role_id: string;
+
+  role?: any; // relación inversa para OneToMany en Role
 
   @Column({ unique: true })
   email: string;
@@ -47,8 +44,6 @@ export class User {
   referral_code: string;
 
   @Index()
-  @ManyToOne(() => User)
-  @JoinColumn({ name: "referred_by" })
   @Column({ type: "uuid", nullable: true })
   referred_by: string;
 

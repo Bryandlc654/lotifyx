@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
-import { User } from "../auth/entities/user.entity";
-import { Category } from "../categories/category.entity";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
 
 @Entity("products")
 export class Product {
@@ -8,14 +6,10 @@ export class Product {
   id: string;
 
   @Index()
-  @ManyToOne(() => User)
-  @JoinColumn({ name: "user_id" })
   @Column({ type: "uuid" })
   user_id: string;
 
   @Index()
-  @ManyToOne(() => Category)
-  @JoinColumn({ name: "category_id" })
   @Column({ type: "uuid" })
   category_id: string;
 

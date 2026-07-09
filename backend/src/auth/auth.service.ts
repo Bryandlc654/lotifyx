@@ -49,18 +49,22 @@ export class AuthService {
   }
 
   private async generateTokens(user: User) {
-    const role = user.role
-      ? typeof user.role === "string"
-        ? user.role
-        : (user.role as any).name
-      : null;
-
-    const isAdmin = user.role ? !!(user.role as any).is_admin : false;
+    let roleName = null;
+    let isAdmin = false;
+    if (user.role_id) {
+      const [roleRow] = await this.userRepository.query(
+        `SELECT name, is_admin FROM roles WHERE id = $1`, [user.role_id]
+      );
+      if (roleRow) {
+        roleName = roleRow.name;
+        isAdmin = !!roleRow.is_admin;
+      }
+    }
 
     const accessToken = this.jwtService.sign({
       sub: user.id,
       email: user.email,
-      role,
+      role: roleName,
       isAdmin,
     });
 
@@ -284,7 +288,7 @@ export class AuthService {
   async verifyEmail(dto: VerifyEmailDto) {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
-      relations: ["profile", "role"],
+      relations: ["profile"],
     });
 
     if (!user) {
@@ -351,7 +355,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.userRepository.findOne({
       where: [{ email: dto.credential }, { phone: dto.credential }],
-      relations: ["profile", "role"],
+      relations: ["profile"],
     });
 
     if (!user) {
@@ -463,7 +467,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ["profile", "role"],
+      relations: ["profile"],
     });
 
     if (!user) {
@@ -471,6 +475,12 @@ export class AuthService {
     }
 
     const { password_hash: _, ...result } = user;
+    if (user.role_id) {
+      const [roleRow] = await this.userRepository.query(
+        `SELECT id, name, is_admin FROM roles WHERE id = $1`, [user.role_id]
+      );
+      if (roleRow) result.role = roleRow;
+    }
     return result;
   }
 

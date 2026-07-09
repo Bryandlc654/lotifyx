@@ -17,10 +17,16 @@ export class ProfilesService {
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ["profile", "role"],
+      relations: ["profile"],
     });
     if (!user) throw new UnauthorizedException("Usuario no encontrado");
     const { password_hash: _, ...result } = user;
+    if (user.role_id) {
+      const [roleRow] = await this.userRepository.query(
+        `SELECT id, name, is_admin FROM roles WHERE id = $1`, [user.role_id]
+      );
+      if (roleRow) result.role = roleRow;
+    }
     return result;
   }
 

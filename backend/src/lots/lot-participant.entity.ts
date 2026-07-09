@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
-import { LotSale } from "./lot-sale.entity";
-import { User } from "../auth/entities/user.entity";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from "typeorm";
 
 @Entity("lot_participants")
 export class LotParticipant {
@@ -8,14 +6,10 @@ export class LotParticipant {
   id: string;
 
   @Index()
-  @ManyToOne(() => LotSale)
-  @JoinColumn({ name: "lot_sale_id" })
   @Column({ type: "uuid" })
   lot_sale_id: string;
 
   @Index()
-  @ManyToOne(() => User)
-  @JoinColumn({ name: "comprador_id" })
   @Column({ type: "uuid" })
   comprador_id: string;
 

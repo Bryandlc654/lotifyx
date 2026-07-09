@@ -1,6 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
-import { Auction } from "./auction.entity";
-import { User } from "../auth/entities/user.entity";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from "typeorm";
 
 @Entity("auction_bids")
 export class AuctionBid {
@@ -8,14 +6,10 @@ export class AuctionBid {
   id: string;
 
   @Index()
-  @ManyToOne(() => Auction)
-  @JoinColumn({ name: "auction_id" })
   @Column({ type: "uuid" })
   auction_id: string;
 
   @Index()
-  @ManyToOne(() => User)
-  @JoinColumn({ name: "postor_id" })
   @Column({ type: "uuid" })
   postor_id: string;
 
