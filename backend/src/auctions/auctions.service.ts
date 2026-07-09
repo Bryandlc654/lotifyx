@@ -36,6 +36,17 @@ export class AuctionsService implements OnModuleInit {
         console.log(`[Auction] ${missing.length} registro(s) de subasta faltante(s) creado(s)`);
       }
 
+      // Sincronizar fecha_fin de subastas con cierre_estimado del producto
+      await this.dataSource.query(
+        `UPDATE auctions a
+         SET fecha_fin = p.cierre_estimado
+         FROM products p
+         WHERE p.id = a.product_id
+           AND a.estado = 'activo'
+           AND p.cierre_estimado IS NOT NULL
+           AND a.fecha_fin != p.cierre_estimado`
+      );
+
       const closed = await this.closeExpired();
       if (closed > 0) {
         console.log(`[Auction] ${closed} subasta(s) vencida(s) cerrada(s) al iniciar`);
