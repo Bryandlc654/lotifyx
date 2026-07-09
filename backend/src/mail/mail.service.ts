@@ -14,7 +14,7 @@ export class MailService {
       console.log(`[MailService] Enviando ${method} a ${to}`);
       const provider = this.config.get<string>("MAIL_PROVIDER", "resend");
       const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
-      const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "notificaciones@lotifyx.com");
+      const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "onboarding@resend.dev");
 
       if (provider === "resend") {
         const apiKey = this.config.get<string>("RESEND_API_KEY");
