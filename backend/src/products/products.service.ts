@@ -114,7 +114,37 @@ export class ProductsService {
         delete (dto as any)[field];
       }
     }
-    return this.repo.save({ ...p, ...dto });
+    const saved = await this.repo.save({ ...p, ...dto });
+
+    // Actualizar subasta si se modificaron campos de subasta
+    if ((dto as any).cierre_estimado || (dto as any).precio_inicial || (dto as any).incremento_minimo) {
+      try {
+        const updates: string[] = [];
+        const params: any[] = [id];
+        if ((dto as any).cierre_estimado) {
+          updates.push(`fecha_fin = $${params.length + 1}`);
+          params.push(new Date((dto as any).cierre_estimado));
+        }
+        if ((dto as any).precio_inicial) {
+          updates.push(`precio_inicial = $${params.length + 1}, precio_actual = $${params.length + 1}`);
+          params.push((dto as any).precio_inicial);
+        }
+        if ((dto as any).incremento_minimo) {
+          updates.push(`incremento_minimo = $${params.length + 1}`);
+          params.push((dto as any).incremento_minimo);
+        }
+        if (updates.length > 0) {
+          await this.dataSource.query(
+            `UPDATE auctions SET ${updates.join(", ")} WHERE product_id = $1`,
+            params
+          );
+        }
+      } catch (e: any) {
+        console.error("[ProductsService] Error updating auction:", e.message);
+      }
+    }
+
+    return saved;
   }
 
   async remove(id: string) {
