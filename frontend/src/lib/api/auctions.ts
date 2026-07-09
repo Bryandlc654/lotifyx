@@ -26,3 +26,12 @@ export async function getAuctionBids(auctionId: string): Promise<any[]> {
   if (!res.ok) return [];
   return res.json();
 }
+
+export async function reopenAuction(auctionId: string, fechaFin: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/auctions/${auctionId}/reopen`, {
+    method: "POST",
+    body: JSON.stringify({ fecha_fin: fechaFin }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}

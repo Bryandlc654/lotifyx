@@ -320,4 +320,33 @@ export class AuctionsService implements OnModuleInit {
 
     return auction;
   }
+
+  async reopen(auctionId: string, userId: string, nuevaFechaFin: string) {
+    const auction = await this.repo.findOne({ where: { id: auctionId } });
+    if (!auction) throw new NotFoundException("Subasta no encontrada");
+    if (auction.vendedor_id !== userId) throw new ForbiddenException("Solo el vendedor puede reabrir la subasta");
+    if (auction.estado !== "cerrado") throw new BadRequestException("La subasta no está cerrada");
+    if (auction.ganador_id) throw new BadRequestException("La subasta tuvo un ganador, no se puede reabrir");
+
+    // Eliminar bids previas y reabrir
+    await this.dataSource.query(
+      `DELETE FROM auction_bids WHERE auction_id = $1`, [auction.id]
+    );
+
+    auction.estado = "activo";
+    auction.ganador_id = null;
+    auction.precio_actual = auction.precio_inicial;
+    auction.fecha_fin = new Date(nuevaFechaFin);
+    await this.repo.save(auction);
+
+    this.gateway.notifyNewBid(auction.product_id, {
+      precio_actual: auction.precio_actual,
+      bid_count: 0,
+      highest_bid: auction.precio_inicial,
+      estado: "activo",
+      ganador_id: null,
+    });
+
+    return auction;
+  }
 }

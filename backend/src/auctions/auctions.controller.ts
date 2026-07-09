@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Req, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Param, Body, Req, UseGuards, HttpCode, HttpStatus, BadRequestException } from "@nestjs/common";
 import { AuctionsService } from "./auctions.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
@@ -38,4 +38,12 @@ export class AuctionsController {
 
   @Get(":id/bids")
   getBids(@Param("id") id: string) { return this.service.getBids(id); }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/reopen")
+  @HttpCode(HttpStatus.OK)
+  reopen(@Req() req, @Param("id") id: string, @Body("fecha_fin") fechaFin: string) {
+    if (!fechaFin) throw new BadRequestException("fecha_fin es requerida");
+    return this.service.reopen(id, req.user.id, fechaFin);
+  }
 }
