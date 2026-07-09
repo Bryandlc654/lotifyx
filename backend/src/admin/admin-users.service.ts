@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Like, In } from "typeorm";
+import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
 import { User } from "../auth/entities/user.entity";
@@ -16,6 +16,7 @@ export class AdminUsersService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(UserProfile) private readonly profileRepo: Repository<UserProfile>,
     @InjectRepository(UserVerification) private readonly vfyRepo: Repository<UserVerification>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
   ) {}
 
@@ -23,56 +24,55 @@ export class AdminUsersService {
     const page = query.page || 1;
     const limit = query.limit || 15;
     const skip = (page - 1) * limit;
+    const params: any[] = [limit, skip];
+    const conds: string[] = [];
 
-    const qb = this.userRepo
-      .createQueryBuilder("u")
-      .leftJoinAndSelect("u.profile", "p")
-      .leftJoinAndSelect("u.role", "r")
-      .where("(r.name = :vendedor OR r.name = :comprador)", { vendedor: "vendedor", comprador: "comprador" });
+    const idx = () => params.length + 1;
+    if (query.search) { conds.push(`(u.email ILIKE $${idx()} OR up.first_name ILIKE $${idx()} OR up.last_name ILIKE $${idx()})`); params.push(`%${query.search}%`); }
+    if (query.role) { conds.push(`r.name = $${idx()}`); params.push(query.role); }
+    if (query.status) { conds.push(`u.status = $${idx()}`); params.push(query.status); }
+    if (query.is_admin === "true") { conds.push(`r.is_admin = true`); }
 
-    if (query.search) {
-      qb.andWhere("(u.email ILIKE :s OR p.first_name ILIKE :s OR p.last_name ILIKE :s OR p.document_number ILIKE :s)", {
-        s: `%${query.search}%`,
-      });
-    }
+    const where = conds.length ? " AND " + conds.join(" AND ") : "";
+    const [{ count }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int FROM users u LEFT JOIN roles r ON r.id = u.role_id LEFT JOIN user_profiles up ON up.user_id = u.id WHERE r.name IN ('vendedor','comprador')${where}`,
+      params.slice(2),
+    );
+    const total = Number(count);
 
-    if (query.role) {
-      qb.andWhere("r.name = :role", { role: query.role });
-    }
-
-    if (query.status) {
-      qb.andWhere("u.status = :status", { status: query.status });
-    }
-
-    if (query.is_admin === "true") {
-      qb.andWhere("r.is_admin = true");
-    }
-
-    qb.orderBy("u.created_at", "DESC").skip(skip).take(limit);
-
-    const [data, total] = await qb.getManyAndCount();
+    const rows = await this.dataSource.query(
+      `SELECT u.id, u.email, u.phone, u.status, u.is_verified, u.created_at, u.updated_at,
+              up.first_name, up.last_name, up.document_type, up.document_number, up.account_type,
+              r.id AS role_id, r.name AS role_name, r.is_admin AS role_is_admin
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
+       WHERE r.name IN ('vendedor','comprador')${where}
+       ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`, params);
 
     return {
-      data: data.map((u) => {
-        const { password_hash, ...rest } = u;
-        return rest;
-      }),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      data: rows.map((r: any) => ({
+        id: r.id, email: r.email, phone: r.phone, status: r.status,
+        is_verified: r.is_verified, created_at: r.created_at, updated_at: r.updated_at,
+        profile: { first_name: r.first_name, last_name: r.last_name, document_type: r.document_type, document_number: r.document_number, account_type: r.account_type },
+        role: r.role_id ? { id: r.role_id, name: r.role_name, is_admin: r.role_is_admin } : null,
+      })),
+      total, page, limit, totalPages: Math.ceil(total / limit),
     };
   }
 
   async findOne(id: string) {
     if (!isUUID(id)) throw new NotFoundException("Usuario no encontrado");
-    const user = await this.userRepo.findOne({
-      where: { id },
-      relations: ["profile", "role"],
-    });
+    const [user] = await this.dataSource.query(
+      `SELECT u.*, r.name AS role_name, r.is_admin AS role_is_admin,
+              up.first_name, up.last_name, up.document_type, up.document_number, up.account_type
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
+       WHERE u.id = $1`, [id]
+    );
     if (!user) throw new NotFoundException("Usuario no encontrado");
-    const { password_hash, ...result } = user;
-    return result;
+    return user;
   }
 
   async create(dto: {
