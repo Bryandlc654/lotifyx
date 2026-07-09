@@ -191,18 +191,26 @@ export async function updateOrderStatus(id: string, status: string) {
 export async function adminGetAuctions(): Promise<any[]> {
   const res = await authFetch(`${API_URL}/admin/auctions`);
   if (!res.ok) return [];
-  return res.json();
+  const json = await res.json();
+  return json.data || json || [];
 }
 
 export async function adminGetEndedAuctions(): Promise<any[]> {
   const res = await authFetch(`${API_URL}/admin/auctions/ended`);
   if (!res.ok) return [];
-  return res.json();
+  const json = await res.json();
+  return json.data || json || [];
 }
 
 export async function adminCloseAuction(auctionId: string): Promise<any> {
   const res = await authFetch(`${API_URL}/admin/auctions/${auctionId}/close`, { method: "POST" });
   if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function adminGetAuctionBids(auctionId: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/auctions/${auctionId}/bids`);
+  if (!res.ok) throw new Error("Error al cargar pujas");
   return res.json();
 }
 
