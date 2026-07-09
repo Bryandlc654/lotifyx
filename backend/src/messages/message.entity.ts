@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
+import { Conversation } from "./conversation.entity";
+import { User } from "../auth/entities/user.entity";
 
 @Entity("messages")
 export class Message {
@@ -6,11 +8,15 @@ export class Message {
   id: string;
 
   @Index()
-  @Column({ type: "text" })
+  @ManyToOne(() => Conversation)
+  @JoinColumn({ name: "conversation_id" })
+  @Column({ type: "uuid" })
   conversation_id: string;
 
   @Index()
-  @Column({ type: "text" })
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "sender_id" })
+  @Column({ type: "uuid" })
   sender_id: string;
 
   @Column({ type: "text" })

@@ -47,6 +47,8 @@ export class User {
   referral_code: string;
 
   @Index()
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "referred_by" })
   @Column({ type: "uuid", nullable: true })
   referred_by: string;
 

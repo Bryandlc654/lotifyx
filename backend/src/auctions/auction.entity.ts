@@ -1,4 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
+import { Product } from "../products/product.entity";
+import { User } from "../auth/entities/user.entity";
+import { Order } from "../checkout/entities/order.entity";
 
 @Entity("auctions")
 export class Auction {
@@ -6,10 +9,14 @@ export class Auction {
   id: string;
 
   @Index()
+  @ManyToOne(() => Product)
+  @JoinColumn({ name: "product_id" })
   @Column({ type: "uuid" })
   product_id: string;
 
   @Index()
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "vendedor_id" })
   @Column({ type: "uuid" })
   vendedor_id: string;
 
@@ -35,10 +42,14 @@ export class Auction {
   estado: string;
 
   @Index()
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "ganador_id" })
   @Column({ type: "uuid", nullable: true })
   ganador_id: string | null;
 
   @Index()
+  @ManyToOne(() => Order)
+  @JoinColumn({ name: "remaining_order_id" })
   @Column({ type: "uuid", nullable: true })
   remaining_order_id: string | null;
 

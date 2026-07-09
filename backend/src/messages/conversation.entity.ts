@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
+import { User } from "../auth/entities/user.entity";
+import { Product } from "../products/product.entity";
 
 @Entity("conversations")
 export class Conversation {
@@ -6,15 +8,21 @@ export class Conversation {
   id: string;
 
   @Index()
-  @Column({ type: "text" })
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "buyer_id" })
+  @Column({ type: "uuid" })
   buyer_id: string;
 
   @Index()
-  @Column({ type: "text" })
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "seller_id" })
+  @Column({ type: "uuid" })
   seller_id: string;
 
   @Index()
-  @Column({ nullable: true, type: "text" })
+  @ManyToOne(() => Product)
+  @JoinColumn({ name: "product_id" })
+  @Column({ nullable: true, type: "uuid" })
   product_id: string | null;
 
   @Column({ type: "text", nullable: true })

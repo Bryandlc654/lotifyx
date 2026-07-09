@@ -11,24 +11,44 @@ export class OrdersService {
   ) {}
 
   async getOrders(userId: string) {
-    const orders = await this.dataSource.query(
-      `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price,
-              p.title as product_title, p.user_id as seller_id,
-              up.first_name as seller_first_name, up.last_name as seller_last_name,
-              u.email as seller_email, u.phone as seller_phone
-       FROM orders o
-       LEFT JOIN order_items oi ON oi.order_id = o.id
-       LEFT JOIN products p ON p.id = oi.product_id
-       LEFT JOIN users u ON u.id = p.user_id
-       LEFT JOIN user_profiles up ON up.user_id = p.user_id
-       WHERE o.user_id = $1
-       ORDER BY o.created_at DESC
-       LIMIT 200`,
-      [userId],
-    );
+    const sql = `SELECT o.*,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', oi.id,
+            'product_id', oi.product_id,
+            'product_title', p.title,
+            'price', oi.price,
+            'seller', CASE WHEN p.user_id IS NOT NULL THEN
+              json_build_object(
+                'id', p.user_id,
+                'first_name', up.first_name,
+                'last_name', up.last_name,
+                'email', u.email,
+                'phone', u.phone
+              )
+            ELSE NULL END
+          )
+        ) FILTER (WHERE oi.id IS NOT NULL),
+        '[]'
+      ) AS items
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN user_profiles up ON up.user_id = p.user_id
+      WHERE o.user_id = $1
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+      LIMIT 200`;
 
-    const grouped: Record<string, any> = {};
-    const orderIds = [...new Set(orders.map((r: any) => r.id))];
+    const rows = await this.dataSource.query(sql, [userId]);
+    const result = rows.map((row: any) => ({
+      ...row,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : row.items,
+    }));
+
+    const orderIds = result.map((r: any) => r.id);
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
       `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
        FROM auction_bids ab
@@ -39,42 +59,10 @@ export class OrdersService {
     const bidMap: Record<string, any> = {};
     for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
 
-    for (const row of orders) {
-      if (!grouped[row.id]) {
-        grouped[row.id] = {
-          id: row.id,
-          user_id: row.user_id,
-          total_amount: row.total_amount,
-          status: row.status,
-          origin_account_id: row.origin_account_id,
-          operation_number: row.operation_number,
-          amount: row.amount,
-          proof_image: row.proof_image,
-          rejected_reason: row.rejected_reason,
-          created_at: row.created_at,
-          items: [],
-          bid_info: bidMap[row.id] || null,
-        };
-      }
-      if (row.product_id) {
-        grouped[row.id].items.push({
-          id: row.item_id,
-          product_id: row.product_id,
-          product_title: row.product_title,
-          price: row.item_price,
-          seller: row.seller_id
-            ? {
-                id: row.seller_id,
-                first_name: row.seller_first_name,
-                last_name: row.seller_last_name,
-                email: row.seller_email,
-                phone: row.seller_phone,
-              }
-            : null,
-        });
-      }
+    for (const row of result) {
+      row.bid_info = bidMap[row.id] || null;
     }
-    return Object.values(grouped);
+    return result;
   }
 
   async findAllOrders(status?: string, page: number = 1, limit: number = 20) {
@@ -93,27 +81,50 @@ export class OrdersService {
     if (status) orderParams.push(status);
     orderParams.push(limit, offset);
 
-    const orders = await this.dataSource.query(
-      `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price,
-              p.title as product_title, p.user_id as seller_id, p.sku as product_sku,
-              up.first_name as seller_first_name, up.last_name as seller_last_name,
-              u.email as seller_email, u.phone as seller_phone,
-              buyer.email as buyer_email,
-              bup.first_name as buyer_first_name, bup.last_name as buyer_last_name
-       FROM orders o
-       LEFT JOIN order_items oi ON oi.order_id = o.id
-       LEFT JOIN products p ON p.id = oi.product_id
-       LEFT JOIN users u ON u.id = p.user_id
-       LEFT JOIN user_profiles up ON up.user_id = p.user_id
-       LEFT JOIN users buyer ON buyer.id = o.user_id
-       LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
-       ${statusFilter}
-       ORDER BY o.created_at DESC
-       LIMIT $${orderParams.length - 1} OFFSET $${orderParams.length}`,
-      orderParams,
-    );
+    const sql = `SELECT o.*,
+      buyer.email AS buyer_email,
+      bup.first_name AS buyer_first_name,
+      bup.last_name AS buyer_last_name,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', oi.id,
+            'product_id', oi.product_id,
+            'product_title', p.title,
+            'product_sku', p.sku,
+            'price', oi.price,
+            'seller', CASE WHEN p.user_id IS NOT NULL THEN
+              json_build_object(
+                'id', p.user_id,
+                'first_name', up.first_name,
+                'last_name', up.last_name,
+                'email', u.email,
+                'phone', u.phone
+              )
+            ELSE NULL END
+          )
+        ) FILTER (WHERE oi.id IS NOT NULL),
+        '[]'
+      ) AS items
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN user_profiles up ON up.user_id = p.user_id
+      LEFT JOIN users buyer ON buyer.id = o.user_id
+      LEFT JOIN user_profiles bup ON bup.user_id = o.user_id
+      ${statusFilter}
+      GROUP BY o.id, buyer.email, bup.first_name, bup.last_name
+      ORDER BY o.created_at DESC
+      LIMIT $${orderParams.length - 1} OFFSET $${orderParams.length}`;
 
-    const orderIds = [...new Set(orders.map((r: any) => r.id))];
+    const rows = await this.dataSource.query(sql, orderParams);
+    const result = rows.map((row: any) => ({
+      ...row,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : row.items,
+    }));
+
+    const orderIds = result.map((r: any) => r.id);
     const bidsForOrders = orderIds.length ? await this.dataSource.query(
       `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
        FROM auction_bids ab
@@ -124,48 +135,11 @@ export class OrdersService {
     const bidMap: Record<string, any> = {};
     for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
 
-    const grouped: Record<string, any> = {};
-    for (const row of orders) {
-      if (!grouped[row.id]) {
-        grouped[row.id] = {
-          id: row.id,
-          user_id: row.user_id,
-          total_amount: row.total_amount,
-          status: row.status,
-          origin_account_id: row.origin_account_id,
-          operation_number: row.operation_number,
-          amount: row.amount,
-          proof_image: row.proof_image,
-          rejected_reason: row.rejected_reason,
-          created_at: row.created_at,
-          buyer: row.buyer_first_name
-            ? { first_name: row.buyer_first_name, last_name: row.buyer_last_name, email: row.buyer_email }
-            : null,
-          items: [],
-          bid_info: bidMap[row.id] || null,
-        };
-      }
-      if (row.product_id) {
-        grouped[row.id].items.push({
-          id: row.item_id,
-          product_id: row.product_id,
-          product_title: row.product_title,
-          product_sku: row.product_sku,
-          price: row.item_price,
-          seller: row.seller_id
-            ? {
-                id: row.seller_id,
-                first_name: row.seller_first_name,
-                last_name: row.seller_last_name,
-                email: row.seller_email,
-                phone: row.seller_phone,
-              }
-            : null,
-        });
-      }
+    for (const row of result) {
+      row.bid_info = bidMap[row.id] || null;
     }
     return {
-      data: Object.values(grouped),
+      data: result,
       total,
       page,
       totalPages: Math.ceil(total / limit),

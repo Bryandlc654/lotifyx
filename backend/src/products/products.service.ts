@@ -119,7 +119,7 @@ export class ProductsService {
 
   async remove(id: string) {
     const p = await this.findOne(id);
-    await this.repo.remove(p);
+    await this.repo.softRemove(p);
     return { message: "Producto eliminado" };
   }
 

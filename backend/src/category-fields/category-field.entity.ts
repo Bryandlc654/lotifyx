@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
+import { Category } from "../categories/category.entity";
 
 @Entity("category_fields")
 export class CategoryField {
@@ -6,6 +7,8 @@ export class CategoryField {
   id: string;
 
   @Index()
+  @ManyToOne(() => Category)
+  @JoinColumn({ name: "category_id" })
   @Column({ type: "uuid" })
   category_id: string;
 

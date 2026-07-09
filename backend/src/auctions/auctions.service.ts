@@ -156,21 +156,27 @@ export class AuctionsService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async closeExpired() {
-    const expired = await this.repo.find({
-      where: {
-        estado: "activo",
-        fecha_fin: LessThan(new Date()),
-      },
-    });
     let closed = 0;
-    for (const auction of expired) {
-      try {
-        await this.closeSingle(auction.id);
-        closed++;
-      } catch (e: any) {
-        console.error(`[Auction] Error cerrando subasta ${auction.id.slice(0,8)}:`, e.message);
+    let page = 0;
+    const BATCH = 50;
+    let batch: Auction[];
+    do {
+      batch = await this.repo.find({
+        where: { estado: "activo", fecha_fin: LessThan(new Date()) },
+        order: { fecha_fin: "ASC" },
+        take: BATCH,
+        skip: page * BATCH,
+      });
+      for (const auction of batch) {
+        try {
+          await this.closeSingle(auction.id);
+          closed++;
+        } catch (e: any) {
+          console.error(`[Auction] Error cerrando subasta ${auction.id.slice(0,8)}:`, e.message);
+        }
       }
-    }
+      page++;
+    } while (batch.length === BATCH);
     if (closed > 0) {
       console.log(`[Auction] ${closed} subasta(s) cerrada(s) automáticamente`);
     }

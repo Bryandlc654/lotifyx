@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, ManyToOne, JoinColumn } from "typeorm";
+import { User } from "../auth/entities/user.entity";
+import { Category } from "../categories/category.entity";
 
 @Entity("products")
 export class Product {
@@ -6,10 +8,14 @@ export class Product {
   id: string;
 
   @Index()
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "user_id" })
   @Column({ type: "uuid" })
   user_id: string;
 
   @Index()
+  @ManyToOne(() => Category)
+  @JoinColumn({ name: "category_id" })
   @Column({ type: "uuid" })
   category_id: string;
 
@@ -87,4 +93,7 @@ export class Product {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn()
+  deleted_at: Date | null;
 }
