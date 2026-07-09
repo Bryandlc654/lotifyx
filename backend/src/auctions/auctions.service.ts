@@ -7,6 +7,7 @@ import { AuctionBid } from "./auction-bid.entity";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { MessagesGateway } from "../messages/messages.gateway";
+import { MailService } from "../mail/mail.service";
 
 @Injectable()
 export class AuctionsService implements OnModuleInit {
@@ -62,6 +63,7 @@ export class AuctionsService implements OnModuleInit {
     private readonly bidsRepo: Repository<AuctionBid>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly gateway: MessagesGateway,
+    private readonly mail: MailService,
   ) {}
 
   /** Cierra la subasta on-demand si ya expiró pero sigue activa */
@@ -273,17 +275,19 @@ export class AuctionsService implements OnModuleInit {
         [auction.id, highestBid.id],
       );
 
-      // Create remaining balance order for winner
+      // Create remaining balance order + notify winner
+      let winnerBidData: any = null;
       try {
-        const [winnerBid] = await this.dataSource.query(
+        const [w] = await this.dataSource.query(
           `SELECT ab.monto, ab.checkout_id, o.amount AS guarantee_paid
            FROM auction_bids ab
            LEFT JOIN orders o ON o.id = ab.checkout_id
            WHERE ab.id = $1`,
           [highestBid.id],
         );
-        if (winnerBid && winnerBid.checkout_id && Number(winnerBid.guarantee_paid || 0) < Number(winnerBid.monto)) {
-          const remaining = Number(winnerBid.monto) - Number(winnerBid.guarantee_paid || 0);
+        winnerBidData = w;
+        if (w && w.checkout_id && Number(w.guarantee_paid || 0) < Number(w.monto)) {
+          const remaining = Number(w.monto) - Number(w.guarantee_paid || 0);
           const [remainingOrder] = await this.dataSource.query(
             `INSERT INTO orders (user_id, total_amount, status, created_at, updated_at)
              VALUES ($1, $2, 'pending_payment', NOW(), NOW())
@@ -303,6 +307,35 @@ export class AuctionsService implements OnModuleInit {
         }
       } catch (e: any) {
         console.error(`[Auction] Error creating remaining order:`, e.message);
+      }
+
+      // Notificar al ganador por correo
+      try {
+        const [winnerUser] = await this.dataSource.query(
+          `SELECT u.email, up.first_name FROM users u
+           LEFT JOIN user_profiles up ON up.user_id = u.id
+           WHERE u.id = $1`, [highestBid.postor_id]
+        );
+        if (winnerUser?.email) {
+          const [pTitle] = await this.dataSource.query(
+            `SELECT title FROM products WHERE id = $1`, [auction.product_id]
+          );
+          const guaranteePaid = winnerBidData?.guarantee_paid || 0;
+          const remaining = Number(highestBid.monto) - Number(guaranteePaid);
+          const [lastOrder] = await this.dataSource.query(
+            `SELECT id FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [highestBid.postor_id]
+          );
+          this.mail.sendAuctionWon(
+            winnerUser.email,
+            winnerUser.first_name || "Ganador",
+            pTitle?.title || "Producto",
+            Number(highestBid.monto),
+            remaining > 0 ? remaining : 0,
+            lastOrder?.id || "",
+          );
+        }
+      } catch (e: any) {
+        console.error(`[Auction] Error sending winner email:`, e.message);
       }
     }
 

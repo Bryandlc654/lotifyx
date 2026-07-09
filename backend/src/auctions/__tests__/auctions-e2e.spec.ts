@@ -5,6 +5,7 @@ import { AuctionsService } from "../auctions.service";
 import { Auction } from "../auction.entity";
 import { AuctionBid } from "../auction-bid.entity";
 import { MessagesGateway } from "../../messages/messages.gateway";
+import { MailService } from "../../mail/mail.service";
 
 describe("Auctions E2E - In-Memory", () => {
   let service: AuctionsService;
@@ -238,6 +239,7 @@ describe("Auctions E2E - In-Memory", () => {
         { provide: getRepositoryToken(AuctionBid), useValue: mockBidsRepo },
         { provide: DataSource, useValue: mockDataSource },
         { provide: MessagesGateway, useValue: mockGateway },
+        { provide: MailService, useValue: { sendAuctionWon: jest.fn() } },
       ],
     }).compile();
 

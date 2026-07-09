@@ -5,6 +5,7 @@ import { AuctionsService } from "../auctions.service";
 import { Auction } from "../auction.entity";
 import { AuctionBid } from "../auction-bid.entity";
 import { MessagesGateway } from "../../messages/messages.gateway";
+import { MailService } from "../../mail/mail.service";
 
 describe("AuctionsService", () => {
   let service: AuctionsService;
@@ -33,6 +34,10 @@ describe("AuctionsService", () => {
     notifyNewBid: jest.fn(),
   };
 
+  const mockMail = {
+    sendAuctionWon: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,6 +46,7 @@ describe("AuctionsService", () => {
         { provide: getRepositoryToken(AuctionBid), useValue: mockBidsRepo },
         { provide: DataSource, useValue: mockDataSource },
         { provide: MessagesGateway, useValue: mockGateway },
+        { provide: MailService, useValue: mockMail },
       ],
     }).compile();
 

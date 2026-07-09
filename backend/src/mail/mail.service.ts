@@ -97,4 +97,20 @@ export class MailService {
     const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px"><h2 style="color:#8234FE;margin:0 0 8px">Tu ticket ha sido respondido, ${name}</h2><div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;margin:20px 0"><p style="margin:0;color:#94a3b8;font-size:12px;">Ticket <strong>${ticketNumber}</strong></p><p style="margin:4px 0 0;color:#475569;font-size:14px;line-height:1.6">${responseText}</p></div></div>`;
     this.queueMail("sendTicketResponse", to, `Tu ticket #${ticketNumber} ha sido respondido - Lotifyx`, html);
   }
+
+  async sendAuctionWon(to: string, name: string, productTitle: string, bidAmount: number, remainingAmount: number, orderId: string) {
+    const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
+    const orderUrl = `${frontendUrl}/perfil/pedido/${orderId}`;
+    const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px">
+<h2 style="color:#8234FE;margin:0 0 8px">¡Felicidades, ganaste la subasta!</h2>
+<p style="color:#475569;font-size:14px;line-height:1.6">Hola <strong>${name}</strong>, has ganado la subasta de <strong>${productTitle}</strong>.</p>
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0">
+<p style="margin:0 0 4px"><strong>Monto de tu puja:</strong> S/ ${Number(bidAmount).toFixed(2)}</p>
+<p style="margin:0"><strong>Saldo pendiente:</strong> S/ ${Number(remainingAmount).toFixed(2)}</p>
+</div>
+<p style="color:#475569;font-size:14px;line-height:1.6">Para completar la compra, paga el saldo pendiente lo antes posible.</p>
+<div style="text-align:center;margin:24px 0"><a href="${orderUrl}" style="display:inline-block;background:linear-gradient(135deg,#8234FE,#26BEFE);color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Pagar saldo pendiente</a></div>
+</div>`;
+    this.queueMail("sendAuctionWon", to, "¡Ganaste la subasta! - Lotifyx", html);
+  }
 }
