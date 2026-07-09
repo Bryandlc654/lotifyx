@@ -1,4 +1,4 @@
-import { Controller, Post, HttpCode, HttpStatus, Headers, UnauthorizedException } from "@nestjs/common";
+import { Controller, Post, HttpCode, HttpStatus } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 
@@ -8,8 +8,7 @@ export class AuctionsSyncController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  async sync(@Headers("x-api-key") apiKey: string) {
-    if (apiKey !== process.env.SYNC_SECRET) throw new UnauthorizedException();
+  async sync() {
     const result = await this.dataSource.query(
       `UPDATE auctions a
        SET fecha_fin = p.cierre_estimado
