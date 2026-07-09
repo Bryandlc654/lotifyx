@@ -242,6 +242,8 @@ function DetallesContent() {
         precio_base: conditions.precio_base ? parseFloat(conditions.precio_base) : undefined,
         precio_inicial: conditions.metodo_pago === "subasta" && conditions.precio_base
           ? parseFloat(conditions.precio_base) : undefined,
+        cierre_estimado: conditions.cierre_estimado
+          ? new Date(conditions.cierre_estimado).toISOString() : undefined,
         incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
         precio_lote: conditions.precio_lote ? parseFloat(conditions.precio_lote) : undefined,
         precio_individual: conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined,
