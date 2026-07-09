@@ -253,30 +253,46 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <span className="text-gray-500 text-[15px]">Cierre de subasta</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">{new Date(auction.fecha_fin).toLocaleDateString("es-PE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
-                    <div className="px-4 pb-4">
-                      <AuctionCountdown endDate={auction.fecha_fin} onEnded={() => {
-                        getAuctionByProduct(id).then(setAuction).catch(() => {});
-                      }} />
-                    </div>
+                    {auction.estado !== "cerrado" && (
+                      <div className="px-4 pb-4">
+                        <AuctionCountdown endDate={auction.fecha_fin} onEnded={() => {
+                          getAuctionByProduct(id).then(setAuction).catch(() => {});
+                        }} />
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="bg-[#fffaf0] rounded-2xl p-5 mb-8 border border-orange-50 relative">
-                  <div className="flex justify-between">
-                    <div>
-                      <h3 className="text-gray-700 font-bold text-[15px] mb-1">Garantía requerida para participar</h3>
-                      <p className="text-[#d97706] font-bold text-[22px] mb-2">S/ {Number(auction.precio_inicial * 0.1).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                {auction.estado === "activo" && (
+                  <>
+                    <div className="bg-[#fffaf0] rounded-2xl p-5 mb-8 border border-orange-50 relative">
+                      <div className="flex justify-between">
+                        <div>
+                          <h3 className="text-gray-700 font-bold text-[15px] mb-1">Garantía requerida para participar</h3>
+                          <p className="text-[#d97706] font-bold text-[22px] mb-2">S/ {Number(auction.precio_inicial * 0.1).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <svg className="w-9 h-9 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          <circle cx="12" cy="11.5" r="2.5" />
+                          <path d="m9 11.5 2 2 4-4" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 text-[12px] leading-snug">La garantía es reembolsable sino resultas ganador. Podrás solicitar tu devolución o reutilizar en futuras subastas.</p>
                     </div>
-                    <svg className="w-9 h-9 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      <circle cx="12" cy="11.5" r="2.5" />
-                      <path d="m9 11.5 2 2 4-4" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-500 text-[12px] leading-snug">La garantía es reembolsable sino resultas ganador. Podrás solicitar tu devolución o reutilizar en futuras subastas.</p>
-                </div>
+                    <button onClick={() => {
+                      if (!getCurrentUserId()) { setShowLoginModal(true); return; }
+                      const minBid = auction.highest_bid
+                        ? Number(auction.highest_bid) + Number(auction.incremento_minimo)
+                        : Number(auction.precio_inicial);
+                      setBidAmount(String(minBid));
+                      setShowBidModal(true);
+                    }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                      Participar en subasta
+                    </button>
+                  </>
+                )}
 
-                {auction.estado === "cerrado" ? (
+                {auction.estado === "cerrado" && (
                   <div className="space-y-3">
                     {!auction.ganador_id ? (
                       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
@@ -299,17 +315,6 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       </div>
                     )}
                   </div>
-                ) : (
-                  <button onClick={() => {
-                    if (!getCurrentUserId()) { setShowLoginModal(true); return; }
-                    const minBid = auction.highest_bid
-                      ? Number(auction.highest_bid) + Number(auction.incremento_minimo)
-                      : Number(auction.precio_inicial);
-                    setBidAmount(String(minBid));
-                    setShowBidModal(true);
-                  }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
-                    Participar en subasta
-                  </button>
                 )}
               </div>
             ) : (
