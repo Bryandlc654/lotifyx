@@ -24,6 +24,9 @@ import { AuthGuard } from "@nestjs/passport";
 import { Response } from "express";
 import * as crypto from "crypto";
 import { AuthService } from "./auth.service";
+import { ProfilesService } from "./profiles.service";
+import { BankAccountsService } from "./bank-accounts.service";
+import { PlansService } from "./plans.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
@@ -35,7 +38,12 @@ import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly profilesService: ProfilesService,
+    private readonly bankAccountsService: BankAccountsService,
+    private readonly plansService: PlansService,
+  ) {}
 
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post("register")
@@ -159,7 +167,7 @@ export class AuthController {
   @Get("me")
   @HttpCode(HttpStatus.OK)
   async getProfile(@Req() req) {
-    const user = await this.authService.getProfile(req.user.id);
+    const user = await this.profilesService.getProfile(req.user.id);
     return { message: "Perfil obtenido exitosamente", user };
   }
 
@@ -167,7 +175,7 @@ export class AuthController {
   @Put("me")
   @HttpCode(HttpStatus.OK)
   async updateProfile(@Req() req, @Body() dto: UpdateProfileDto) {
-    return this.authService.updateProfile(req.user.id, dto);
+    return this.profilesService.updateProfile(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -178,7 +186,7 @@ export class AuthController {
   }))
   async uploadAvatar(@Req() req, @UploadedFile() file: Express.Multer.File) {
     const url = file.filename;
-    await this.authService.updateProfile(req.user.id, { avatar_url: url });
+    await this.profilesService.updateProfile(req.user.id, { avatar_url: url });
     return { url };
   }
 
@@ -203,40 +211,40 @@ export class AuthController {
   @Post("select-plan")
   @HttpCode(HttpStatus.OK)
   selectPlan(@Req() req, @Body("plan_id") planId: string) {
-    return this.authService.selectPlan(req.user.id, planId);
+    return this.plansService.selectPlan(req.user.id, planId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("my-plan")
   getMyPlan(@Req() req) {
-    return this.authService.getMyPlan(req.user.id);
+    return this.plansService.getMyPlan(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("bank-accounts")
   getBankAccounts(@Req() req) {
-    return this.authService.getBankAccounts(req.user.id);
+    return this.bankAccountsService.getBankAccounts(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post("bank-account")
   @HttpCode(HttpStatus.CREATED)
   saveBankAccount(@Req() req, @Body() dto: CreateBankAccountDto) {
-    return this.authService.saveBankAccount(req.user.id, dto);
+    return this.bankAccountsService.saveBankAccount(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put("bank-account/:id")
   @HttpCode(HttpStatus.OK)
   updateBankAccount(@Req() req, @Param("id") id: string, @Body() dto: UpdateBankAccountDto) {
-    return this.authService.updateBankAccount(req.user.id, id, dto);
+    return this.bankAccountsService.updateBankAccount(req.user.id, id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete("bank-account/:id")
   @HttpCode(HttpStatus.OK)
   deleteBankAccount(@Req() req, @Param("id") id: string) {
-    return this.authService.deleteBankAccount(req.user.id, id);
+    return this.bankAccountsService.deleteBankAccount(req.user.id, id);
   }
 
   @UseGuards(JwtAuthGuard)

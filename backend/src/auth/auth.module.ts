@@ -3,6 +3,9 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { PassportModule } from "@nestjs/passport";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { ProfilesService } from "./profiles.service";
+import { BankAccountsService } from "./bank-accounts.service";
+import { PlansService } from "./plans.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { RolesGuard } from "./guards/roles.guard";
@@ -24,7 +27,7 @@ import { PermissionsService } from "./services/permissions.service";
     PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, RolesGuard, PermissionsGuard, PermissionsService, CleanupService],
+  providers: [AuthService, ProfilesService, BankAccountsService, PlansService, JwtStrategy, GoogleStrategy, RolesGuard, PermissionsGuard, PermissionsService, CleanupService],
   exports: [RolesGuard, PermissionsGuard, PermissionsService],
 })
 export class AuthModule {}
