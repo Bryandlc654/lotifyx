@@ -118,8 +118,10 @@ export class ProductsService {
   }
 
   async remove(id: string) {
-    const p = await this.findOne(id);
-    await this.repo.softRemove(p);
+    await this.dataSource.query(
+      `UPDATE products SET deleted_at = NOW() WHERE id = $1`, [id]
+    );
+    this.audit.log({ action: "product_deleted", entity: "product", entityId: id });
     return { message: "Producto eliminado" };
   }
 
