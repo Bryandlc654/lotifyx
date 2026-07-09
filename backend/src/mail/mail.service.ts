@@ -9,51 +9,39 @@ export class MailService {
     private readonly queue: TaskQueueService,
   ) {}
 
+  private async sendNow(to: string, subject: string, html: string) {
+    const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
+    const resendKey = this.config.get<string>("RESEND_API_KEY");
+    const brevoKey = this.config.get<string>("BREVO_API_KEY");
+
+    if (resendKey) {
+      const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "onboarding@resend.dev");
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: [to], subject, html }),
+      });
+      if (!res.ok) { const e = await res.text(); throw new Error(`Resend ${res.status}: ${e.slice(0, 200)}`); }
+    } else if (brevoKey) {
+      const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "b0e5d2001@smtp-brevo.com");
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST", headers: { "Content-Type": "application/json", "api-key": brevoKey },
+        body: JSON.stringify({ sender: { name: fromName, email: fromEmail }, to: [{ email: to }], subject, htmlContent: html }),
+      });
+      if (!res.ok) { const e = await res.text(); throw new Error(`Brevo ${res.status}: ${e.slice(0, 200)}`); }
+    } else {
+      throw new Error("No hay API key configurada");
+    }
+    console.log(`[MailService] Email enviado a ${to}`);
+  }
+
   private queueMail(method: string, to: string, subject: string, html: string) {
-    this.queue.enqueue(`mail:${method}:${to.slice(0, 4)}`, async () => {
-      console.log(`[MailService] Enviando ${method} a ${to}`);
-      const fromName = this.config.get<string>("SMTP_FROM_NAME", "Lotifyx");
-
-      const resendKey = this.config.get<string>("RESEND_API_KEY");
-      const brevoKey = this.config.get<string>("BREVO_API_KEY");
-
-      if (resendKey) {
-        const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "onboarding@resend.dev");
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: [to], subject, html }),
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(`Resend ${res.status}: ${errBody.slice(0, 200)}`);
-        }
-      } else if (brevoKey) {
-        const fromEmail = this.config.get<string>("SMTP_FROM_EMAIL", "b0e5d2001@smtp-brevo.com");
-        const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "api-key": brevoKey },
-          body: JSON.stringify({
-            sender: { name: fromName, email: fromEmail },
-            to: [{ email: to }],
-            subject,
-            htmlContent: html,
-          }),
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(`Brevo ${res.status}: ${errBody.slice(0, 200)}`);
-        }
-      } else {
-        throw new Error("No hay API key configurada (RESEND_API_KEY ni BREVO_API_KEY)");
-      }
-      console.log(`[MailService] ${method} enviado a ${to}`);
-    });
+    this.queue.enqueue(`mail:${method}:${to.slice(0, 4)}`, () => this.sendNow(to, subject, html));
   }
 
   async sendVerificationCode(to: string, code: string, name: string) {
     const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px"><h2 style="color:#8234FE;margin:0 0 8px">¡Bienvenido a Lotifyx, ${name}!</h2><p style="color:#475569;font-size:14px;line-height:1.6">Gracias por registrarte. Usa el siguiente código para verificar tu cuenta:</p><div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 24px;text-align:center;margin:20px 0"><span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#1e293b">${code}</span></div><p style="color:#94a3b8;font-size:12px;">Este código expira en 15 minutos. Si no solicitaste esta cuenta, ignora este mensaje.</p></div>`;
-    this.queueMail("sendVerificationCode", to, "Verifica tu cuenta - Lotifyx", html);
+    await this.sendNow(to, "Verifica tu cuenta - Lotifyx", html).catch(e => console.error("[Mail] Verification failed:", e.message));
   }
 
   async sendNewsletterConfirmation(to: string, name: string | undefined) {
@@ -68,7 +56,7 @@ export class MailService {
     const frontendUrl = this.config.get<string>("FRONTEND_URL", "http://localhost:3000");
     const resetUrl = `${frontendUrl}/restablecer?token=${token}`;
     const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8fafc;border-radius:12px"><h2 style="color:#8234FE;margin:0 0 8px">Restablece tu contraseña</h2><p style="color:#475569;font-size:14px;line-height:1.6">Hola <strong>${name}</strong>, haz clic en el botón para restablecer tu contraseña:</p><a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#8234FE,#26BEFE);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">Restablecer contraseña</a><p style="color:#94a3b8;font-size:12px;">Este enlace expira en 1 hora. Si no solicitaste esto, ignora este mensaje.</p></div>`;
-    this.queueMail("sendPasswordReset", to, "Restablece tu contraseña - Lotifyx", html);
+    await this.sendNow(to, "Restablece tu contraseña - Lotifyx", html).catch(e => console.error("[Mail] Password reset failed:", e.message));
   }
 
   async sendNewOrderNotification(to: string, orderId: string, userName: string, total: number) {
