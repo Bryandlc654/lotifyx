@@ -13,6 +13,8 @@ export default function MisProductosPage() {
   const [loading, setLoading] = useState(true);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<{ productId: string; auctionId: string } | null>(null);
+  const [reopenDate, setReopenDate] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const router = useRouter();
@@ -256,12 +258,9 @@ export default function MisProductosPage() {
                                 if (auction.estado !== "cerrado" || auction.ganador_id) {
                                   toast.error("La subasta está activa o tuvo ganador"); return;
                                 }
-                                const fecha = prompt("Nueva fecha de cierre (YYYY-MM-DD HH:MM):");
-                                if (!fecha) return;
-                                const isoDate = new Date(fecha).toISOString();
-                                await reopenAuction(auction.id, isoDate);
-                                toast.success("Subasta reabierta");
-                              } catch { toast.error("Error al reabrir"); }
+                                setReopenTarget({ productId: p.id, auctionId: auction.id });
+                                setReopenDate("");
+                              } catch { toast.error("Error al cargar"); }
                             }} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors" title="Reabrir subasta">
                               <RefreshCw className="h-4 w-4" />
                             </button>
@@ -292,6 +291,35 @@ export default function MisProductosPage() {
               <button onClick={confirmDelete}
                 className="px-5 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors">
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reopen Modal */}
+      {reopenTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setReopenTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center" onClick={e => e.stopPropagation()}>
+            <RefreshCw className="h-10 w-10 text-purple-500 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Reabrir subasta</h3>
+            <p className="text-sm text-gray-500 mb-6">Ingresa la nueva fecha de cierre para la subasta.</p>
+            <input type="datetime-local" value={reopenDate} onChange={(e) => setReopenDate(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm mb-4 focus:ring-2 focus:ring-purple-200 focus:border-purple-500" />
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setReopenTarget(null)}
+                className="px-5 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={async () => {
+                if (!reopenDate) { toast.error("Selecciona una fecha"); return; }
+                try {
+                  await reopenAuction(reopenTarget.auctionId, new Date(reopenDate).toISOString());
+                  toast.success("Subasta reabierta");
+                  setReopenTarget(null);
+                } catch { toast.error("Error al reabrir"); }
+              }} className="px-5 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors">
+                Reabrir
               </button>
             </div>
           </div>
