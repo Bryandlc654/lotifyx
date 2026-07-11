@@ -311,6 +311,13 @@ export default function PedidoPage() {
                       Contactar
                     </button>
                     )}
+                    {order.remaining_balance && order.status === "pending_payment" && (
+                      <button onClick={() => router.push(`/checkout?source=remaining_balance&order_id=${order.id}&amount=${order.total_amount}`)}
+                        className="border border-green-500 text-green-600 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-green-50 transition-colors flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                        Pagar saldo
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>

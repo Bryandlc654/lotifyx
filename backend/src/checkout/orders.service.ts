@@ -205,7 +205,11 @@ export class OrdersService {
       [orderId],
     );
 
-    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking, bid_info: bidInfo || null };
+    const [remainingInfo] = await this.dataSource.query(
+      `SELECT 1 FROM auctions WHERE remaining_order_id = $1 LIMIT 1`, [orderId]
+    );
+
+    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking, bid_info: bidInfo || null, remaining_balance: !!remainingInfo };
   }
 
   async getSales(userId: string) {
