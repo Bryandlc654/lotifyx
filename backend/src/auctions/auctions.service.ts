@@ -93,13 +93,18 @@ export class AuctionsService implements OnModuleInit {
     });
     const precioActual = highestConfirmed?.monto || auction.precio_inicial;
     let remaining_order_id = null;
+    let remaining_amount: number | null = null;
     try {
       const [extras] = await this.dataSource.query(
-        `SELECT remaining_order_id FROM auctions WHERE id = $1`, [auction.id]
+        `SELECT a.remaining_order_id, o.total_amount AS remaining_amount
+         FROM auctions a
+         LEFT JOIN orders o ON o.id = a.remaining_order_id
+         WHERE a.id = $1`, [auction.id]
       );
       remaining_order_id = extras?.remaining_order_id || null;
+      remaining_amount = extras?.remaining_amount ? Number(extras.remaining_amount) : null;
     } catch {}
-    return { ...auction, remaining_order_id, bid_count: confirmedBidsCount, highest_bid: highestConfirmed?.monto || null, precio_actual: Number(precioActual) };
+    return { ...auction, remaining_order_id, remaining_amount, bid_count: confirmedBidsCount, highest_bid: highestConfirmed?.monto || null, precio_actual: Number(precioActual) };
   }
 
   async findActive() {

@@ -33,6 +33,9 @@ export default function CheckoutPage() {
   const [auctionMode, setAuctionMode] = useState(false);
   const [auctionGuarantee, setAuctionGuarantee] = useState(0);
   const [pendingBidId, setPendingBidId] = useState<string | null>(null);
+  const [remainingMode, setRemainingMode] = useState(false);
+  const [remainingOrderId, setRemainingOrderId] = useState<string | null>(null);
+  const [remainingAmount, setRemainingAmount] = useState(0);
 
   useEffect(() => { setAuthed(isAuthenticated()); }, []);
 
@@ -52,6 +55,12 @@ export default function CheckoutPage() {
       if (amt) { setAuctionGuarantee(parseFloat(amt)); setAmount(amt); }
       if (bidId) setPendingBidId(bidId);
     }
+    if (url.searchParams.get("source") === "remaining_balance") {
+      setRemainingMode(true);
+      const oid = url.searchParams.get("order_id"), amt = url.searchParams.get("amount");
+      if (oid) setRemainingOrderId(oid);
+      if (amt) { setRemainingAmount(parseFloat(amt)); setAmount(amt); }
+    }
   }, [authed]);
 
   const total = items.reduce((sum, i) => sum + i.price, 0);
@@ -64,6 +73,17 @@ export default function CheckoutPage() {
     setSubmitting(true);
     try {
       if (planMode) await submitPlanPayment({ operation_number: opNum.trim(), amount: parseFloat(amount), origin_account_id: selectedAccount, proof: proofFile });
+      else if (remainingMode && remainingOrderId) {
+        // Para saldo pendiente, actualizar orden existente
+        const fd = new FormData();
+        fd.append("operation_number", opNum.trim());
+        fd.append("amount", amount);
+        if (selectedAccount) fd.append("origin_account_id", selectedAccount);
+        fd.append("proof", proofFile);
+        const { authFetch } = await import("@/lib/api");
+        const res = await authFetch(`/api/checkout/orders/${remainingOrderId}/pay`, { method: "PUT", body: fd });
+        if (!res.ok) throw new Error((await res.json()).message || "Error");
+      }
       else if (auctionMode && pendingBidId) await submitCheckout({ items: [], origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, bid_id: pendingBidId });
       else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile });
       setShowSuccess(true);
@@ -73,8 +93,8 @@ export default function CheckoutPage() {
 
   function handleSuccessClose() {
     setShowSuccess(false);
-    if (!planMode && !auctionMode) clearCart();
-    router.push(planMode ? "/perfil" : auctionMode ? "/perfil/mensajes" : "/perfil/mis-compras");
+    if (!planMode && !auctionMode && !remainingMode) clearCart();
+    router.push(planMode ? "/perfil" : remainingMode ? "/perfil/mis-compras" : auctionMode ? "/perfil/mensajes" : "/perfil/mis-compras");
   }
 
   if (authed === null) return null;
@@ -99,6 +119,7 @@ export default function CheckoutPage() {
           <h2 className="text-lg font-bold text-gray-800 mb-4">1. Resumen de tu compra</h2>
           <div className="space-y-3">
             {planMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-purple-50 rounded-xl"><CreditCard className="w-8 h-8 text-purple-600" /></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Plan {planName}</h3><p className="text-xs text-gray-400">Activación de cuenta vendedor</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {planPrice.toFixed(2)}</p></div></div>
+              : remainingMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-green-50 rounded-xl"><svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" /><path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" /><path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" /></svg></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Saldo pendiente de subasta</h3><p className="text-xs text-gray-400">Pago final del producto ganado en subasta</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {remainingAmount.toFixed(2)}</p></div></div>
               : auctionMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-amber-50 rounded-xl"><svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" /><path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" /><path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" /></svg></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Garantía de subasta</h3><p className="text-xs text-gray-400">Reembolsable si no resultas ganador</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {auctionGuarantee.toFixed(2)}</p></div></div>
               : items.map(item => <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="w-20 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">{item.image ? <img src={getImageUrl(item.image)} alt={item.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin img</div>}</div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">{item.title}</h3>{item.sku && <p className="text-xs text-gray-400">SKU: {item.sku}</p>}</div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {item.price.toFixed(2)}</p>{item.regularPrice && <p className="text-[10px] text-gray-300 line-through">S/ {item.regularPrice.toFixed(2)}</p>}</div></div>)}
           </div>

@@ -313,8 +313,13 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
                         <p className="text-green-700 font-bold text-lg">¡Felicidades, ganaste la subasta!</p>
                         <p className="text-green-600 text-sm mt-1">Tu puja de S/ {Number(auction.highest_bid || auction.precio_actual).toFixed(2)} fue la ganadora.</p>
-                        <button onClick={() => router.push(auction.remaining_order_id ? `/perfil/pedido/${auction.remaining_order_id}` : "/perfil/mis-compras")}
-                          className="mt-3 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors text-sm">
+                        <button onClick={() => {
+                          if (auction.remaining_order_id) {
+                            router.push(`/checkout?source=remaining_balance&order_id=${auction.remaining_order_id}&amount=${auction.remaining_amount || 0}`);
+                          } else {
+                            router.push("/perfil/mis-compras");
+                          }
+                        }} className="mt-3 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-colors text-sm">
                           Pagar saldo pendiente
                         </button>
                       </div>

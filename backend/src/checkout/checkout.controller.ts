@@ -159,6 +159,38 @@ export class CheckoutController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Put("orders/:id/pay")
+  @UseInterceptors(
+    FileInterceptor("proof", {
+      storage: new R2Storage({ folder: "proofs" }),
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\//)) { cb(new BadRequestException("Solo imagenes"), false); return; }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @HttpCode(HttpStatus.OK)
+  async payRemaining(
+    @Req() req,
+    @Param("id") id: string,
+    @Body() body: { operation_number: string; amount: string; origin_account_id: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException("Comprobante obligatorio");
+    if (!body.operation_number || !body.amount) throw new BadRequestException("Campos obligatorios");
+    // Verificar que la orden pertenece al usuario
+    const order = await this.ordersService.getOrderDetail(id, req.user.id);
+    if (!order || order.status !== "pending_payment") throw new BadRequestException("Orden no disponible");
+    // Actualizar orden con comprobante
+    await this.dataSource.query(
+      `UPDATE orders SET status = 'pending_payment', operation_number = $2, amount = $3, proof_image = $4, origin_account_id = $5, updated_at = NOW() WHERE id = $1`,
+      [id, body.operation_number, parseFloat(body.amount), file.filename, body.origin_account_id || null],
+    );
+    return { message: "Comprobante enviado correctamente" };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Put("orders/:id/tracking")
   async updateTracking(
     @Req() req,
