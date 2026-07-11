@@ -334,30 +334,37 @@ export default function MisComprasPage() {
                              {item.seller!.phone}
                            </div>
                          )}
-                         <button
-                           onClick={async (e) => {
-                             e.stopPropagation();
-                             try {
-                               const { createOrGetConversation } = await import("@/lib/api");
-                               const conv = await createOrGetConversation(item.seller!.id, item.product_id);
-                               router.push(`/perfil/mensajes?conv=${conv.id}`);
-                             } catch { toast.error("Error al abrir chat"); }
-                           }}
-                           className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium mt-1"
-                         >
-                           <MessageCircle className="w-3 h-3" />
-                           Chat con vendedor
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                 );
-               })}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const { createOrGetConversation } = await import("@/lib/api");
+                                const conv = await createOrGetConversation(item.seller!.id, item.product_id);
+                                router.push(`/perfil/mensajes?conv=${conv.id}`);
+                              } catch { toast.error("Error al abrir chat"); }
+                            }}
+                            className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium mt-1"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            Chat con vendedor
+                          </button>
+                          {selectedOrder.status === "pending_payment" && (
+                            <button onClick={() => router.push(`/checkout?source=remaining_balance&order_id=${selectedOrder.id}&amount=${selectedOrder.total_amount}`)}
+                              className="flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 font-medium mt-1">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                              Pagar saldo pendiente
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+                <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
+                 <span>Total</span>
+                 <span>S/ {Number(selectedOrder.total_amount).toFixed(2)}</span>
                </div>
-               <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
-                <span>Total</span>
-                <span>S/ {Number(selectedOrder.total_amount).toFixed(2)}</span>
-              </div>
             </div>
           </div>
         </div>

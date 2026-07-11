@@ -49,18 +49,24 @@ export class OrdersService {
     }));
 
     const orderIds = result.map((r: any) => r.id);
-    const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
-       FROM auction_bids ab
-       LEFT JOIN auctions a ON a.id = ab.auction_id
-       WHERE ab.checkout_id = ANY($1)`,
-      [orderIds],
-    ) : [];
+    const [bidsForOrders, remainingInfo] = await Promise.all([
+      orderIds.length ? this.dataSource.query(
+        `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
+         FROM auction_bids ab
+         LEFT JOIN auctions a ON a.id = ab.auction_id
+         WHERE ab.checkout_id = ANY($1)`, [orderIds],
+      ) : Promise.resolve([]),
+      orderIds.length ? this.dataSource.query(
+        `SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)`, [orderIds],
+      ) : Promise.resolve([]),
+    ]);
     const bidMap: Record<string, any> = {};
     for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
+    const remainingSet = new Set(remainingInfo.map((r: any) => r.remaining_order_id));
 
     for (const row of result) {
       row.bid_info = bidMap[row.id] || null;
+      row.remaining_balance = remainingSet.has(row.id);
     }
     return result;
   }
@@ -125,18 +131,24 @@ export class OrdersService {
     }));
 
     const orderIds = result.map((r: any) => r.id);
-    const bidsForOrders = orderIds.length ? await this.dataSource.query(
-      `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
-       FROM auction_bids ab
-       LEFT JOIN auctions a ON a.id = ab.auction_id
-       WHERE ab.checkout_id = ANY($1)`,
-      [orderIds],
-    ) : [];
+    const [bidsForOrders, remainingInfo] = await Promise.all([
+      orderIds.length ? this.dataSource.query(
+        `SELECT ab.checkout_id, ab.monto AS bid_amount, a.ganador_id, a.estado AS auction_estado
+         FROM auction_bids ab
+         LEFT JOIN auctions a ON a.id = ab.auction_id
+         WHERE ab.checkout_id = ANY($1)`, [orderIds],
+      ) : Promise.resolve([]),
+      orderIds.length ? this.dataSource.query(
+        `SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)`, [orderIds],
+      ) : Promise.resolve([]),
+    ]);
     const bidMap: Record<string, any> = {};
     for (const b of bidsForOrders) bidMap[b.checkout_id] = { bid_amount: b.bid_amount, ganador_id: b.ganador_id, auction_estado: b.auction_estado };
+    const remainingSet = new Set(remainingInfo.map((r: any) => r.remaining_order_id));
 
     for (const row of result) {
       row.bid_info = bidMap[row.id] || null;
+      row.remaining_balance = remainingSet.has(row.id);
     }
     return {
       data: result,
