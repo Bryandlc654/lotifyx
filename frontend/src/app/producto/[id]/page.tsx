@@ -256,7 +256,16 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     {auction.estado !== "cerrado" && (
                       <div className="px-4 pb-4">
                         <AuctionCountdown endDate={auction.fecha_fin} onEnded={() => {
-                          getAuctionByProduct(id).then(setAuction).catch(() => {});
+                          // Hacer polling hasta que la subasta se cierre
+                          const poll = setInterval(async () => {
+                            const a = await getAuctionByProduct(id).catch(() => null);
+                            if (a && a.estado === "cerrado") {
+                              setAuction(a);
+                              clearInterval(poll);
+                            }
+                          }, 3000);
+                          // Timeout de seguridad a los 60 seg
+                          setTimeout(() => clearInterval(poll), 60000);
                         }} />
                       </div>
                     )}
