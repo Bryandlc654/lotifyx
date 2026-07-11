@@ -34,6 +34,7 @@ interface Order {
   created_at: string;
   items: OrderItem[];
   bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
+  remaining_balance?: boolean;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -348,19 +349,19 @@ export default function MisComprasPage() {
                             <MessageCircle className="w-3 h-3" />
                             Chat con vendedor
                           </button>
-                          {selectedOrder.status === "pending_payment" && (
-                            <button onClick={() => router.push(`/checkout?source=remaining_balance&order_id=${selectedOrder.id}&amount=${selectedOrder.total_amount}`)}
-                              className="flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 font-medium mt-1">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                              Pagar saldo pendiente
-                            </button>
-                          )}
                         </div>
                       )}
                     </div>
                   );
                 })}
                 </div>
+                {selectedOrder.remaining_balance && selectedOrder.status === "pending_payment" && (
+                <button onClick={() => router.push(`/checkout?source=remaining_balance&order_id=${selectedOrder.id}&amount=${selectedOrder.total_amount}`)}
+                  className="mt-4 w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-sm flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                  Pagar saldo pendiente — S/ {Number(selectedOrder.total_amount).toFixed(2)}
+                </button>
+                )}
                 <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
                  <span>Total</span>
                  <span>S/ {Number(selectedOrder.total_amount).toFixed(2)}</span>
