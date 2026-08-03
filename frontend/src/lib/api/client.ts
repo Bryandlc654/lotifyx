@@ -1,6 +1,6 @@
 import { emitSessionExpired } from "../session";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://lotifyx.onrender.com") + "/api";
 const UPLOADS_URL = API_URL.replace(/\/api$/, "");
 
 export function getImageUrl(path: string): string {
