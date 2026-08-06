@@ -39,7 +39,7 @@ export function BannerCarousel() {
 
   return (
     <div className="relative w-full overflow-hidden bg-gray-100">
-      <div className="relative aspect-[16/7] sm:aspect-[16/6] lg:aspect-[16/5] min-h-[340px] max-h-[560px]">
+      <div className="relative aspect-[4/3] sm:aspect-[16/7] lg:aspect-[16/5] min-h-[220px] sm:min-h-[340px] max-h-[560px]">
         {banners.map((banner, i) => (
           <div
             key={banner.id}
@@ -62,13 +62,13 @@ export function BannerCarousel() {
               onClick={prev}
               className="absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 hover:scale-110 transition-transform"
             >
-              <img src="/preview.svg" alt="Anterior" className="h-8 w-auto" />
+              <img src="/preview.svg" alt="Anterior" className="h-6 sm:h-8 w-auto" />
             </button>
             <button
               onClick={next}
               className="absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 hover:scale-110 transition-transform"
             >
-              <img src="/next.svg" alt="Siguiente" className="h-8 w-auto" />
+              <img src="/next.svg" alt="Siguiente" className="h-6 sm:h-8 w-auto" />
             </button>
           </>
         )}

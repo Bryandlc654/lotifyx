@@ -33,6 +33,7 @@ export function Header() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const headerRef = useRef<HTMLElement>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [topBarMessages, setTopBarMessages] = useState<{ text: string; link: string }[]>([]);
@@ -107,6 +108,18 @@ export function Header() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [mobileOpen]);
+
   // Scroll to hide top bar — removed, now always visible
 
   const fetchUser = useCallback(async () => {
@@ -139,28 +152,30 @@ export function Header() {
       {/* Top bar */}
       {topBarEnabled && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#8234FE] to-[#26BEFE]">
-          {currentMessage ? (
-            currentMessage.link ? (
-              <a href={currentMessage.link} className="block text-center font-medium text-white py-2 px-4 hover:underline"
-                style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
-                {currentMessage.text}
-              </a>
+          <div className="w-full overflow-hidden">
+            {currentMessage ? (
+              currentMessage.link ? (
+                <a href={currentMessage.link} className="block text-center font-medium text-white py-1.5 sm:py-2 px-3 sm:px-4 hover:underline truncate text-xs sm:text-sm"
+                  style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
+                  {currentMessage.text}
+                </a>
+              ) : (
+                <p className="text-center font-medium text-white py-1.5 sm:py-2 px-3 sm:px-4 truncate text-xs sm:text-sm"
+                  style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
+                  {currentMessage.text}
+                </p>
+              )
             ) : (
-              <p className="text-center font-medium text-white py-2 px-4"
-                style={{ fontSize: `${topBarFontSize}px`, fontFamily: topBarFontFamily }}>
-                {currentMessage.text}
+              <p className="text-center font-medium text-white py-1.5 sm:py-2 px-3 sm:px-4 truncate text-xs sm:text-sm">
+                Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.
               </p>
-            )
-          ) : (
-            <p className="text-center font-medium text-white py-2 px-4 text-sm">
-              Vende y recibe tus depósitos en 24hr con la comisión más baja del mercado.
-            </p>
-          )}
+            )}
+          </div>
         </div>
       )}
 
       {/* Header */}
-      <header className="fixed left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300 top-9">
+      <header ref={headerRef} className="fixed left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 transition-all duration-300 top-9">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <img
@@ -283,7 +298,9 @@ export function Header() {
 
           <button
             type="button"
-            className="md:hidden p-2 text-gray-600 hover:text-gray-900"
+            aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={mobileOpen}
+            className="md:hidden p-2 -mr-2 text-gray-600 hover:text-gray-900 active:bg-gray-100 rounded-lg z-50"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -291,7 +308,7 @@ export function Header() {
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t border-gray-100 bg-white px-6 py-4 space-y-3">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-100 shadow-lg px-6 py-4 space-y-3 max-h-[calc(100dvh-4.5rem)] overflow-y-auto">
             <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input

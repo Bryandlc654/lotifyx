@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCategories, Category, getImageUrl } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-const VISIBLE = 4;
 
 export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrows = true, compact = false, selectedCategoryId, onCategorySelect }: {
   showTitle?: boolean; bgWhite?: boolean; showArrows?: boolean; compact?: boolean;
@@ -16,6 +15,20 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
   const [cats, setCats] = useState<Category[]>([]);
   const [current, setCurrent] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [visible, setVisible] = useState(4);
+
+  useEffect(() => {
+    const mqSm = window.matchMedia("(min-width: 640px)");
+    const mqMd = window.matchMedia("(min-width: 768px)");
+    const update = () => setVisible(mqMd.matches ? 4 : mqSm.matches ? 3 : 2);
+    update();
+    mqSm.addEventListener("change", update);
+    mqMd.addEventListener("change", update);
+    return () => {
+      mqSm.removeEventListener("change", update);
+      mqMd.removeEventListener("change", update);
+    };
+  }, []);
 
   useEffect(() => {
     getCategories().then(data => {
@@ -46,10 +59,10 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
   }, [total]);
 
   useEffect(() => {
-    if (total <= VISIBLE) return;
+    if (total <= visible) return;
     const timer = setInterval(next, 4000);
     return () => clearInterval(timer);
-  }, [total, next]);
+  }, [total, next, visible]);
 
   if (!loaded || total === 0) return null;
 
@@ -69,7 +82,7 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-500"
-              style={{ transform: `translateX(-${(current + total) * (100 / VISIBLE)}%)` }}
+              style={{ transform: `translateX(-${(current + total) * (100 / visible)}%)` }}
             >
               {displayItems.map((cat, i) => {
                 const imgSrc = cat.icon
@@ -91,21 +104,21 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
                         ? "bg-[#8234FE] text-white shadow-md ring-2 ring-[#8234FE]/30"
                         : "bg-white hover:bg-gray-50"
                     }`}
-                    style={{ width: `calc(${100 / VISIBLE}% - 16px)` }}
+                    style={{ width: `calc(${100 / visible}% - 16px)` }}
                   >
                     {imgSrc ? (
-                      <img src={imgSrc} alt={cat.name} className={`${compact ? "w-10 h-10" : "w-[85px] h-[85px]"} object-contain flex-shrink-0 ${selectedCategoryId === cat.id ? "brightness-0 invert" : ""}`} />
+                      <img src={imgSrc} alt={cat.name} className={`${compact ? "w-10 h-10" : "w-[60px] h-[60px] sm:w-[85px] sm:h-[85px]"} object-contain flex-shrink-0 ${selectedCategoryId === cat.id ? "brightness-0 invert" : ""}`} />
                     ) : (
-                      <div className={`${compact ? "w-10 h-10" : "w-[85px] h-[85px]"} rounded-lg flex-shrink-0 ${selectedCategoryId === cat.id ? "bg-white/20" : "bg-gray-100"}`} />
+                      <div className={`${compact ? "w-10 h-10" : "w-[60px] h-[60px] sm:w-[85px] sm:h-[85px]"} rounded-lg flex-shrink-0 ${selectedCategoryId === cat.id ? "bg-white/20" : "bg-gray-100"}`} />
                     )}
-                    <span className={`${compact ? "text-sm" : "text-[20px]"} line-clamp-2 leading-tight text-left ${selectedCategoryId === cat.id ? "text-white" : "text-[#344054]"}`}>{cat.name}</span>
+                    <span className={`${compact ? "text-sm" : "text-sm sm:text-[20px]"} line-clamp-2 leading-tight text-left ${selectedCategoryId === cat.id ? "text-white" : "text-[#344054]"}`}>{cat.name}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {showArrows && total > VISIBLE && (
+          {showArrows && total > visible && (
             <>
               <button onClick={prev}
                 className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-white shadow-md border border-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
@@ -119,7 +132,7 @@ export function CategoriesCarousel({ showTitle = true, bgWhite = true, showArrow
           )}
         </div>
 
-        {total > VISIBLE && (
+        {total > visible && (
           <div className="flex items-center justify-center gap-2 mt-6">
             {cats.map((_, i) => (
               <button

@@ -8,18 +8,18 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 function BannerCard({ b }: { b: SecondaryBanner }) {
   return (
     <a href={b.link_url || "#"} target={b.link_url ? "_blank" : undefined}
-      className="flex rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white h-[280px] w-full">
-      <div className="flex-1 flex flex-col justify-center p-8 sm:p-10">
+      className="flex flex-col sm:flex-row rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white w-full">
+      <div className="flex-1 flex flex-col justify-center p-6 sm:p-10">
         {b.subtitle && <p className="text-gray-500 text-sm">{b.subtitle}</p>}
-        <h3 className="text-[32px] font-bold text-gray-900 mt-1 leading-tight">{b.title}</h3>
+        <h3 className="text-[24px] sm:text-[32px] font-bold text-gray-900 mt-1 leading-tight">{b.title}</h3>
         {b.button_text && (
-          <span className="inline-block mt-6 px-6 py-2.5 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-sm font-semibold text-white w-fit">
+          <span className="inline-block mt-4 sm:mt-6 px-5 sm:px-6 py-2.5 rounded-lg bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-sm font-semibold text-white w-fit">
             {b.button_text}
           </span>
         )}
       </div>
-      <div className="flex-1">
-                  <img src={getImageUrl(b.image_url)}
+      <div className="flex-1 h-[180px] sm:h-auto">
+        <img src={getImageUrl(b.image_url)}
           alt={b.title} className="w-full h-full object-cover rounded-2xl" />
       </div>
     </a>
@@ -97,10 +97,10 @@ function Promo1Slider({ items }: { items: SecondaryBanner[] }) {
             className={`transition-opacity duration-700 ${i === current ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"}`}>
             <a href={b.link_url || "#"} target={b.link_url ? "_blank" : undefined} className="block">
         <img src={getImageUrl(b.image_url)}
-                alt={b.title} className="w-full h-[350px] object-cover" />
+                alt={b.title} className="w-full h-[200px] sm:h-[280px] lg:h-[350px] object-cover" />
               {b.button_text && (
-                <div className="absolute bottom-10 left-1/2 translate-x-2">
-                  <span className="inline-block px-5 py-2 rounded-lg bg-white text-sm font-semibold text-[#26BEFE] hover:bg-gray-100 transition-colors shadow-md">
+                <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2">
+                  <span className="inline-block px-5 py-2 rounded-lg bg-white text-sm font-semibold text-[#26BEFE] hover:bg-gray-100 transition-colors shadow-md whitespace-nowrap">
                     {b.button_text}
                   </span>
                 </div>
@@ -111,7 +111,7 @@ function Promo1Slider({ items }: { items: SecondaryBanner[] }) {
       </div>
 
       {total > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-24">
+        <div className="flex items-center justify-center gap-2 mt-6">
           {items.map((_, i) => (
             <button key={i} onClick={() => goTo(i)}
               className={`transition-all duration-300 ${
@@ -144,7 +144,7 @@ export function PromoBanners() {
       <Promo1Slider items={promo1} />
 
       {(promo2.length > 0 || promo3.length > 0) && (
-        <div className="max-w-7xl mx-auto px-6 flex gap-6 mt-6">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row gap-6 mt-6">
           <PromoSlider items={promo2} />
           <PromoSlider items={promo3} />
         </div>

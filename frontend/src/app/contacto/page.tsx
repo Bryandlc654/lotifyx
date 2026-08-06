@@ -58,7 +58,7 @@ export default function ContactoPage() {
     <>
       <Header />
       <main className="bg-[#F4F6F7] min-h-screen flex items-center justify-center p-4 md:p-8">
-        <div className="max-w-6xl w-full flex flex-col md:flex-row min-h-[800px] mt-28">
+        <div className="max-w-6xl w-full flex flex-col md:flex-row min-h-[600px] md:min-h-[800px] mt-28">
           {/* Form */}
           <section className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
             <div className="max-w-md mx-auto w-full">
@@ -134,10 +134,10 @@ export default function ContactoPage() {
               <div className="mt-24">
                 <p className="text-xl font-medium mb-4">Todo lo que buscas, <br /> en un solo lugar.</p>
                 <div className="space-y-2">
-                  <h2 className="text-5xl md:text-6xl font-black uppercase tracking-tight">
+                  <h2 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
                     <span className="inline-block" style={{ backgroundColor: "#00D1FF", color: "white", padding: "0 8px" }}>Descúbrelo</span>
                   </h2>
-                  <h2 className="text-5xl md:text-6xl font-black uppercase tracking-tight">
+                  <h2 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
                     <span className="inline-block" style={{ backgroundColor: "white", color: "#101828", padding: "0 8px" }}>en Lotifyx.</span>
                   </h2>
                 </div>

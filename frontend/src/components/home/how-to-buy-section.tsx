@@ -42,7 +42,7 @@ export function HowToBuySection() {
             />
           </div>
           <div className="flex-1">
-            <h2 className="text-[32px] font-bold text-gray-900 leading-tight uppercase">
+            <h2 className="text-[22px] sm:text-[32px] font-bold text-gray-900 leading-tight uppercase">
               Comprar nunca fue tan fácil
             </h2>
             <p className="text-base text-gray-500 mt-3 leading-relaxed">

@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { getMyReviews, isAuthenticated, removeTokens, getProfile, getImageUrl } from "@/lib/api";
 import type { Review } from "@/lib/api";
 import { Star, ChevronRight, MessageSquareText, Package } from "lucide-react";
+import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 export default function MisResenasPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -28,79 +29,8 @@ export default function MisResenasPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gray-50 px-4 md:px-8 pt-24 md:pt-40 pb-8 flex items-start justify-center gap-32">
-        <nav className="w-44 flex-shrink-0 pt-8 space-y-1">
-          <button onClick={() => router.push("/perfil")}
-            className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-            Editar Perfil
-          </button>
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/dashboard")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Dashboard
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-compras")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Compras
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mensajes")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mensajes
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-cuentas")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Cuentas
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-ventas")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Ventas
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-fondos")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Fondos
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/carga-masiva")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Carga Masiva
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-productos")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Productos
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/ofrecer")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Ofrecer
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mi-plan")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mi Plan
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-resenas")}
-              className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
-              Mis Reseñas
-            </button>
-          )}
-        </nav>
+      <main className="min-h-screen bg-gray-50 px-4 md:px-8 pt-24 md:pt-40 pb-8 flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-12">
+        <PerfilSidebar active="mis-resenas" userRole={userRole} />
 
         <div className="max-w-4xl w-full">
           <nav className="flex items-center gap-2 text-sm mb-6">

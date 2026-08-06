@@ -20,10 +20,10 @@ export function TestimonialsSection() {
     <section className="bg-white py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-left mb-12">
-          <h2 className="text-[32px] font-bold text-gray-900 leading-tight">
+          <h2 className="text-[24px] sm:text-[32px] font-bold text-gray-900 leading-tight">
             Historias reales de quienes ya venden con nosotros
           </h2>
-          <p className="text-base text-gray-500 mt-3 max-w-2xl">
+          <p className="text-sm sm:text-base text-gray-500 mt-3 max-w-2xl">
             Personas y emprendedores que confiaron en nuestra plataforma y hoy hacen crecer su negocio de forma simple, segura y sin complicaciones.
           </p>
         </div>

@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { getMyPlan, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
 import { Crown, Calendar, CheckCircle, AlertCircle, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 export default function MiPlanPage() {
   const router = useRouter();
@@ -50,73 +51,8 @@ export default function MiPlanPage() {
     <>
       <Header />
       <main className="min-h-screen bg-[#f5f6f8]">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 pt-28 pb-8 flex items-start justify-center gap-32">
-          <nav className="w-44 flex-shrink-0 pt-8 space-y-1 hidden md:block">
-            <button onClick={() => router.push("/perfil")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Editar Perfil
-            </button>
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/dashboard")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Dashboard
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mis-compras")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Compras
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mensajes")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mensajes
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mis-cuentas")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Cuentas
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-ventas")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Ventas
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-fondos")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Fondos
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/carga-masiva")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Carga Masiva
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-productos")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Productos
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/ofrecer")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Ofrecer
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mi-plan")}
-                className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
-                Mi Plan
-              </button>
-            )}
-          </nav>
+        <div className="max-w-6xl mx-auto px-4 md:px-8 pt-28 pb-8 flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-12">
+          <PerfilSidebar active="mi-plan" userRole={userRole} />
           <div className="max-w-4xl w-full">
           {/* Header */}
           <div className="flex items-center gap-3 mb-8">

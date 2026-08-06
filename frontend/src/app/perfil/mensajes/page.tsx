@@ -12,6 +12,7 @@ import {
 import { getSocket, joinConversation, leaveConversation } from "@/lib/socket";
 import { toast } from "sonner";
 import { MessageCircle, Send, ArrowLeft, Loader2, ShoppingBag, User, Check, CheckCheck, Search, Wallet } from "lucide-react";
+import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 function MensajesContent() {
   const router = useRouter();
@@ -159,74 +160,8 @@ function MensajesContent() {
     <>
       <Header />
       <main className="min-h-screen bg-[#f5f6f8]">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-28 pb-8 flex items-start justify-center gap-32">
-          {/* Sidebar */}
-          <nav className="w-44 flex-shrink-0 pt-8 space-y-1">
-            <button onClick={() => router.push("/perfil")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Editar Perfil
-            </button>
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/dashboard")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Dashboard
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mis-compras")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Compras
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mensajes")}
-                className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
-                Mensajes
-              </button>
-            )}
-            {userRole !== "superadmin" && (
-              <button onClick={() => router.push("/perfil/mis-cuentas")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Cuentas
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-ventas")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Ventas
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-fondos")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Fondos
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/carga-masiva")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Carga Masiva
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mis-productos")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mis Productos
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/ofrecer")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Ofrecer
-              </button>
-            )}
-            {userRole === "vendedor" && (
-              <button onClick={() => router.push("/perfil/mi-plan")}
-                className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-                Mi Plan
-              </button>
-            )}
-          </nav>
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-28 pb-8 flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-12">
+          <PerfilSidebar active="mensajes" userRole={userRole} />
 
           <div className="max-w-5xl w-full">
           <div className="flex items-center gap-3 mb-6">

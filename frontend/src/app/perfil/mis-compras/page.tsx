@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId } from "@/lib/api";
 import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet, Star } from "lucide-react";
 import { toast } from "sonner";
+import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 interface Seller {
   id: string;
@@ -83,73 +84,8 @@ export default function MisComprasPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gray-50 px-4 md:px-8 pt-24 md:pt-40 pb-8 flex items-start justify-center gap-32">
-        <nav className="w-44 flex-shrink-0 pt-8 space-y-1">
-          <button onClick={() => router.push("/perfil")}
-            className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-            Editar Perfil
-          </button>
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/dashboard")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Dashboard
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-compras")}
-            className="w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 border-l-2 border-slate-700 -ml-px">
-            Mis Compras
-          </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mensajes")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mensajes
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-cuentas")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Cuentas
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-ventas")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Ventas
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-fondos")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Fondos
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/carga-masiva")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Carga Masiva
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/mis-productos")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Productos
-            </button>
-          )}
-          {userRole === "vendedor" && (
-            <button onClick={() => router.push("/perfil/ofrecer")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Ofrecer
-            </button>
-          )}
-          {userRole !== "superadmin" && (
-            <button onClick={() => router.push("/perfil/mis-resenas")}
-              className="w-full text-left px-3 py-2 text-sm text-slate-400 border-l-2 border-transparent -ml-px hover:text-slate-600">
-              Mis Reseñas
-            </button>
-          )}
-        </nav>
+      <main className="min-h-screen bg-gray-50 px-4 md:px-8 pt-24 md:pt-40 pb-8 flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-12">
+        <PerfilSidebar active="mis-compras" userRole={userRole} />
 
         <div className="max-w-4xl w-full">
           <nav className="flex items-center gap-2 text-sm mb-6">
@@ -188,12 +124,13 @@ export default function MisComprasPage() {
                 return (
                   <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex flex-wrap gap-2 items-center mb-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-400">{formatDate(order.created_at)}</span>
                           <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
                             <Icon className="w-3 h-3" />
-                            {cfg.label}
+                            <span className="hidden sm:inline">{cfg.label}</span>
+                            <span className="sm:hidden">{cfg.label.split(" ")[0]}</span>
                           </span>
                         </div>
                         <button onClick={() => {
@@ -208,13 +145,13 @@ export default function MisComprasPage() {
                           Detalle
                         </button>
                         <button onClick={() => router.push(`/perfil/reclamo/${order.id}`)}
-                          className="flex items-center gap-1 text-[10px] text-orange-600 hover:underline ml-2">
+                          className="flex items-center gap-1 text-[10px] text-orange-600 hover:underline">
                           <AlertCircle className="w-3 h-3" />
                           Reclamo
                         </button>
                         {order.status === "completed" && (
                           <button onClick={() => router.push(`/perfil/mis-compras/resena/${order.id}`)}
-                            className="flex items-center gap-1 text-[10px] text-green-600 hover:underline ml-2">
+                            className="flex items-center gap-1 text-[10px] text-green-600 hover:underline">
                             <Star className="w-3 h-3" />
                             Reseña
                           </button>
@@ -230,7 +167,7 @@ export default function MisComprasPage() {
                                 router.push(`/perfil/mensajes?conv=${conv.id}`);
                               } catch { toast.error("Error al abrir chat"); }
                             }}
-                            className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline ml-2">
+                            className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline">
                             <MessageCircle className="w-3 h-3" />
                             Chat
                           </button>

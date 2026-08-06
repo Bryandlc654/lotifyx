@@ -34,7 +34,7 @@ export function BackingSection() {
 
   return (
     <section className="bg-white py-12 sm:py-16">
-      <div className="max-w-7xl mx-auto px-6 flex items-center gap-8">
+      <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8">
         <h2 className="text-[20px] sm:text-[24px] font-bold text-gray-900 leading-tight uppercase flex-shrink-0">
           CON EL RESPALDO DE:
         </h2>

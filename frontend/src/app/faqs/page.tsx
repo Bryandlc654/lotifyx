@@ -24,9 +24,9 @@ export default function FaqsPage() {
         {/* Header */}
         <header className="text-white text-center py-20 px-4" style={{ background: "linear-gradient(135deg, #8A3FFC 0%, #00CFFF 100%)" }}>
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">Preguntas frecuentes</h1>
-            <p className="text-xl md:text-2xl font-semibold mb-4 text-white">¿Qué es Lotifyx? ¿Cómo creo mi cuenta?</p>
-            <p className="text-lg md:text-xl text-white">Respondemos todas tus preguntas para que puedas vender por internet fácil y profesionalmente.</p>
+            <h1 className="text-2xl sm:text-5xl md:text-6xl font-bold mb-6 text-white">Preguntas frecuentes</h1>
+            <p className="text-base sm:text-xl md:text-2xl font-semibold mb-4 text-white">¿Qué es Lotifyx? ¿Cómo creo mi cuenta?</p>
+            <p className="text-sm sm:text-lg md:text-xl text-white">Respondemos todas tus preguntas para que puedas vender por internet fácil y profesionalmente.</p>
           </div>
         </header>
 
@@ -69,7 +69,7 @@ export default function FaqsPage() {
 
         {/* CTA */}
         <div className="max-w-6xl mx-auto px-6 pb-16">
-          <div className="relative overflow-hidden rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center min-h-[300px]" style={{ background: "linear-gradient(135deg, #8A3FFC 0%, #00CFFF 100%)" }}>
+          <div className="relative overflow-hidden rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center min-h-[200px] md:min-h-[300px]" style={{ background: "linear-gradient(135deg, #8A3FFC 0%, #00CFFF 100%)" }}>
             <div className="z-10 w-full md:w-1/2 text-white">
               <h2 className="text-3xl md:text-4xl font-bold mb-8 leading-tight">¿No encontrás la respuesta<br/>a tu pregunta?</h2>
               <button className="bg-white text-purple-700 font-bold py-3 px-8 rounded-lg hover:bg-opacity-90 transition-all text-sm md:text-base">Habla con un asesor</button>
