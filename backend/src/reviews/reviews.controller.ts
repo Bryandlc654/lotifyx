@@ -10,7 +10,7 @@ export class ReviewsController {
   @Post()
   async create(@Req() req, @Body() body: { product_id: string; order_id: string; rating: number; comment?: string; images?: string[] }) {
     if (!body.product_id || !body.order_id || body.rating == null) {
-      throw new BadRequestException("product_id, order_id y rating son obligatorios");
+      throw new BadRequestException("El producto, la orden y la calificación son obligatorios");
     }
     if (body.rating < 0 || body.rating > 5) {
       throw new BadRequestException("Rating debe estar entre 0 y 5");

@@ -43,7 +43,7 @@ export class AuctionsController {
   @Post(":id/reopen")
   @HttpCode(HttpStatus.OK)
   reopen(@Req() req, @Param("id") id: string, @Body("fecha_fin") fechaFin: string) {
-    if (!fechaFin) throw new BadRequestException("fecha_fin es requerida");
+    if (!fechaFin) throw new BadRequestException("La fecha de fin es requerida");
     return this.service.reopen(id, req.user.id, fechaFin);
   }
 }

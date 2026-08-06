@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminPressArticles, createPressArticle, updatePressArticle, deletePressArticle, PressArticle } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminPrensaPage() {
   const [items, setItems] = useState<PressArticle[]>([]);
@@ -16,7 +17,7 @@ export default function AdminPrensaPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    try { setItems(await getAdminPressArticles()); } catch { toast.error("Error"); }
+    try { setItems(await getAdminPressArticles()); } catch (e) { toast.error(getErrorMessage(e, "Error al cargar los artículos")); }
     finally { setLoading(false); }
   }
 
@@ -37,18 +38,18 @@ export default function AdminPrensaPage() {
       if (modal.item) { await updatePressArticle(modal.item.id, form); toast.success("Actualizada"); }
       else { await createPressArticle(form); toast.success("Creada"); }
       setModal({ open: false }); load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar?")) return;
-    try { await deletePressArticle(id); toast.success("Eliminada"); load(); } catch { toast.error("Error"); }
+    try { await deletePressArticle(id); toast.success("Eliminada"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
   }
 
   async function handleToggleStatus(a: PressArticle) {
     const s = a.status === "published" ? "draft" : "published";
-    try { await updatePressArticle(a.id, { status: s }); load(); } catch { toast.error("Error"); }
+    try { await updatePressArticle(a.id, { status: s }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
   const sc: Record<string, string> = { published: "bg-green-50 text-green-700", draft: "bg-gray-100 text-gray-600" };

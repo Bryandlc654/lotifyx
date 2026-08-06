@@ -178,10 +178,10 @@ export class CheckoutController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException("Comprobante obligatorio");
-    if (!body.operation_number || !body.amount) throw new BadRequestException("Campos obligatorios");
+    if (!body.operation_number || !body.amount) throw new BadRequestException("Completa todos los campos obligatorios");
     // Verificar que la orden pertenece al usuario
     const order = await this.ordersService.getOrderDetail(id, req.user.id);
-    if (!order || order.status !== "pending_payment") throw new BadRequestException("Orden no disponible");
+    if (!order || order.status !== "pending_payment") throw new BadRequestException("La orden no está disponible para confirmar el pago");
     // Actualizar orden con comprobante
     await this.dataSource.query(
       `UPDATE orders SET status = 'pending_payment', operation_number = $2, amount = $3, proof_image = $4, origin_account_id = $5, updated_at = NOW() WHERE id = $1`,

@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { getProfile, isAuthenticated, removeTokens, updateProfile, getAccessToken } from "@/lib/api";
+import { getProfile, isAuthenticated, updateProfile, getAccessToken } from "@/lib/api";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 import { MessageCircle, Wallet } from "lucide-react";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -35,7 +36,10 @@ export default function PerfilPage() {
           avatar_url: u.profile?.avatar_url || "",
         });
       })
-      .catch(() => { removeTokens(); router.push("/"); })
+      .catch((e) => {
+        toast.error(getErrorMessage(e, "No se pudo cargar tu perfil. Inténtalo de nuevo."));
+        router.push("/");
+      })
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -65,7 +69,7 @@ export default function PerfilPage() {
       });
       toast.success("Perfil actualizado");
     } catch (err: any) {
-      toast.error(err.message || "Error al actualizar");
+      toast.error(getErrorMessage(err, "Error al actualizar tu perfil"));
     } finally { setSaving(false); }
   }
 

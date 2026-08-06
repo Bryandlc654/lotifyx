@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getFaqCategoriesAdmin, createFaqCategory, updateFaqCategory, deleteFaqCategory, FaqCategory, isAuthenticated } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function FaqCategoriesAdminPage() {
   const [items, setItems] = useState<FaqCategory[]>([]);
@@ -20,7 +21,7 @@ export default function FaqCategoriesAdminPage() {
     if (!isAuthenticated()) return;
     setLoading(true);
     try { setItems(await getFaqCategoriesAdmin()); }
-    catch { toast.error("Error"); }
+    catch (e) { toast.error(getErrorMessage(e, "Error al cargar las categorías")); }
     finally { setLoading(false); }
   }
 
@@ -28,21 +29,21 @@ export default function FaqCategoriesAdminPage() {
     if (!form.name) return;
     setSaving(true);
     try { await createFaqCategory(form); toast.success("Creada"); setForm({ name: "", description: "" }); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleUpdate(id: string) {
     setSaving(true);
     try { await updateFaqCategory(id, editForm); toast.success("Actualizada"); setEditingId(null); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar?")) return;
     try { await deleteFaqCategory(id); toast.success("Eliminada"); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   return (

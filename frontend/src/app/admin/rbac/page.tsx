@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, Shield, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function RbacPage() {
   const [roles, setRoles] = useState<RoleWithPerms[]>([]);
@@ -30,13 +31,13 @@ export default function RbacPage() {
   async function handleCreateRole() {
     if (!newRoleName.trim()) return;
     try { await createRbacRole({ name: newRoleName.trim() }); toast.success("Rol creado"); setNewRoleName(""); refresh(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   async function handleDeleteRole(id: string) {
     if (!confirm("¿Eliminar este rol?")) return;
     try { await deleteRbacRole(id); toast.success("Eliminado"); setSelectedRole(null); refresh(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   async function togglePerm(permId: string) {
@@ -49,12 +50,12 @@ export default function RbacPage() {
         await assignPermission(selectedRole, permId);
       }
       refresh();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   async function handleSeed() {
     try { await seedPermissions(); toast.success("Permisos inicializados"); refresh(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   async function refresh() {

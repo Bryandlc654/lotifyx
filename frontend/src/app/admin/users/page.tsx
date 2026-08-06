@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { Search, Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -181,7 +182,7 @@ export default function AdminUsersPage() {
                         {!u.is_verified && <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-700">Sin verificar</span>}
                       </td>
                       <td className="px-4 py-3 text-right flex items-center justify-end gap-0.5">
-                        <button onClick={async () => { try { await toggleUserActive(u.id); toast.success(u.status === "disabled" ? "Usuario habilitado" : "Usuario deshabilitado"); load(); } catch { toast.error("Error"); } }}
+                        <button onClick={async () => { try { await toggleUserActive(u.id); toast.success(u.status === "disabled" ? "Usuario habilitado" : "Usuario deshabilitado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado del usuario")); } }}
                           className={`p-1.5 rounded ${u.status === "disabled" ? "text-green-500 hover:bg-green-50" : "text-orange-500 hover:bg-orange-50"}`}
                           title={u.status === "disabled" ? "Habilitar" : "Deshabilitar"}>
                           {u.status === "disabled" ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}

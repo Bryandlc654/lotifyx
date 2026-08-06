@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getPlans, createPlan, updatePlan, deletePlan, Plan } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function PlansPage() {
   const [items, setItems] = useState<Plan[]>([]);
@@ -20,7 +21,7 @@ export default function PlansPage() {
 
   async function load() {
     setLoading(true);
-    try { setItems(await getPlans()); } catch (e: any) { toast.error("Error"); }
+    try { setItems(await getPlans()); } catch (e: any) { toast.error(getErrorMessage(e, "Error al cargar los planes")); }
     finally { setLoading(false); }
   }
 
@@ -28,21 +29,21 @@ export default function PlansPage() {
     if (!form.name) { toast.error("Nombre obligatorio"); return; }
     setSaving(true);
     try { await createPlan(form); toast.success("Creado"); setForm({ name: "", description: "", price: 0, max_products: 1, max_featured: 0, duration_days: 30, commission: 0 }); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleUpdate(id: string) {
     setSaving(true);
     try { await updatePlan(id, editForm); toast.success("Actualizado"); setEditingId(null); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este plan?")) return;
     try { await deletePlan(id); toast.success("Eliminado"); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   return (

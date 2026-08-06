@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminTutorials, createTutorial, updateTutorial, deleteTutorial, Tutorial } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminTutorialesPage() {
   const [items, setItems] = useState<Tutorial[]>([]);
@@ -39,19 +40,19 @@ export default function AdminTutorialesPage() {
       if (modal.item) { await updateTutorial(modal.item.id, form); toast.success("Tutorial actualizado"); }
       else { await createTutorial(form); toast.success("Tutorial creado"); }
       setModal({ open: false }); load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este tutorial?")) return;
     try { await deleteTutorial(id); toast.success("Tutorial eliminado"); load(); }
-    catch { toast.error("Error"); }
+    catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el tutorial")); }
   }
 
   async function handleToggleStatus(t: Tutorial) {
     const s = t.status === "published" ? "draft" : "published";
-    try { await updateTutorial(t.id, { status: s }); load(); } catch { toast.error("Error"); }
+    try { await updateTutorial(t.id, { status: s }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {

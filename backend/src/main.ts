@@ -1,5 +1,6 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, BadRequestException } from "@nestjs/common";
+import { ValidationError } from "class-validator";
 import helmet from "helmet";
 import { json, urlencoded } from "express";
 import * as cookieParser from "cookie-parser";
@@ -35,6 +36,21 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
     transformOptions: { enableImplicitConversion: true },
+    exceptionFactory: (errors: ValidationError[]) => {
+      const message = errors
+        .map((e) => {
+          const constraints = e.constraints || {};
+          return Object.entries(constraints)
+            .map(([key, msg]) =>
+              key === "whitelistValidation"
+                ? `El campo ${e.property} no está permitido`
+                : msg
+            )
+            .join("; ");
+        })
+        .join("; ");
+      return new BadRequestException(message);
+    },
   }));
   app.useGlobalFilters(new AllExceptionsFilter());
   app.setGlobalPrefix("api", { exclude: ["uploads/(.*)"] });

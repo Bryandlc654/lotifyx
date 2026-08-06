@@ -32,14 +32,14 @@ export class CartService {
 
   async updateQuantity(cartId: string, itemId: string, quantity: number) {
     const item = await this.itemRepo.findOne({ where: { id: itemId, cart_id: cartId } });
-    if (!item) throw new NotFoundException("Item no encontrado");
+    if (!item) throw new NotFoundException("El producto ya no está en tu carrito");
     item.quantity = quantity;
     return this.itemRepo.save(item);
   }
 
   async removeItem(cartId: string, itemId: string) {
     const item = await this.itemRepo.findOne({ where: { id: itemId, cart_id: cartId } });
-    if (!item) throw new NotFoundException("Item no encontrado");
+    if (!item) throw new NotFoundException("El producto ya no está en tu carrito");
     return this.itemRepo.remove(item);
   }
 

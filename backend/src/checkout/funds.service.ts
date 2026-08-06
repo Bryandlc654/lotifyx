@@ -48,7 +48,7 @@ export class FundsService {
   }
 
   async requestWithdrawal(userId: string, data: { amount: number; bank_name: string; account_number: string; account_holder: string }) {
-    if (data.amount <= 0) throw new BadRequestException("Monto inválido");
+    if (data.amount <= 0) throw new BadRequestException("Ingresa un monto válido");
 
     const [funds] = await this.dataSource.query(
       `SELECT available_balance FROM funds WHERE user_id = $1::uuid FOR UPDATE`,
@@ -82,7 +82,7 @@ export class FundsService {
   }
 
   async processWithdrawal(id: string, status: string) {
-    if (!["approved", "rejected"].includes(status)) throw new BadRequestException("Estado inválido");
+    if (!["approved", "rejected"].includes(status)) throw new BadRequestException("El estado seleccionado no es válido");
     const [w] = await this.dataSource.query(
       `SELECT * FROM withdrawals WHERE id = $1::uuid`,
       [id],

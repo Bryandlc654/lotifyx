@@ -35,10 +35,10 @@ export class ProfilesService {
       const salt = await bcrypt.genSalt(12);
       await this.userRepository.update(userId, { password_hash: await bcrypt.hash(dto.password, salt) });
     }
-    if (dto.email || dto.phone) {
+    if (dto.email !== undefined || dto.phone !== undefined) {
       await this.userRepository.update(userId, {
-        ...(dto.email ? { email: dto.email } : {}),
-        ...(dto.phone ? { phone: dto.phone } : {}),
+        ...(dto.email !== undefined ? { email: dto.email } : {}),
+        ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
       });
     }
     const profileFields: any = {};

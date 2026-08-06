@@ -26,13 +26,13 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: "El nombre es obligatorio" })
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres" })
-  @MaxLength(100)
+  @MaxLength(100, { message: "El nombre no debe superar los 100 caracteres" })
   nombre: string;
 
   @IsString()
   @IsNotEmpty({ message: "Los apellidos son obligatorios" })
   @MinLength(2, { message: "Los apellidos deben tener al menos 2 caracteres" })
-  @MaxLength(150)
+  @MaxLength(150, { message: "Los apellidos no deben superar los 150 caracteres" })
   apellidos: string;
 
   @IsString()
@@ -56,12 +56,12 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(200, { message: "La razón social no debe superar los 200 caracteres" })
   razonSocial?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(20, { message: "El código de referido no debe superar los 20 caracteres" })
   codigoReferidos?: string;
 
   @IsString()

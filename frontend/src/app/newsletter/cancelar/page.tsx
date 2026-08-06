@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Mail, ChevronDown, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -28,7 +29,7 @@ export default function CancelarSuscripcionPage() {
       if (!res.ok) throw new Error(data.message || "Error al cancelar");
       setResult("success");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e));
       setResult("error");
     } finally {
       setSubmitting(false);

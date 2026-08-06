@@ -49,12 +49,15 @@ import { ValidateRucController } from "./validate-ruc.controller";
     ConfigModule.forRoot({ isGlobal: true }),
 
     // ─── Rate limiting ──────────────────────
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,        // 1 minuto
-        limit: 100,        // 100 requests global
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      errorMessage: "Demasiado intentos intente en otro momento",
+      throttlers: [
+        {
+          ttl: 60000,        // 1 minuto
+          limit: 100,        // 100 requests global
+        },
+      ],
+    }),
 
     // ─── Cron jobs ──────────────────────────
     ScheduleModule.forRoot(),

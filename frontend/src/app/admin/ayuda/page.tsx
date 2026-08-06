@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminHelpArticles, createHelpArticle, updateHelpArticle, deleteHelpArticle, HelpArticle } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, Search } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminAyudaPage() {
   const [items, setItems] = useState<HelpArticle[]>([]);
@@ -17,7 +18,7 @@ export default function AdminAyudaPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    try { setItems(await getAdminHelpArticles()); } catch { toast.error("Error"); }
+    try { setItems(await getAdminHelpArticles()); } catch (e) { toast.error(getErrorMessage(e, "Error al cargar los artículos")); }
     finally { setLoading(false); }
   }
 
@@ -38,18 +39,18 @@ export default function AdminAyudaPage() {
       if (modal.item) { await updateHelpArticle(modal.item.id, form); toast.success("Actualizado"); }
       else { await createHelpArticle(form); toast.success("Creado"); }
       setModal({ open: false }); load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar?")) return;
-    try { await deleteHelpArticle(id); toast.success("Eliminado"); load(); } catch { toast.error("Error"); }
+    try { await deleteHelpArticle(id); toast.success("Eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
   }
 
   async function handleToggleStatus(a: HelpArticle) {
     const s = a.status === "published" ? "draft" : "published";
-    try { await updateHelpArticle(a.id, { status: s }); load(); } catch { toast.error("Error"); }
+    try { await updateHelpArticle(a.id, { status: s }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
   const filtered = search ? items.filter(a => a.title.toLowerCase().includes(search.toLowerCase()) || a.content.toLowerCase().includes(search.toLowerCase()) || a.category.toLowerCase().includes(search.toLowerCase())) : items;

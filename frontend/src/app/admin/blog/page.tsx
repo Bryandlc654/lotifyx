@@ -6,6 +6,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, BlogPost } from "@/lib/api";
 import { Plus, Pencil, Trash2, Eye, X, EyeOff, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const QuillEditor = dynamic(() => import("react-quill").then(m => m.default), { ssr: false });
 import "react-quill/dist/quill.snow.css";
@@ -61,7 +62,7 @@ export default function AdminBlogPage() {
       }
       setModal({ open: false });
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 

@@ -10,6 +10,14 @@ export class UpdateProfileDto {
   last_name?: string;
 
   @IsOptional()
+  @IsString()
+  profile_alias?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
   @IsEmail()
   email?: string;
 

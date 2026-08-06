@@ -165,7 +165,7 @@ export class CheckoutService implements OnModuleInit {
 
   async updateOrderStatus(id: string, status: string) {
     const valid = ["pending_payment", "completed", "rejected", "paid"];
-    if (!valid.includes(status)) throw new BadRequestException("Estado inválido");
+    if (!valid.includes(status)) throw new BadRequestException("El estado seleccionado no es válido");
     await this.dataSource.query(
       `UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1`,
       [id, status],
@@ -190,7 +190,7 @@ export class CheckoutService implements OnModuleInit {
     if (order.seller_id !== userId) throw new ForbiddenException("Solo el vendedor puede actualizar el tracking");
 
     const validStatuses = ["coordination", "shipping", "delivered"];
-    if (!validStatuses.includes(data.status)) throw new BadRequestException("Estado inválido");
+    if (!validStatuses.includes(data.status)) throw new BadRequestException("El estado seleccionado no es válido");
 
     const dateColumn = data.status === "coordination" ? "tracking_coordination_at"
       : data.status === "shipping" ? "tracking_shipping_at"

@@ -16,11 +16,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const errorResponse = exception instanceof HttpException
       ? exception.getResponse()
-      : { message: "Internal server error" };
+      : { message: "Error interno del servidor" };
 
     const message = typeof errorResponse === "string"
       ? errorResponse
-      : (errorResponse as any).message || "Internal server error";
+      : (errorResponse as any).message || "Error interno del servidor";
 
     if (status >= 500) {
       this.logger.error(

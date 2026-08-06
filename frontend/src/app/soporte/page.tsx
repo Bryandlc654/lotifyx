@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { createSupportTicket, getSupportTicket, SupportTicket } from "@/lib/api";
 import { ChevronDown, HelpCircle, BookOpen, Play, Mail, Phone, MessageCircle, Clock, Search, Send, Upload, FileText, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -59,7 +60,7 @@ export default function SoportePage() {
       const ticket = await createSupportTicket({ ...form, images, files });
       setCreatedTicket(ticket);
       toast.success("Ticket creado");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSending(false); }
   }
 

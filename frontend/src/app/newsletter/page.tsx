@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Mail, Bell, Sparkles, Shield, ChevronDown, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -55,7 +56,7 @@ export default function NewsletterPage() {
       setSubscribed(true);
       toast.success("¡Te has suscrito correctamente!");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e));
     } finally {
       setSubmitting(false);
     }

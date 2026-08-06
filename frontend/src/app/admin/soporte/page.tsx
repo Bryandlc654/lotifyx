@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminSupportTickets, updateSupportTicket, deleteSupportTicket, SupportTicket } from "@/lib/api";
 import { Search, MessageSquare, CheckCircle, XCircle, AlertCircle, Send, Loader2, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const statusLabels: Record<string, string> = { open: "Abierto", in_progress: "En progreso", resolved: "Resuelto", closed: "Cerrado" };
 const statusColors: Record<string, string> = { open: "bg-yellow-50 text-yellow-700", in_progress: "bg-blue-50 text-blue-700", resolved: "bg-green-50 text-green-700", closed: "bg-gray-100 text-gray-600" };
@@ -21,7 +22,7 @@ export default function AdminSoportePage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    try { setTickets(await getAdminSupportTickets()); } catch { toast.error("Error"); }
+    try { setTickets(await getAdminSupportTickets()); } catch (e) { toast.error(getErrorMessage(e, "Error al cargar los tickets")); }
     finally { setLoading(false); }
   }
 
@@ -32,17 +33,17 @@ export default function AdminSoportePage() {
       await updateSupportTicket(id, { status: "resolved", response: responseText.trim() });
       toast.success("Respuesta enviada");
       setDetail(null); setResponseText(""); load();
-    } catch { toast.error("Error"); }
+    } catch (e) { toast.error(getErrorMessage(e, "Error al enviar la respuesta")); }
     finally { setSaving(false); }
   }
 
   async function handleStatus(id: string, status: string) {
-    try { await updateSupportTicket(id, { status }); load(); } catch { toast.error("Error"); }
+    try { await updateSupportTicket(id, { status }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
   async function handleDelete(id: string, num: string) {
     if (!confirm(`¿Eliminar ticket ${num}?`)) return;
-    try { await deleteSupportTicket(id); toast.success("Ticket eliminado"); load(); } catch { toast.error("Error"); }
+    try { await deleteSupportTicket(id); toast.success("Ticket eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el ticket")); }
   }
 
   const filtered = tickets.filter(t => {

@@ -1,35 +1,35 @@
 import { IsString, IsOptional } from "class-validator";
 
 export class CreateBankAccountDto {
-  @IsString()
+  @IsString({ message: "El nombre del banco es obligatorio" })
   bank_name: string;
 
-  @IsString()
+  @IsString({ message: "El número de cuenta es obligatorio" })
   account_number: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El titular de la cuenta no es válido" })
   account_holder?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El tipo de cuenta no es válido" })
   account_type?: string;
 }
 
 export class UpdateBankAccountDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El nombre del banco no es válido" })
   bank_name?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El número de cuenta no es válido" })
   account_number?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El titular de la cuenta no es válido" })
   account_holder?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: "El tipo de cuenta no es válido" })
   account_type?: string;
 }

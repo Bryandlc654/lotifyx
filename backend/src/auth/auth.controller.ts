@@ -175,7 +175,8 @@ export class AuthController {
   @Put("me")
   @HttpCode(HttpStatus.OK)
   async updateProfile(@Req() req, @Body() dto: UpdateProfileDto) {
-    return this.profilesService.updateProfile(req.user.id, dto);
+    const user = await this.profilesService.updateProfile(req.user.id, dto);
+    return { message: "Perfil actualizado exitosamente", user };
   }
 
   @UseGuards(JwtAuthGuard)

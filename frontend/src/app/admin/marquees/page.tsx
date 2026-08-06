@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getMarquees, createMarquee, deleteMarquee, updateMarquee, Marquee } from "@/lib/api";
 import { Plus, Trash2, Upload, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -26,7 +27,7 @@ export default function MarqueesPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    try { setItems(await getMarquees()); } catch (e: any) { toast.error(e.message); }
+    try { setItems(await getMarquees()); } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setLoading(false); }
   }
 
@@ -40,7 +41,7 @@ export default function MarqueesPage() {
       toast.success(`Logo "${name.trim()}" creado correctamente`);
       setName(""); setSelectedFile(null); if (fileRef.current) fileRef.current.value = "";
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setUploading(false); }
   }
 
@@ -48,7 +49,7 @@ export default function MarqueesPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try { await deleteMarquee(deleteTarget.id); toast.success("Logo eliminado"); setItems(p => p.filter(i => i.id !== deleteTarget.id)); setDeleteTarget(null); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setDeleting(false); }
   }
 
@@ -63,7 +64,7 @@ export default function MarqueesPage() {
       toast.success("Logo actualizado");
       cancelEdit();
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 

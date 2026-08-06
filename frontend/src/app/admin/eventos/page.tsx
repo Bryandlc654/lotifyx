@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminEvents, createEvent, updateEvent, deleteEvent, AppEvent } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, Calendar, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminEventosPage() {
   const [items, setItems] = useState<AppEvent[]>([]);
@@ -40,18 +41,18 @@ export default function AdminEventosPage() {
       if (modal.item) { await updateEvent(modal.item.id, payload); toast.success("Evento actualizado"); }
       else { await createEvent(payload); toast.success("Evento creado"); }
       setModal({ open: false }); load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este evento?")) return;
-    try { await deleteEvent(id); toast.success("Evento eliminado"); load(); } catch { toast.error("Error"); }
+    try { await deleteEvent(id); toast.success("Evento eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el evento")); }
   }
 
   async function handleToggleStatus(ev: AppEvent) {
     const s = ev.status === "published" ? "draft" : "published";
-    try { await updateEvent(ev.id, { status: s }); load(); } catch { toast.error("Error"); }
+    try { await updateEvent(ev.id, { status: s }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {

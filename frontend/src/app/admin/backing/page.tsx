@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getBackingLogos, createBackingLogo, updateBackingLogo, deleteBackingLogo, BackingLogo } from "@/lib/api";
 import { Plus, Trash2, Pencil, X, Check, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -24,7 +25,7 @@ export default function BackingPage() {
 
   async function load() {
     setLoading(true);
-    try { setItems(await getBackingLogos()); } catch (e: any) { toast.error("Error"); }
+    try { setItems(await getBackingLogos()); } catch (e: any) { toast.error(getErrorMessage(e, "Error al cargar los logos de respaldo")); }
     finally { setLoading(false); }
   }
 
@@ -34,21 +35,21 @@ export default function BackingPage() {
     if (!file) { toast.error("Selecciona imagen"); return; }
     setSaving(true);
     try { await createBackingLogo(name.trim(), file); toast.success("Creado"); setName(""); if (fileRef.current) fileRef.current.value = ""; load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleUpdate(id: string) {
     setSaving(true);
     try { await updateBackingLogo(id, { name: editName, is_active: editActive }, editFile || undefined); toast.success("Actualizado"); setEditingId(null); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar?")) return;
     try { await deleteBackingLogo(id); toast.success("Eliminado"); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   return (

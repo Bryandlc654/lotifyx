@@ -7,7 +7,7 @@ export class ValidateRucController {
     if (!/^\d{11}$/.test(ruc)) throw new BadRequestException("RUC debe tener 11 dígitos");
 
     const token = process.env.APISPERU_TOKEN;
-    if (!token) throw new BadRequestException("Token de apiperu.dev no configurado");
+    if (!token) throw new BadRequestException("El servicio de consulta de RUC no está configurado");
 
     try {
       const res = await fetch("https://apiperu.dev/api/ruc", {

@@ -34,6 +34,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [showBidModal, setShowBidModal] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [bidding, setBidding] = useState(false);
+  const [activeImg, setActiveImg] = useState(0);
   const cart = useCart();
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       getCategoryFields(),
     ]).then(([p, cats, flds]) => {
       setProduct(p);
+      setActiveImg(0);
       setSavesCount(p.saves_count || 0);
       setFields(flds.filter(f => f.category_id === p.category_id));
       const cat = cats.find(c => c.id === p.category_id);
@@ -149,7 +151,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     }
   });
 
-  const mainImage = allImages[0] || "";
+  const mainImage = allImages[activeImg] || allImages[0] || "";
   const thumbnails = allImages.slice(0, 4);
 
   function getFieldLabel(key: string): string {
@@ -175,9 +177,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
           <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr_360px] gap-6 mb-6">
             {thumbnails.length > 0 && (
-              <div className="hidden lg:flex flex-col gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3">
+              <div className="flex flex-row lg:flex-col gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3 lg:justify-start">
                 {thumbnails.map((img, i) => (
-                  <div key={i} className={`bg-gray-100 rounded-lg aspect-square flex items-center justify-center cursor-pointer border-2 overflow-hidden ${i === 0 ? "border-purple-600" : "border-gray-200 hover:border-gray-400"} transition-colors`}>
+                  <div key={i} onClick={() => setActiveImg(i)}
+                    className={`w-16 lg:w-full bg-gray-100 rounded-lg aspect-square flex items-center justify-center cursor-pointer border-2 overflow-hidden ${i === activeImg ? "border-purple-600" : "border-gray-200 hover:border-gray-400"} transition-colors`}>
                     <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
                   </div>
                 ))}

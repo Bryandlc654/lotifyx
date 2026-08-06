@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getCategoryFieldsAdmin, createCategoryField, updateCategoryField, deleteCategoryField, getCategories, CategoryField, Category, isAuthenticated } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const FIELD_TYPES = ["text", "textarea", "number", "image", "select", "gallery"];
 
@@ -37,7 +38,7 @@ export default function CategoryFieldsAdminPage() {
       setCategories(flat);
       if (flat.length > 0 && !activeTab) setActiveTab(flat[0].id);
     }
-    catch { toast.error("Error"); }
+    catch (e) { toast.error(getErrorMessage(e, "Error al cargar los campos")); }
     finally { setLoading(false); }
   }
 
@@ -54,7 +55,7 @@ export default function CategoryFieldsAdminPage() {
       setForm({ category_id: activeTab, name: "", label: "", type: "text", required: false, options: "" });
       load();
     }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
@@ -69,14 +70,14 @@ export default function CategoryFieldsAdminPage() {
       setEditingId(null);
       load();
     }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar?")) return;
     try { await deleteCategoryField(id); toast.success("Eliminado"); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   return (

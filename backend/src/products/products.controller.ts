@@ -61,13 +61,13 @@ export class ProductsController {
   )
   @HttpCode(HttpStatus.CREATED)
   async bulkCreate(@UploadedFile() file: Express.Multer.File, @Req() req) {
-    if (!file) throw new BadRequestException("Archivo Excel requerido");
+    if (!file) throw new BadRequestException("Selecciona un archivo Excel para cargar los productos");
 
     const wb = XLSX.readFile(file.path);
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows: any[] = XLSX.utils.sheet_to_json(ws);
 
-    if (rows.length === 0) throw new BadRequestException("El archivo está vacío");
+    if (rows.length === 0) throw new BadRequestException("El archivo está vacío. Verifica que contenga datos");
 
     const categories = await this.dataSource.query(`SELECT id, name FROM categories`);
     const catMap: Record<string, string> = {};

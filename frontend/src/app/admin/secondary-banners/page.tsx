@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, Pencil, X, Check, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -47,7 +48,7 @@ export default function SecondaryBannersPage() {
       setSelectedFile(null);
       if (fileRef.current) fileRef.current.value = "";
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
@@ -58,7 +59,7 @@ export default function SecondaryBannersPage() {
       toast.success("Actualizado");
       setEditingId(null);
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
@@ -69,7 +70,7 @@ export default function SecondaryBannersPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try { await deleteSecondaryBanner(deleteTarget.id); toast.success("Banner eliminado"); load(); setDeleteTarget(null); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setDeleting(false); }
   }
 

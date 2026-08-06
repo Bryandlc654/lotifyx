@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, Pencil, X, Check, Star, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function TestimonialsPage() {
   const [items, setItems] = useState<Testimonial[]>([]);
@@ -25,7 +26,7 @@ export default function TestimonialsPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    try { setItems(await getTestimonials()); } catch (e: any) { toast.error(e.message); }
+    try { setItems(await getTestimonials()); } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setLoading(false); }
   }
 
@@ -37,7 +38,7 @@ export default function TestimonialsPage() {
       toast.success("Testimonio creado");
       setForm({ stars: 5, text: "", name: "", cargo: "" });
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
@@ -49,14 +50,14 @@ export default function TestimonialsPage() {
       toast.success("Testimonio actualizado");
       setEditingId(null);
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {     toast.error(getErrorMessage(e)); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este testimonio?")) return;
     try { await deleteTestimonial(id); toast.success("Eliminado"); load(); }
-    catch (e: any) { toast.error(e.message); }
+    catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
   function startEdit(item: Testimonial) {

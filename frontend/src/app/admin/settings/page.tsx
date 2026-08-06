@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getSettings, updateSettings } from "@/lib/api";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 interface TopbarMessage {
   text: string;
@@ -49,7 +50,7 @@ export default function SettingsPage() {
         setTopbarFontFamily(data.topbar_font_family || "sans-serif");
         setTopbarMessages(parseMessages(data.topbar_messages));
       })
-      .catch((e) => toast.error(e.message))
+      .catch((e) => toast.error(getErrorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -86,7 +87,7 @@ export default function SettingsPage() {
       });
       toast.success("Configuración guardada");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
