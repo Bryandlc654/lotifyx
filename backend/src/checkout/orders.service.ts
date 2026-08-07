@@ -270,22 +270,22 @@ export class OrdersService {
   }
 
   async getDashboard(userId: string) {
-    const [[productsStats], [salesStats], recentOrders, recentProducts] = await Promise.all([
+    const [[productsStats], [salesStats], recentOrders, recentProducts, [visitsRow]] = await Promise.all([
       this.dataSource.query(
         `SELECT
            COUNT(*)::int as total,
            COUNT(*) FILTER (WHERE status = 'active')::int as active,
            COUNT(*) FILTER (WHERE status = 'pending_approval')::int as pending,
            COUNT(*) FILTER (WHERE status = 'draft')::int as draft
-         FROM products WHERE user_id = $1`,
+         FROM products WHERE user_id = $1 AND deleted_at IS NULL`,
         [userId],
       ),
       this.dataSource.query(
         `SELECT
            COUNT(DISTINCT o.id)::int as total_sales,
            COALESCE(SUM(oi.price) FILTER (WHERE o.status = 'completed'), 0)::numeric as revenue,
-           COUNT(*) FILTER (WHERE o.status = 'completed')::int as completed,
-           COUNT(*) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
+           COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'completed')::int as completed,
+           COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
          FROM orders o
          INNER JOIN order_items oi ON oi.order_id = o.id
          INNER JOIN products p ON p.id = oi.product_id AND p.user_id = $1`,
@@ -302,14 +302,29 @@ export class OrdersService {
       ),
       this.dataSource.query(
         `SELECT id, title, sku, status, created_at FROM products
-         WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
+         WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5`,
+        [userId],
+      ),
+      this.dataSource.query(
+        `SELECT COALESCE(SUM(views), 0)::int as visits FROM products WHERE user_id = $1 AND deleted_at IS NULL`,
         [userId],
       ),
     ]);
 
+    const visits = Number(visitsRow?.visits || 0);
+    const conversion =
+      visits > 0 && salesStats.completed > 0
+        ? Math.round((salesStats.completed / visits) * 1000) / 10
+        : 0;
+
     return {
       products: productsStats,
       sales: salesStats,
+      metrics: {
+        visits,
+        conversion,
+        completed: salesStats.completed,
+      },
       recentOrders,
       recentProducts,
     };

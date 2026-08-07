@@ -27,6 +27,7 @@ export class DatabaseService implements OnModuleInit {
   private async ensureColumns() {
     const migrations = [
       `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

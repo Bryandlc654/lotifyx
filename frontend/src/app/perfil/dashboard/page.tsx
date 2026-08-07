@@ -7,7 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { getDashboard, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
 import {
   ChevronRight, Package, ShoppingCart, DollarSign, Clock,
-  CheckCircle, AlertCircle, TrendingUp, Plus, Eye, MessageCircle, Wallet,
+  CheckCircle, AlertCircle, TrendingUp, Plus, Eye, MessageCircle, Wallet, Percent,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -15,6 +15,7 @@ import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 interface DashboardData {
   products: { total: number; active: number; pending: number; draft: number };
   sales: { total_sales: number; revenue: number; completed: number; pending_payment: number };
+  metrics: { visits: number; conversion: number; completed: number };
   recentOrders: { id: string; total_amount: number; status: string; created_at: string; product_title: string; item_price: number }[];
   recentProducts: { id: string; title: string; sku: string; status: string; created_at: string }[];
 }
@@ -78,8 +79,51 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              {/* Stats cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {/* Metrics */}
+              <div className="mb-8">
+                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Métricas de desempeño</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <ShoppingCart className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Ventas</span>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">{data.sales.total_sales}</p>
+                    <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
+                      <span className="text-green-600">{data.sales.completed} completadas</span>
+                      <span>·</span>
+                      <span className="text-yellow-600">{data.sales.pending_payment} pendientes</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-purple-50 rounded-lg">
+                        <Eye className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Visitas</span>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">{data.metrics.visits.toLocaleString("es-PE")}</p>
+                    <p className="text-[10px] text-gray-500 mt-2">Vistas en tus productos</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-green-50 rounded-lg">
+                        <Percent className="h-5 w-5 text-green-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Conversión</span>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">{data.metrics.conversion}%</p>
+                    <p className="text-[10px] text-gray-500 mt-2">{data.metrics.completed} ventas / {data.metrics.visits.toLocaleString("es-PE")} visitas</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 bg-purple-50 rounded-lg">
@@ -92,21 +136,6 @@ export default function DashboardPage() {
                     <span className="text-green-600">{data.products.active} activos</span>
                     <span>·</span>
                     <span className="text-yellow-600">{data.products.pending} pendientes</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <ShoppingCart className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Ventas</span>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{data.sales.total_sales}</p>
-                  <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
-                    <span className="text-green-600">{data.sales.completed} completadas</span>
-                    <span>·</span>
-                    <span className="text-yellow-600">{data.sales.pending_payment} pendientes</span>
                   </div>
                 </div>
 

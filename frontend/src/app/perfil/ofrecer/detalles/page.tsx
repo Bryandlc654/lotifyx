@@ -26,6 +26,7 @@ function DetallesContent() {
   const [activeSection, setActiveSection] = useState<"especificaciones" | "condiciones">("especificaciones");
   const [conditions, setConditions] = useState({
     metodo_pago: "",
+    stock: "",
     precio_base: "",
     precio_inicial: "",
     incremento_minimo: "",
@@ -73,6 +74,7 @@ function DetallesContent() {
           setForm(specForm);
           setConditions({
             metodo_pago: p.metodo_pago || "",
+            stock: String(p.stock ?? ""),
             precio_base: String(p.precio_base ?? ""),
             precio_inicial: String(p.precio_inicial ?? ""),
             incremento_minimo: String(p.incremento_minimo ?? ""),
@@ -239,6 +241,7 @@ function DetallesContent() {
         title,
         specifications: form,
         ...conditions,
+        stock: conditions.stock !== "" ? parseInt(conditions.stock) || 0 : 0,
         costo_envio: parseFloat(conditions.costo_envio) || 0,
         precio_base: conditions.precio_base ? parseFloat(conditions.precio_base) : undefined,
         precio_inicial: conditions.metodo_pago === "subasta" && conditions.precio_base
@@ -320,6 +323,12 @@ function DetallesContent() {
 
               {activeSection === "condiciones" && (
                 <div className="space-y-5">
+                  <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                    <label className="form-label pt-2">Cantidad en stock</label>
+                    <input type="number" min="0" value={conditions.stock} onChange={e => setConditions({ ...conditions, stock: e.target.value })}
+                      className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0" />
+                  </div>
+
                   <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                     <label className="form-label pt-2">Método de pago</label>
                     <select value={conditions.metodo_pago} onChange={e => setConditions({ ...conditions, metodo_pago: e.target.value })}

@@ -47,7 +47,7 @@ export class CheckoutService implements OnModuleInit {
     if (data.items.length > 0) {
       const productIds = data.items.map(i => i.id);
       const ownProducts = await this.dataSource.query(
-        `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2`,
+        `SELECT id FROM products WHERE id = ANY($1) AND user_id = $2 AND deleted_at IS NULL`,
         [productIds, data.userId],
       );
       if (ownProducts.length > 0) {
