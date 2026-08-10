@@ -9,6 +9,7 @@ import {
 import { Search, Plus, Pencil, Trash2, X, Check, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { TIPO_DOCUMENTO_OPTIONS } from "@/lib/validations";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -234,7 +235,14 @@ export default function AdminUsersPage() {
               <Field label="Teléfono" value={form.phone} onChange={v => setForm({...form, phone: v})} />
               <Field label="Nombre *" value={form.first_name} onChange={v => setForm({...form, first_name: v})} />
               <Field label="Apellidos *" value={form.last_name} onChange={v => setForm({...form, last_name: v})} />
-              <Field label="Tipo documento" value={form.document_type} onChange={v => setForm({...form, document_type: v})} placeholder="DNI" />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">Tipo documento</label>
+                <select value={form.document_type} onChange={e => setForm({...form, document_type: e.target.value})}
+                  className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200">
+                  <option value="">Seleccionar</option>
+                  {TIPO_DOCUMENTO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
               <Field label="N° documento *" value={form.document_number} onChange={v => setForm({...form, document_number: v})} />
               <Field label="RUC *" value={form.ruc} onChange={v => setForm({...form, ruc: v})} />
               <Field label="Razón social" value={form.razon_social} onChange={v => setForm({...form, razon_social: v})} />
