@@ -133,6 +133,9 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     return sidebarKeys.some(s => key.includes(s));
   });
 
+  const maxJoinQty = Math.max(1, lot ? lot.cantidad_disponible + (lot.my_participant?.cantidad || 0) : 1);
+  const joinQtyInvalid = joinQty < 1 || joinQty > maxJoinQty;
+
   const textSpecs = textEntries.filter(([k]) => {
     const key = k.toLowerCase().replace(/_/g, " ");
     return !titleKeys.some(t => key.includes(t)) && !priceKeys.some(p => key.includes(p)) && !sidebarKeys.some(s => key.includes(s));
@@ -929,9 +932,12 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
             <div className="mb-4">
               <label className="text-sm font-medium text-gray-700 mb-1.5 block">Cantidad de unidades</label>
-              <input type="number" min={1} max={lot.cantidad_disponible + (lot.my_participant?.cantidad || 0)} value={joinQty}
-                onChange={e => setJoinQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
+              <input type="number" min={1} max={maxJoinQty} value={joinQty}
+                onChange={e => setJoinQty(Math.min(Math.max(1, parseInt(e.target.value) || 1), maxJoinQty))}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500 ${joinQtyInvalid ? "border-red-400" : "border-gray-300"}`} />
+              {joinQtyInvalid && (
+                <p className="text-xs text-red-500 mt-1.5">Máximo {maxJoinQty} unidad{maxJoinQty !== 1 ? "es" : ""} disponible{maxJoinQty !== 1 ? "s" : ""}.</p>
+              )}
             </div>
 
             <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3 mb-6">
@@ -942,6 +948,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             </div>
 
             <button onClick={async () => {
+              if (joinQtyInvalid) return;
               setJoining(true);
               try {
                 const res = await joinLot(lot.id, joinQty);
@@ -958,7 +965,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               } finally {
                 setJoining(false);
               }
-            }} disabled={joining}
+            }} disabled={joining || joinQtyInvalid}
               className="w-full bg-gradient-to-r from-purple-600 to-cyan-400 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-sm disabled:opacity-50">
               {joining ? "Procesando..." : lot.my_participant ? "Guardar cambios" : "Confirmar reserva"}
             </button>
