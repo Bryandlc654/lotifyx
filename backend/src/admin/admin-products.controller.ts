@@ -21,17 +21,6 @@ export class AdminProductsController {
     return this.productsService.findAllAdmin(status, sort, page || 1, limit || 20, notMethod);
   }
 
-  @Get("lots")
-  @RequirePermission("products.read")
-  findLots(
-    @Query("status") status?: string,
-    @Query("sort") sort?: "ASC" | "DESC",
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
-  ) {
-    return this.productsService.findAdminLots(status, sort, page || 1, limit || 20);
-  }
-
   @Patch(":id/approve")
   @RequirePermission("products.approve")
   approve(@Param("id") id: string) {
