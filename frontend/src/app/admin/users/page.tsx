@@ -60,7 +60,7 @@ export default function AdminUsersPage() {
 
   function openEdit(user: AdminUser) {
     setForm({
-      email: user.email, password: "", phone: user.phone || "", role_id: user.role_id || "",
+      email: user.email, password: "", phone: user.phone || "", role_id: user.role?.id || "",
       status: user.status, first_name: user.profile?.first_name || "", last_name: user.profile?.last_name || "",
       document_type: user.profile?.document_type || "", document_number: user.profile?.document_number || "",
       ruc: user.profile?.ruc || "", razon_social: user.profile?.razon_social || "",
@@ -244,6 +244,9 @@ export default function AdminUsersPage() {
                 <select value={form.status} onChange={e => setForm({...form, status: e.target.value})}
                   className="rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200">
                   <option value="active">Activo</option>
+                  <option value="disabled">Deshabilitado</option>
+                  <option value="pending_approval">Pendiente</option>
+                  <option value="pending_verification">Pendiente de verificación</option>
                   <option value="inactive">Inactivo</option>
                   <option value="suspended">Suspendido</option>
                 </select>

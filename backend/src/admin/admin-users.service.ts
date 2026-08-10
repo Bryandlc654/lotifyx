@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import * as bcrypt from "bcrypt";
@@ -53,7 +53,8 @@ export class AdminUsersService {
     return {
       data: rows.map((r: any) => ({
         id: r.id, email: r.email, phone: r.phone, status: r.status,
-        is_verified: r.is_verified, created_at: r.created_at, updated_at: r.updated_at,
+        is_verified: r.is_verified, role_id: r.role_id,
+        created_at: r.created_at, updated_at: r.updated_at,
         profile: { first_name: r.first_name, last_name: r.last_name, document_type: r.document_type, document_number: r.document_number, account_type: r.account_type },
         role: r.role_id ? { id: r.role_id, name: r.role_name, is_admin: r.role_is_admin } : null,
       })),
@@ -129,8 +130,11 @@ export class AdminUsersService {
     const userFields: any = {};
     if (dto.email !== undefined) userFields.email = dto.email;
     if (dto.phone !== undefined) userFields.phone = dto.phone;
-    if (dto.role_id !== undefined) userFields.role_id = dto.role_id;
-    if (dto.status !== undefined) userFields.status = dto.status;
+    if (dto.role_id !== undefined) userFields.role_id = dto.role_id || null;
+    if (dto.status !== undefined) {
+      userFields.status = dto.status;
+      if (dto.status === "disabled") userFields.is_verified = false;
+    }
     if (dto.is_verified !== undefined) userFields.is_verified = dto.is_verified;
 
     if (Object.keys(userFields).length > 0) {
@@ -163,7 +167,9 @@ export class AdminUsersService {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException("Usuario no encontrado");
     const newStatus = user.status === "disabled" ? "active" : "disabled";
-    await this.userRepo.update(id, { status: newStatus });
+    const fields: any = { status: newStatus };
+    if (newStatus === "disabled") fields.is_verified = false;
+    await this.userRepo.update(id, fields);
     await this.syncContentByUserStatus(id, newStatus);
     const updated = await this.findOne(id);
     this.audit.log({ action: "user_status_changed", entity: "user", entityId: id, details: { from: user.status, to: newStatus } });
@@ -214,9 +220,39 @@ export class AdminUsersService {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException("Usuario no encontrado");
 
-    await this.profileRepo.delete({ user_id: id });
-    await this.vfyRepo.delete({ user_id: id });
-    await this.userRepo.remove(user);
+    const [role] = await this.dataSource.query(
+      `SELECT r.is_admin FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = $1`, [id],
+    );
+    if (role?.is_admin) throw new BadRequestException("No se puede eliminar un administrador");
+
+    try {
+      await this.dataSource.transaction(async (em) => {
+        await em.query(`DELETE FROM product_views WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM product_saves WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM reviews WHERE user_id = $1 OR order_id IN (SELECT id FROM orders WHERE user_id = $1)`, [id]);
+        await em.query(`DELETE FROM order_tracking_history WHERE created_by = $1 OR order_id IN (SELECT id FROM orders WHERE user_id = $1)`, [id]);
+        await em.query(`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id = $1)`, [id]);
+        await em.query(`DELETE FROM orders WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM auction_bids WHERE postor_id = $1 OR auction_id IN (SELECT id FROM auctions WHERE vendedor_id = $1 OR ganador_id = $1)`, [id]);
+        await em.query(`DELETE FROM auctions WHERE vendedor_id = $1 OR ganador_id = $1`, [id]);
+        await em.query(`DELETE FROM lot_participants WHERE comprador_id = $1 OR lot_sale_id IN (SELECT id FROM lot_sales WHERE vendedor_id = $1)`, [id]);
+        await em.query(`DELETE FROM lot_sales WHERE vendedor_id = $1`, [id]);
+        await em.query(`DELETE FROM messages WHERE sender_id = $1 OR conversation_id IN (SELECT id FROM conversations WHERE buyer_id = $1 OR seller_id = $1)`, [id]);
+        await em.query(`DELETE FROM conversations WHERE buyer_id = $1 OR seller_id = $1`, [id]);
+        await em.query(`DELETE FROM withdrawals WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM funds WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM seller_plans WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM carts WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM user_verifications WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM user_profiles WHERE user_id = $1`, [id]);
+        await em.query(`DELETE FROM users WHERE id = $1`, [id]);
+      });
+    } catch (e: any) {
+      console.error("[AdminUsers] Error eliminando usuario:", e.message);
+      throw new BadRequestException("No se pudo eliminar el usuario porque tiene registros asociados");
+    }
+
     this.audit.log({ action: "user_deleted", entity: "user", entityId: id, details: { email: user.email } });
     return { message: "Usuario eliminado" };
   }
