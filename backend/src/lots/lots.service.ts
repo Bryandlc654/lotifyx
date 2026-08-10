@@ -15,7 +15,7 @@ const LOT_SELECT = `
   (SELECT COUNT(*) FROM lot_participants lp
    WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count,
   p.title AS product_title, p.specifications AS product_specifications,
-  p.sku AS product_sku, p.status AS product_status,
+  p.sku AS product_sku, p.status AS product_status, p.stock AS product_stock,
   up.first_name AS vendedor_first_name, up.last_name AS vendedor_last_name,
   u.email AS vendedor_email
 `;
@@ -57,6 +57,8 @@ export class LotsService implements OnModuleInit {
       if (missing.length > 0) {
         console.log(`[Lot] ${missing.length} registro(s) de lote faltante(s) creado(s)`);
       }
+
+      await this.syncTotals();
 
       const closed = await this.closeExpired();
       if (closed > 0) {
@@ -165,7 +167,18 @@ export class LotsService implements OnModuleInit {
     const qty = Math.floor(Number(cantidad));
     if (!qty || qty < 1) throw new BadRequestException("Ingresa una cantidad válida");
 
-    const cantidadTotal = Math.max(1, lot.cantidad_total || 1);
+    // El lote nunca puede superar el stock real del producto
+    const [prodRow] = await this.dataSource.query(
+      `SELECT stock FROM products WHERE id = $1`,
+      [lot.product_id],
+    );
+    const productStock = Number(prodRow?.stock || 0);
+    const lotTotal = Math.max(1, lot.cantidad_total || 1);
+    const cantidadTotal = productStock > 0 ? Math.min(lotTotal, productStock) : lotTotal;
+    if (qty > cantidadTotal) {
+      throw new BadRequestException(`La cantidad máxima disponible es ${cantidadTotal} unidad(es)`);
+    }
+
     const reserved = await this.reservedOf(lotSaleId);
 
     const existing = await this.participantsRepo.findOne({
@@ -270,6 +283,7 @@ export class LotsService implements OnModuleInit {
   /** Cierra lotes abiertos cuya fecha de cierre ya pasó: cierra si alcanzó el mínimo, si no cancela */
   @Cron(CronExpression.EVERY_MINUTE)
   async closeExpired() {
+    await this.syncTotals();
     let processed = 0;
     const expired = await this.repo.find({
       where: { estado: "abierto", fecha_cierre: LessThan(new Date()) },
@@ -296,12 +310,34 @@ export class LotsService implements OnModuleInit {
     return processed;
   }
 
+  /** Reconciliación: el total del lote nunca debe superar el stock real del producto */
+  private async syncTotals() {
+    try {
+      await this.dataSource.query(
+        `UPDATE lot_sales l
+         SET cantidad_total = p.stock
+         FROM products p
+         WHERE p.id = l.product_id
+           AND p.deleted_at IS NULL
+           AND p.metodo_pago = 'venta_por_lote'
+           AND p.stock > 0
+           AND l.estado IN ('abierto', 'pendiente')
+           AND l.cantidad_total != p.stock`
+      );
+    } catch (e: any) {
+      console.error("[Lot] Error sincronizando totales:", e.message);
+    }
+  }
+
   async getParticipantCount(lotSaleId: string): Promise<number> {
     return this.participantsRepo.count({ where: { lot_sale_id: lotSaleId } });
   }
 
   private serialize(row: any): any {
     const reserved = Number(row.cantidad_reservada_calc ?? row.cantidad_reservada ?? 0);
+    const productStock = Number(row.product_stock || 0);
+    let total = Number(row.cantidad_total || 1);
+    if (productStock > 0) total = Math.min(total, productStock);
     return {
       id: row.id,
       product_id: row.product_id,
@@ -309,9 +345,9 @@ export class LotsService implements OnModuleInit {
       precio_lote: Number(row.precio_lote || 0),
       precio_individual: Number(row.precio_individual || 0),
       participantes_minimos: Number(row.participantes_minimos || 1),
-      cantidad_total: Number(row.cantidad_total || 1),
+      cantidad_total: total,
       cantidad_reservada: reserved,
-      cantidad_disponible: Math.max(0, Number(row.cantidad_total || 1) - reserved),
+      cantidad_disponible: Math.max(0, total - reserved),
       fecha_cierre: row.fecha_cierre,
       estado: row.estado,
       created_at: row.created_at,
