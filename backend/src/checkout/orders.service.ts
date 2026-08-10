@@ -270,7 +270,11 @@ export class OrdersService {
   }
 
   async getDashboard(userId: string) {
-    const [[productsStats], [salesStats], recentOrders, recentProducts, [visitsRow]] = await Promise.all([
+    const [[userRow], [productsStats], [sellerSales], buyerSales, sellerRecentOrders, recentProducts, [visitsRow], buyerRecentOrders, [viewsRow]] = await Promise.all([
+      this.dataSource.query(
+        `SELECT r.name as role FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = $1`,
+        [userId],
+      ),
       this.dataSource.query(
         `SELECT
            COUNT(*)::int as total,
@@ -292,6 +296,16 @@ export class OrdersService {
         [userId],
       ),
       this.dataSource.query(
+        `SELECT
+           COUNT(DISTINCT o.id)::int as total_sales,
+           COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'completed'), 0)::numeric as revenue,
+           COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'completed')::int as completed,
+           COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
+         FROM orders o
+         WHERE o.user_id = $1`,
+        [userId],
+      ),
+      this.dataSource.query(
         `SELECT o.id, o.total_amount, o.status, o.created_at,
                 oi.price as item_price, p.title as product_title
          FROM orders o
@@ -309,24 +323,64 @@ export class OrdersService {
         `SELECT COALESCE(SUM(views), 0)::int as visits FROM products WHERE user_id = $1 AND deleted_at IS NULL`,
         [userId],
       ),
+      this.dataSource.query(
+        `SELECT o.id, o.total_amount, o.status, o.created_at,
+                oi.price as item_price, p.title as product_title
+         FROM orders o
+         INNER JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN products p ON p.id = oi.product_id
+         WHERE o.user_id = $1
+         ORDER BY o.created_at DESC LIMIT 5`,
+        [userId],
+      ),
+      this.dataSource.query(
+        `SELECT COUNT(*)::int as views FROM product_views WHERE user_id = $1`,
+        [userId],
+      ),
     ]);
 
-    const visits = Number(visitsRow?.visits || 0);
+    const role = userRow?.role || "comprador";
+
+    if (role === "vendedor") {
+      const visits = Number(visitsRow?.visits || 0);
+      const completed = Number(sellerSales.completed || 0);
+      const conversion =
+        visits > 0 && completed > 0
+          ? Math.round((completed / visits) * 1000) / 10
+          : 0;
+
+      return {
+        role,
+        products: productsStats,
+        sales: sellerSales,
+        metrics: {
+          visits,
+          conversion,
+          completed,
+        },
+        recentOrders: sellerRecentOrders,
+        recentProducts,
+      };
+    }
+
+    const completed = Number(buyerSales.completed || 0);
+    const views = Number(viewsRow?.views || 0);
     const conversion =
-      visits > 0 && salesStats.completed > 0
-        ? Math.round((salesStats.completed / visits) * 1000) / 10
+      views > 0 && completed > 0
+        ? Math.round((completed / views) * 1000) / 10
         : 0;
 
     return {
-      products: productsStats,
-      sales: salesStats,
+      role,
+      products: { total: 0, active: 0, pending: 0, draft: 0 },
+      sales: buyerSales,
       metrics: {
-        visits,
+        visits: views,
         conversion,
-        completed: salesStats.completed,
+        completed,
       },
-      recentOrders,
-      recentProducts,
+      recentOrders: buyerRecentOrders,
+      recentProducts: [],
     };
   }
 }

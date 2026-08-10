@@ -9,46 +9,64 @@ export const COMO_NOS_ENCONTRASTE_OPTIONS = [
   "Otro",
 ] as const;
 
+export const TIPO_DOCUMENTO_OPTIONS = ["DNI", "Carnet de Extranjería", "Pasaporte"] as const;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const registroSchema = z
   .object({
     nombre: z
       .string()
+      .trim()
       .min(2, "El nombre debe tener al menos 2 caracteres")
-      .max(100),
+      .max(100)
+      .regex(/\S/, "El nombre no puede contener solo espacios"),
     apellidos: z
       .string()
+      .trim()
       .min(2, "Los apellidos deben tener al menos 2 caracteres")
-      .max(150),
+      .max(150)
+      .regex(/\S/, "Los apellidos no pueden contener solo espacios"),
+    tipoDocumento: z.string().min(1, "Selecciona el tipo de documento"),
     dni: z
       .string()
-      .regex(/^\d{8}$/, "El DNI debe tener 8 dígitos")
-      .length(8),
+      .trim()
+      .min(1, "El número de documento es obligatorio")
+      .max(12, "El número de documento no es válido"),
     fechaNacimiento: z.string().min(1, "La fecha de nacimiento es obligatoria"),
     telefono: z
       .string()
+      .trim()
       .regex(/^\d{9}$/, "El teléfono debe tener 9 dígitos")
       .length(9),
     correo: z
       .string()
+      .trim()
       .email("El correo no es válido")
-      .min(1, "El correo es obligatorio"),
+      .regex(EMAIL_REGEX, "Ingresa un correo válido"),
     contrasena: z
       .string()
+      .trim()
       .min(8, "La contraseña debe tener al menos 8 caracteres")
+      .regex(/^\S+$/, "La contraseña no puede contener espacios")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/,
         "Debe contener mayúscula, minúscula, número y carácter especial"
       ),
-    confirmarContrasena: z.string(),
-    ruc: z.string().optional().or(z.literal("")),
+    confirmarContrasena: z.string().trim(),
+    ruc: z.string().trim().optional().or(z.literal("")),
     razonSocial: z
       .string()
+      .trim()
       .max(200)
+      .regex(/\S/, "La razón social no puede contener solo espacios")
       .optional()
       .or(z.literal("")),
     codigoReferidos: z
       .string()
+      .trim()
       .max(20)
+      .regex(/\S/, "El código de referido no puede contener solo espacios")
       .optional()
       .or(z.literal("")),
     accountType: z
@@ -84,6 +102,24 @@ export const registroSchema = z
       path: ["fechaNacimiento"],
     }
   )
+  .superRefine((data, ctx) => {
+    const val = data.dni;
+    let ok: boolean;
+    let message: string;
+    if (data.tipoDocumento === "Carnet de Extranjería") {
+      ok = /^\d{9}$/.test(val);
+      message = "El carnet de extranjería debe tener 9 dígitos";
+    } else if (data.tipoDocumento === "Pasaporte") {
+      ok = /^[A-Za-z0-9]{6,12}$/.test(val);
+      message = "El pasaporte debe tener entre 6 y 12 caracteres";
+    } else {
+      ok = /^\d{8}$/.test(val);
+      message = "El DNI debe tener 8 dígitos";
+    }
+    if (!ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ["dni"] });
+    }
+  })
   .refine(
     (data) => {
       if (data.accountType !== "Quiero vender") return true;

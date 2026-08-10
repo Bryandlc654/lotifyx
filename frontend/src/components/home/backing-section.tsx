@@ -47,7 +47,7 @@ export function BackingSection() {
                 <div key={`${b.id}-${i}`} className="flex-shrink-0 flex items-center justify-center"
                   style={{ width: `${100 / VISIBLE}%` }}>
                   <img src={getImageUrl(b.image_url)}
-                    alt={b.name} className="h-10 sm:h-12 object-contain" />
+                    alt={b.name} className="h-24 sm:h-28 object-contain" />
                 </div>
               ))}
             </div>

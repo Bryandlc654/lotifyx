@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { getProfile, isAuthenticated, updateProfile, getAccessToken } from "@/lib/api";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { MessageCircle, Wallet } from "lucide-react";
+import { MessageCircle, Wallet, Eye, EyeOff } from "lucide-react";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 export default function PerfilPage() {
@@ -16,6 +16,7 @@ export default function PerfilPage() {
   const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -45,14 +46,19 @@ export default function PerfilPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    const email = form.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Ingresa un correo electrónico válido");
+      return;
+    }
     setSaving(true);
     try {
       const dto: any = {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email,
-        phone: form.phone,
-        profile_alias: form.alias,
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        email,
+        phone: form.phone.trim(),
+        profile_alias: form.alias.trim(),
       };
       if (form.password) dto.password = form.password;
 
@@ -172,8 +178,14 @@ export default function PerfilPage() {
                   </div>
                   <div className="flex flex-col space-y-2">
                     <label className="text-sm font-semibold text-slate-600" htmlFor="password">Contraseña</label>
-                    <input value={form.password} onChange={e => setForm({...form, password: e.target.value})} type="password"
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-slate-300" placeholder="Dejar vacío para no cambiar" />
+                    <div className="relative">
+                      <input value={form.password} onChange={e => setForm({...form, password: e.target.value})} type={showPassword ? "text" : "password"}
+                        className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-slate-300" placeholder="Dejar vacío para no cambiar" />
+                      <button type="button" onClick={() => setShowPassword(prev => !prev)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

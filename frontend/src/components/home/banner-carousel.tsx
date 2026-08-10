@@ -10,6 +10,7 @@ export function BannerCarousel() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [current, setCurrent] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     getBanners()
@@ -35,7 +36,15 @@ export function BannerCarousel() {
     return () => clearInterval(timer);
   }, [total, next]);
 
-  if (!loaded || total === 0) return null;
+  if (!loaded) {
+    return (
+      <div className="relative w-full overflow-hidden bg-gray-100">
+        <div className="relative aspect-[4/3] sm:aspect-[16/7] lg:aspect-[16/5] min-h-[220px] sm:min-h-[340px] max-h-[560px] hero-skeleton" />
+      </div>
+    );
+  }
+
+  if (total === 0) return null;
 
   return (
     <div className="relative w-full overflow-hidden bg-gray-100">
@@ -50,10 +59,17 @@ export function BannerCarousel() {
             <img
               src={getImageUrl(banner.image_url)}
               alt={banner.title}
+              onLoad={() => setLoadedImages((prev) => ({ ...prev, [i]: true }))}
+              onError={() => setLoadedImages((prev) => ({ ...prev, [i]: true }))}
               className="w-full h-full object-cover"
             />
           </div>
         ))}
+
+        {/* Skeleton mientras carga la imagen del banner actual */}
+        {!loadedImages[current] && (
+          <div className="absolute inset-0 z-10 hero-skeleton" />
+        )}
 
         {/* Flechas */}
         {total > 1 && (

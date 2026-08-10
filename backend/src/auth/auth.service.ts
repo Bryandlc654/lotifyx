@@ -143,14 +143,25 @@ export class AuthService {
       }
     }
 
-    // Validar DNI y RUC con API Peru
+    // Validar formato del documento según su tipo
+    const tipoDoc = dto.tipoDocumento || "DNI";
+    const DOC_FORMATS: Record<string, RegExp> = {
+      DNI: /^\d{8}$/,
+      "Carnet de Extranjería": /^\d{9}$/,
+      Pasaporte: /^[A-Za-z0-9]{6,12}$/,
+    };
+    if (!(DOC_FORMATS[tipoDoc] || /^\d{8}$/).test(dto.dni || "")) {
+      throw new BadRequestException("El número de documento no es válido");
+    }
+
+    // Validar DNI/RUC con API Peru
     const [tokenRow] = await this.userRepository.query(
       `SELECT value FROM settings WHERE key = 'apiperu_token'`,
     );
     const apiToken = tokenRow?.value;
 
     if (apiToken) {
-      if (dto.dni) {
+      if (tipoDoc === "DNI") {
         const dniRes = await fetch("https://apiperu.dev/api/dni", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}`, "Accept": "application/json" },
@@ -159,6 +170,16 @@ export class AuthService {
         const dniData = await dniRes.json();
         if (!dniData.success) {
           throw new BadRequestException("El DNI ingresado no es válido o no existe en RENIEC");
+        }
+      } else if (tipoDoc === "Carnet de Extranjería") {
+        const ceRes = await fetch("https://apiperu.dev/api/ce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}`, "Accept": "application/json" },
+          body: JSON.stringify({ numero: dto.dni }),
+        });
+        const ceData = await ceRes.json();
+        if (!ceData.success) {
+          throw new BadRequestException("El carnet de extranjería no es válido o no existe");
         }
       }
 
@@ -240,7 +261,7 @@ export class AuthService {
         first_name: dto.nombre,
         last_name: dto.apellidos,
         birth_date: dto.fechaNacimiento,
-        document_type: "DNI",
+        document_type: tipoDoc,
         document_number: dto.dni,
         how_found_us: dto.comoNosEncontraste,
         ruc: dto.ruc,

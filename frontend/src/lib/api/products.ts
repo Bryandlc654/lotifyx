@@ -80,6 +80,13 @@ export async function getMyProducts(): Promise<import("./common").Product[]> {
   return res.json();
 }
 
+export async function getMyProduct(id: string): Promise<import("./common").Product> {
+  const products = await getMyProducts();
+  const found = products.find(p => p.id === id);
+  if (!found) throw new Error("Producto no encontrado");
+  return found;
+}
+
 export async function bulkUploadProducts(file: File) {
   const token = getAccessToken();
   const fd = new FormData();
@@ -166,7 +173,11 @@ export async function rejectProduct(id: string): Promise<import("./common").Prod
 }
 
 export async function registerProductView(id: string) {
-  const res = await fetch(`${API_URL}/products/${id}/view`, { method: "POST" });
+  const token = getAccessToken();
+  const res = await fetch(`${API_URL}/products/${id}/view`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!res.ok) throw new Error("Error");
   return res.json();
 }

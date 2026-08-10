@@ -4,9 +4,17 @@ import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
-import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getProduct, updateProduct } from "@/lib/api";
+import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
+
+function toDatetimeLocal(value: any): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function DetallesContent() {
   const router = useRouter();
@@ -67,7 +75,7 @@ function DetallesContent() {
       .catch(() => { toast.error("Error al cargar campos"); return {} as Record<string, string>; });
 
     if (editingId) {
-      Promise.all([loadFields, getProduct(editingId)])
+      Promise.all([loadFields, getMyProduct(editingId)])
         .then(([_, p]) => {
           const specForm: Record<string, string> = {};
           Object.entries(p.specifications || {}).forEach(([k, v]) => { specForm[k] = String(v ?? ""); });
@@ -75,10 +83,10 @@ function DetallesContent() {
           setConditions({
             metodo_pago: p.metodo_pago || "",
             stock: String(p.stock ?? ""),
-            precio_base: String(p.precio_base ?? ""),
+            precio_base: String(p.precio_base ?? (p.metodo_pago === "subasta" ? p.precio_inicial ?? "" : "")),
             precio_inicial: String(p.precio_inicial ?? ""),
             incremento_minimo: String(p.incremento_minimo ?? ""),
-            cierre_estimado: p.cierre_estimado || "",
+            cierre_estimado: toDatetimeLocal(p.cierre_estimado),
             precio_lote: String(p.precio_lote ?? ""),
             precio_individual: String(p.precio_individual ?? ""),
             participantes_minimos: String(p.participantes_minimos ?? ""),

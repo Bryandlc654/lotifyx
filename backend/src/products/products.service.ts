@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, In, ILike, IsNull, DataSource } from "typeorm";
 import { randomBytes } from "crypto";
@@ -57,6 +57,12 @@ export class ProductsService {
     return p;
   }
 
+  async findOnePublic(id: string) {
+    const p = await this.repo.findOne({ where: { id, status: "active", deleted_at: IsNull() } });
+    if (!p) throw new NotFoundException("Producto no encontrado");
+    return p;
+  }
+
   async create(dto: Partial<Product>) {
     let sku = generateSku();
     while (await this.repo.findOne({ where: { sku } })) {
@@ -80,7 +86,7 @@ export class ProductsService {
       if ((dto as any).metodo_pago === "subasta" && (dto as any).precio_inicial) {
         await this.dataSource.query(
           `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'activo')
+           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_inicial, (dto as any).incremento_minimo || 1,
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
@@ -89,7 +95,7 @@ export class ProductsService {
       if ((dto as any).metodo_pago === "venta_por_lote" && (dto as any).precio_lote) {
         await this.dataSource.query(
           `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, fecha_cierre, estado)
-           VALUES ($1, $2, $3, $4, $5, $6, 'abierto')
+           VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_lote, (dto as any).precio_individual || 0,
            (dto as any).participantes_minimos || 1,
@@ -144,6 +150,39 @@ export class ProductsService {
       }
     }
 
+    // Actualizar lote si se modificaron campos de venta por lote
+    if ((dto as any).metodo_pago === "venta_por_lote" &&
+        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos)) {
+      try {
+        const updates: string[] = [];
+        const params: any[] = [id];
+        if ((dto as any).cierre_estimado) {
+          updates.push(`fecha_cierre = $${params.length + 1}`);
+          params.push(new Date((dto as any).cierre_estimado));
+        }
+        if ((dto as any).precio_lote) {
+          updates.push(`precio_lote = $${params.length + 1}`);
+          params.push((dto as any).precio_lote);
+        }
+        if ((dto as any).precio_individual) {
+          updates.push(`precio_individual = $${params.length + 1}`);
+          params.push((dto as any).precio_individual);
+        }
+        if ((dto as any).participantes_minimos) {
+          updates.push(`participantes_minimos = $${params.length + 1}`);
+          params.push((dto as any).participantes_minimos);
+        }
+        if (updates.length > 0) {
+          await this.dataSource.query(
+            `UPDATE lot_sales SET ${updates.join(", ")} WHERE product_id = $1`,
+            params
+          );
+        }
+      } catch (e: any) {
+        console.error("[ProductsService] Error updating lot:", e.message);
+      }
+    }
+
     return saved;
   }
 
@@ -157,9 +196,28 @@ export class ProductsService {
 
   async approve(id: string) {
     const p = await this.findOne(id);
+    const [seller] = await this.dataSource.query(
+      `SELECT status FROM users WHERE id = $1`,
+      [p.user_id],
+    );
+    if (seller && seller.status === "disabled") {
+      throw new BadRequestException("El vendedor está deshabilitado. No se puede activar el producto.");
+    }
     p.status = "active";
     const saved = await this.repo.save(p);
     this.audit.log({ action: "product_approved", entity: "product", entityId: id, details: { title: p.title } });
+    try {
+      await this.dataSource.query(
+        `UPDATE auctions SET estado = 'activo', fecha_inicio = NOW()
+         WHERE product_id = $1 AND estado = 'pendiente'`,
+        [id],
+      );
+      await this.dataSource.query(
+        `UPDATE lot_sales SET estado = 'abierto'
+         WHERE product_id = $1 AND estado = 'pendiente'`,
+        [id],
+      );
+    } catch {}
     return saved;
   }
 
@@ -171,11 +229,17 @@ export class ProductsService {
     return saved;
   }
 
-  async registerView(id: string) {
+  async registerView(id: string, userId?: string) {
     await this.dataSource.query(
       `UPDATE products SET views = views + 1 WHERE id = $1`,
       [id],
     );
+    if (userId) {
+      this.dataSource.query(
+        `INSERT INTO product_views (user_id, product_id) VALUES ($1, $2)`,
+        [userId, id],
+      ).catch(() => {});
+    }
     return { message: "ok" };
   }
 

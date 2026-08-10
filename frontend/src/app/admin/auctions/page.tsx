@@ -115,9 +115,13 @@ export default function AdminAuctionsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          isActive ? (expired ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-600") : "bg-gray-50 text-gray-500"
+                          isActive ? (expired ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-600")
+                          : a.estado === "pendiente" ? "bg-yellow-50 text-yellow-600"
+                          : "bg-gray-50 text-gray-500"
                         }`}>
-                          {isActive ? (expired ? "Vencida" : "Activa") : "Cerrada"}
+                          {isActive ? (expired ? "Vencida" : "Activa")
+                            : a.estado === "pendiente" ? "Pendiente"
+                            : "Cerrada"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-800">

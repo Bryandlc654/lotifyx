@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 interface DashboardData {
+  role?: string;
   products: { total: number; active: number; pending: number; draft: number };
   sales: { total_sales: number; revenue: number; completed: number; pending_payment: number };
   metrics: { visits: number; conversion: number; completed: number };
@@ -64,7 +65,9 @@ export default function DashboardPage() {
           </nav>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard de Vendedor</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {userRole === "vendedor" ? "Dashboard de Vendedor" : "Dashboard de Comprador"}
+            </h1>
             <p className="text-gray-500 text-sm mt-1">Resumen de tu actividad comercial</p>
           </div>
 
@@ -88,11 +91,11 @@ export default function DashboardPage() {
                       <div className="p-2 bg-blue-50 rounded-lg">
                         <ShoppingCart className="h-5 w-5 text-blue-600" />
                       </div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Ventas</span>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">{data.role === "vendedor" ? "Ventas" : "Compras"}</span>
                     </div>
                     <p className="text-3xl font-bold text-gray-900">{data.sales.total_sales}</p>
                     <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
-                      <span className="text-green-600">{data.sales.completed} completadas</span>
+                      <span className="text-green-600">{data.sales.completed} {data.role === "vendedor" ? "completadas" : "completadas"}</span>
                       <span>·</span>
                       <span className="text-yellow-600">{data.sales.pending_payment} pendientes</span>
                     </div>
@@ -106,7 +109,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-semibold text-gray-500 uppercase">Visitas</span>
                     </div>
                     <p className="text-3xl font-bold text-gray-900">{data.metrics.visits.toLocaleString("es-PE")}</p>
-                    <p className="text-[10px] text-gray-500 mt-2">Vistas en tus productos</p>
+                    <p className="text-[10px] text-gray-500 mt-2">{data.role === "vendedor" ? "Vistas en tus productos" : "Productos que has visto"}</p>
                   </div>
 
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -117,34 +120,47 @@ export default function DashboardPage() {
                       <span className="text-xs font-semibold text-gray-500 uppercase">Conversión</span>
                     </div>
                     <p className="text-3xl font-bold text-gray-900">{data.metrics.conversion}%</p>
-                    <p className="text-[10px] text-gray-500 mt-2">{data.metrics.completed} ventas / {data.metrics.visits.toLocaleString("es-PE")} visitas</p>
+                    <p className="text-[10px] text-gray-500 mt-2">{data.metrics.completed} {data.role === "vendedor" ? "ventas" : "compras"} / {data.metrics.visits.toLocaleString("es-PE")} visitas</p>
                   </div>
                 </div>
               </div>
 
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-purple-50 rounded-lg">
-                      <Package className="h-5 w-5 text-purple-600" />
+                {data.role === "vendedor" ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-purple-50 rounded-lg">
+                        <Package className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Productos</span>
                     </div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Productos</span>
+                    <p className="text-3xl font-bold text-gray-900">{data.products.total}</p>
+                    <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
+                      <span className="text-green-600">{data.products.active} activos</span>
+                      <span>·</span>
+                      <span className="text-yellow-600">{data.products.pending} pendientes</span>
+                    </div>
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">{data.products.total}</p>
-                  <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
-                    <span className="text-green-600">{data.products.active} activos</span>
-                    <span>·</span>
-                    <span className="text-yellow-600">{data.products.pending} pendientes</span>
+                ) : (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <ShoppingCart className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Compras</span>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">{data.sales.total_sales}</p>
+                    <p className="text-[10px] text-gray-500 mt-2">Total de pedidos realizados</p>
                   </div>
-                </div>
+                )}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 bg-green-50 rounded-lg">
                       <DollarSign className="h-5 w-5 text-green-600" />
                     </div>
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Ingresos</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase">{data.role === "vendedor" ? "Ingresos" : "Gasto total"}</span>
                   </div>
                   <p className="text-3xl font-bold text-gray-900">S/ {Number(data.sales.revenue).toFixed(2)}</p>
                   <p className="text-[10px] text-gray-500 mt-2">Total acumulado</p>
@@ -158,15 +174,31 @@ export default function DashboardPage() {
                     <span className="text-xs font-semibold text-gray-500 uppercase">Acciones</span>
                   </div>
                   <div className="space-y-2 mt-1">
-                    <button onClick={() => router.push("/perfil/ofrecer")}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white py-2 rounded-lg transition-opacity hover:opacity-90"
-                      style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>
-                      <Plus className="w-3.5 h-3.5" /> Nuevo producto
-                    </button>
-                    <button onClick={() => router.push("/perfil/mis-ventas")}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-purple-600 py-2 rounded-lg border border-purple-200 hover:bg-purple-50">
-                      <Eye className="w-3.5 h-3.5" /> Ver ventas
-                    </button>
+                    {data.role === "vendedor" ? (
+                      <>
+                        <button onClick={() => router.push("/perfil/ofrecer")}
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white py-2 rounded-lg transition-opacity hover:opacity-90"
+                          style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>
+                          <Plus className="w-3.5 h-3.5" /> Nuevo producto
+                        </button>
+                        <button onClick={() => router.push("/perfil/mis-ventas")}
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-purple-600 py-2 rounded-lg border border-purple-200 hover:bg-purple-50">
+                          <Eye className="w-3.5 h-3.5" /> Ver ventas
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => router.push("/categorias")}
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white py-2 rounded-lg transition-opacity hover:opacity-90"
+                          style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>
+                          <Plus className="w-3.5 h-3.5" /> Ir a comprar
+                        </button>
+                        <button onClick={() => router.push("/perfil/mis-compras")}
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-purple-600 py-2 rounded-lg border border-purple-200 hover:bg-purple-50">
+                          <Eye className="w-3.5 h-3.5" /> Ver mis compras
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -174,14 +206,14 @@ export default function DashboardPage() {
               {/* Recent orders */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-gray-800">Últimas ventas</h2>
-                  <button onClick={() => router.push("/perfil/mis-ventas")}
+                  <h2 className="text-lg font-bold text-gray-800">{data.role === "vendedor" ? "Últimas ventas" : "Últimas compras"}</h2>
+                  <button onClick={() => router.push(data.role === "vendedor" ? "/perfil/mis-ventas" : "/perfil/mis-compras")}
                     className="text-xs text-purple-600 hover:underline">
                     Ver todas
                   </button>
                 </div>
                 {data.recentOrders.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">Aún no tienes ventas</p>
+                  <p className="text-sm text-gray-400 text-center py-4">{data.role === "vendedor" ? "Aún no tienes ventas" : "Aún no tienes compras"}</p>
                 ) : (
                   <div className="space-y-3">
                     {data.recentOrders.map(order => (
@@ -205,7 +237,8 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Recent products */}
+              {/* Recent products (solo vendedor) */}
+              {data.role === "vendedor" && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-gray-800">Mis últimos productos</h2>
@@ -238,6 +271,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
         </div>

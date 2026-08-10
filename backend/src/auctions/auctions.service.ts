@@ -16,7 +16,7 @@ export class AuctionsService implements OnModuleInit {
     try {
       // Crear registros de subasta faltantes para productos existentes
       const missing = await this.dataSource.query(
-        `SELECT p.id, p.user_id,
+        `SELECT p.id, p.user_id, p.status,
                 COALESCE(p.precio_inicial, p.precio_base, 0) AS precio_inicial,
                 p.incremento_minimo, p.cierre_estimado
          FROM products p
@@ -25,12 +25,14 @@ export class AuctionsService implements OnModuleInit {
       );
       for (const p of missing) {
         if (!p.precio_inicial || Number(p.precio_inicial) <= 0) continue;
+        const estado = p.status === "active" ? "activo" : "pendiente";
         await this.dataSource.query(
           `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'activo')
+           VALUES ($1, $2, $3, $3, $4, NOW(), $5, $6)
            ON CONFLICT (product_id) DO NOTHING`,
           [p.id, p.user_id, p.precio_inicial, p.incremento_minimo || 1,
-           p.cierre_estimado ? new Date(p.cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
+           p.cierre_estimado ? new Date(p.cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+           estado]
         );
       }
       if (missing.length > 0) {

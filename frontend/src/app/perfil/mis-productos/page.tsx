@@ -21,7 +21,8 @@ export default function MisProductosPage() {
   const router = useRouter();
 
   const filtered = products.filter(p => {
-    const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase());
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || p.title.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q));
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -89,7 +90,7 @@ export default function MisProductosPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por título..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 bg-white" />
+                placeholder="Buscar por título o SKU..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 bg-white" />
             </div>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-200">
@@ -128,7 +129,6 @@ export default function MisProductosPage() {
                     <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Stock</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Producto</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Tipo</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden lg:table-cell">Especificaciones</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Estado</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide hidden md:table-cell">Fecha</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Acciones</th>
@@ -154,23 +154,6 @@ export default function MisProductosPage() {
                           "subasta": "Subasta",
                           "venta_por_lote": "Venta por Lote"
                         }[p.metodo_pago] || p.metodo_pago || "—"}</span>
-                      </td>
-                      <td className="px-5 py-4 hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500 max-w-[260px]">
-                          {p.specifications && Object.keys(p.specifications).length > 0 ? (
-                            Object.entries(p.specifications).filter(([k]) => k !== "Título del Producto" && k !== "Tipo de Producto" && k !== "Imagen" && k !== "Galería").slice(0, 3).map(([k, v]) => {
-                              const val = String(v ?? "");
-                              if (val.startsWith("/uploads") || val.startsWith("[")) return null;
-                              return (
-                                <span key={k}>
-                                  <span className="font-medium capitalize">{k.replace(/_/g, " ")}:</span> {val.length > 20 ? val.slice(0, 20) + "..." : val}
-                                </span>
-                              );
-                            })
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </div>
                       </td>
                       <td className="px-5 py-4 hidden md:table-cell">
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${

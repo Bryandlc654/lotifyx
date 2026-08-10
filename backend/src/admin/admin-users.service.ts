@@ -137,6 +137,10 @@ export class AdminUsersService {
       await this.userRepo.update(id, userFields);
     }
 
+    if (dto.status !== undefined && dto.status !== user.status) {
+      await this.syncContentByUserStatus(id, dto.status);
+    }
+
     const profileFields: any = {};
     if (dto.first_name !== undefined) profileFields.first_name = dto.first_name;
     if (dto.last_name !== undefined) profileFields.last_name = dto.last_name;
@@ -160,9 +164,49 @@ export class AdminUsersService {
     if (!user) throw new NotFoundException("Usuario no encontrado");
     const newStatus = user.status === "disabled" ? "active" : "disabled";
     await this.userRepo.update(id, { status: newStatus });
+    await this.syncContentByUserStatus(id, newStatus);
     const updated = await this.findOne(id);
     this.audit.log({ action: "user_status_changed", entity: "user", entityId: id, details: { from: user.status, to: newStatus } });
     return { ...updated, status: newStatus };
+  }
+
+  /** Desactiva/reactiva productos, subastas y ventas por lote del usuario según su estado */
+  private async syncContentByUserStatus(userId: string, status: string) {
+    if (status === "disabled") {
+      await this.dataSource.query(
+        `UPDATE products SET status = 'disabled' WHERE user_id = $1 AND status = 'active'`,
+        [userId],
+      );
+      await this.dataSource.query(
+        `UPDATE auctions a SET estado = 'pendiente'
+         FROM products p
+         WHERE p.id = a.product_id AND p.user_id = $1 AND a.estado = 'activo'`,
+        [userId],
+      );
+      await this.dataSource.query(
+        `UPDATE lot_sales l SET estado = 'pendiente'
+         FROM products p
+         WHERE p.id = l.product_id AND p.user_id = $1 AND l.estado = 'abierto'`,
+        [userId],
+      );
+    } else {
+      await this.dataSource.query(
+        `UPDATE products SET status = 'active' WHERE user_id = $1 AND status = 'disabled'`,
+        [userId],
+      );
+      await this.dataSource.query(
+        `UPDATE auctions a SET estado = 'activo'
+         FROM products p
+         WHERE p.id = a.product_id AND p.user_id = $1 AND a.estado = 'pendiente' AND p.status = 'active'`,
+        [userId],
+      );
+      await this.dataSource.query(
+        `UPDATE lot_sales l SET estado = 'abierto'
+         FROM products p
+         WHERE p.id = l.product_id AND p.user_id = $1 AND l.estado = 'pendiente' AND p.status = 'active'`,
+        [userId],
+      );
+    }
   }
 
   async remove(id: string) {

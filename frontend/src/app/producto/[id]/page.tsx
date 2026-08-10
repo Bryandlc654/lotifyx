@@ -108,9 +108,13 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     const s = String(v ?? "");
     return s.startsWith("/uploads/") || s.startsWith("[");
   });
-  const textEntries = entries.filter(([, v]) => {
+  const textEntries = entries.filter(([k, v]) => {
     const s = String(v ?? "");
-    return !s.startsWith("/uploads/") && !s.startsWith("[");
+    if (s.startsWith("/uploads/") || s.startsWith("[")) return false;
+    const key = k.toLowerCase().replace(/_/g, " ");
+    const isImageField = /imagen|imagenes|foto|image|picture/.test(key);
+    const isImageUrl = /^https?:\/\/.+/.test(s) && /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$|r2\.dev|cloudinary|amazonaws|cloudfront|cloudflare-ipfs/i.test(s);
+    return !(isImageField && isImageUrl);
   });
 
   const titleKeys = ["título del producto", "titulo del producto", "title", "nombre del producto"];

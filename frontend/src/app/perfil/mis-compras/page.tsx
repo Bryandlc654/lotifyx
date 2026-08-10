@@ -49,7 +49,9 @@ export default function MisComprasPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState("");
+  const [page, setPage] = useState(1);
 
+  const PER_PAGE = 5;
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const router = useRouter();
 
@@ -80,6 +82,9 @@ export default function MisComprasPage() {
       year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
   }
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / PER_PAGE));
+  const paginatedOrders = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <>
@@ -117,7 +122,7 @@ export default function MisComprasPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => {
+              {paginatedOrders.map((order) => {
                 const cfg = statusConfig[order.status] || { label: order.status, color: "text-gray-600 bg-gray-50", icon: AlertCircle };
                 const Icon = cfg.icon;
                 const showChat = order.items[0]?.seller?.id && (!order.bid_info || (order.bid_info.ganador_id && getCurrentUserId() === order.bid_info.ganador_id));
@@ -205,6 +210,41 @@ export default function MisComprasPage() {
               })}
             </div>
           )}
+
+          {!loading && orders.length > 0 && totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
+              <p className="text-xs text-gray-400">Página {page} de {totalPages}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    className={`w-8 h-8 text-sm font-semibold rounded-lg transition-colors ${
+                      n === page
+                        ? "bg-gradient-to-r from-[#8234FE] to-[#26BEFE] text-white"
+                        : "text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <Footer />
@@ -248,7 +288,7 @@ export default function MisComprasPage() {
                 {selectedOrder.items.map((item) => {
                   const showSeller = item.seller && (!selectedOrder.bid_info || (selectedOrder.bid_info.ganador_id && getCurrentUserId() === selectedOrder.bid_info.ganador_id));
                   return (
-                  <div key={item.id}>
+                    <div key={item.id}>
                     <div className="flex justify-between py-1">
                       <span className="text-gray-700">{item.product_title || "Producto"}</span>
                       <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>

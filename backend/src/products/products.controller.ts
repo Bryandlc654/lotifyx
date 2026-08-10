@@ -139,7 +139,7 @@ export class ProductsController {
 
   @Post(":id/view")
   @HttpCode(HttpStatus.OK)
-  view(@Param("id") id: string) { return this.service.registerView(id); }
+  view(@Param("id") id: string, @Req() req) { return this.service.registerView(id, req.user?.id); }
 
   @UseGuards(JwtAuthGuard)
   @Post(":id/save")
@@ -151,7 +151,7 @@ export class ProductsController {
   saveStatus(@Param("id") id: string, @Req() req) { return this.service.getSaveStatus(id, req.user.id); }
 
   @Get(":id")
-  findOne(@Param("id") id: string) { return this.service.findOne(id); }
+  findOne(@Param("id") id: string) { return this.service.findOnePublic(id); }
 
   @UseGuards(JwtAuthGuard)
   @Post()

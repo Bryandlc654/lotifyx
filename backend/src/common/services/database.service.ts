@@ -28,6 +28,13 @@ export class DatabaseService implements OnModuleInit {
     const migrations = [
       `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
+      `CREATE TABLE IF NOT EXISTS product_views (
+         id SERIAL PRIMARY KEY,
+         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+         product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_product_views_user ON product_views (user_id)`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

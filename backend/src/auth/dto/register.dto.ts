@@ -8,18 +8,21 @@ import {
   IsOptional,
   IsBoolean,
   IsDateString,
+  IsIn
 } from "class-validator";
 
 export class RegisterDto {
   @IsEmail({}, { message: "El correo no es válido" })
+  @Matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: "Ingresa un correo válido" })
   @IsNotEmpty({ message: "El correo es obligatorio" })
   correo: string;
 
   @IsString()
-  @IsNotEmpty({ message: "La contrasena es obligatoria" })
-  @MinLength(8, { message: "La contrasena debe tener al menos 8 caracteres" })
+  @IsNotEmpty({ message: "La contraseña es obligatoria" })
+  @MinLength(8, { message: "La contraseña debe tener al menos 8 caracteres" })
+  @Matches(/^\S+$/, { message: "La contraseña no puede contener espacios" })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/, {
-    message: "La contrasena debe contener mayúscula, minúscula, número y carácter especial",
+    message: "La contraseña debe contener mayúscula, minúscula, número y carácter especial",
   })
   contrasena: string;
 
@@ -27,17 +30,25 @@ export class RegisterDto {
   @IsNotEmpty({ message: "El nombre es obligatorio" })
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres" })
   @MaxLength(100, { message: "El nombre no debe superar los 100 caracteres" })
+  @Matches(/\S/, { message: "El nombre no puede contener solo espacios" })
   nombre: string;
 
   @IsString()
   @IsNotEmpty({ message: "Los apellidos son obligatorios" })
   @MinLength(2, { message: "Los apellidos deben tener al menos 2 caracteres" })
   @MaxLength(150, { message: "Los apellidos no deben superar los 150 caracteres" })
+  @Matches(/\S/, { message: "Los apellidos no pueden contener solo espacios" })
   apellidos: string;
 
+  @IsOptional()
+  @IsIn(["DNI", "Carnet de Extranjería", "Pasaporte"], {
+    message: "Tipo de documento no válido",
+  })
+  tipoDocumento?: string;
+
   @IsString()
-  @IsNotEmpty({ message: "El DNI es obligatorio" })
-  @Matches(/^\d{8}$/, { message: "El DNI debe tener 8 dígitos" })
+  @IsNotEmpty({ message: "El número de documento es obligatorio" })
+  @Matches(/^[A-Za-z0-9]{6,12}$/, { message: "El número de documento no es válido" })
   dni: string;
 
   @IsDateString({}, { message: "Fecha de nacimiento inválida" })
@@ -57,11 +68,13 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   @MaxLength(200, { message: "La razón social no debe superar los 200 caracteres" })
+  @Matches(/\S/, { message: "La razón social no puede contener solo espacios" })
   razonSocial?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20, { message: "El código de referido no debe superar los 20 caracteres" })
+  @Matches(/\S/, { message: "El código de referido no puede contener solo espacios" })
   codigoReferidos?: string;
 
   @IsString()

@@ -43,6 +43,7 @@ import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
 import { ValidateRucController } from "./validate-ruc.controller";
+import { ValidateDocumentController } from "./validate-document.controller";
 
 @Module({
   imports: [
@@ -144,7 +145,7 @@ import { ValidateRucController } from "./validate-ruc.controller";
     LotsModule,
   ],
 
-  controllers: [DebugController, ValidateRucController],
+  controllers: [DebugController, ValidateRucController, ValidateDocumentController],
 
   // ─── Global rate limit guard ──────────────
   providers: [
@@ -181,6 +182,7 @@ export class AppModule implements NestModule {
         { path: "api/categories", method: RequestMethod.GET },
         { path: "api/category-fields", method: RequestMethod.GET },
         { path: "api/validate-ruc", method: RequestMethod.POST },
+        { path: "api/validate-document", method: RequestMethod.POST },
         { path: "api/debug/(.*)", method: RequestMethod.ALL },
         { path: "api/blog", method: RequestMethod.GET },
         { path: "api/blog/:slug", method: RequestMethod.GET },

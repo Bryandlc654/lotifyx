@@ -16,6 +16,7 @@ import {
   registroSchema,
   RegistroFormData,
   COMO_NOS_ENCONTRASTE_OPTIONS,
+  TIPO_DOCUMENTO_OPTIONS,
 } from "@/lib/validations";
 
 export function RegistrationForm() {
@@ -26,6 +27,8 @@ export function RegistrationForm() {
   const [verificationCode, setVerificationCode] = useState("");
   const [rucValidating, setRucValidating] = useState(false);
   const [rucResult, setRucResult] = useState<{ valid: boolean; message?: string; razonSocial?: string } | null>(null);
+  const [docValidating, setDocValidating] = useState(false);
+  const [docResult, setDocResult] = useState<{ valid: boolean; checked?: boolean; message?: string } | null>(null);
   const router = useRouter();
 
   const {
@@ -41,6 +44,7 @@ export function RegistrationForm() {
     defaultValues: {
       nombre: "",
       apellidos: "",
+      tipoDocumento: "DNI",
       dni: "",
       fechaNacimiento: "",
       telefono: "",
@@ -59,6 +63,49 @@ export function RegistrationForm() {
   const aceptaTerminos = watch("aceptaTerminos");
   const accountType = watch("accountType");
   const rucValue = watch("ruc");
+  const tipoDocumento = watch("tipoDocumento");
+  const dniValue = watch("dni");
+
+  const docMaxLength =
+    tipoDocumento === "Pasaporte" ? 12 : tipoDocumento === "Carnet de Extranjería" ? 9 : 8;
+
+  // Document validation with API Peru (DNI / Carnet de Extranjería)
+  useEffect(() => {
+    const num = (dniValue || "").trim();
+    const ready =
+      tipoDocumento === "DNI"
+        ? num.length === 8
+        : tipoDocumento === "Carnet de Extranjería"
+          ? num.length === 9
+          : false;
+    if (!ready) {
+      setDocValidating(false);
+      setDocResult(null);
+      return;
+    }
+    setDocValidating(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    fetch(`${apiUrl}/api/validate-document`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo: tipoDocumento, numero: num }),
+    })
+      .then(r => r.json())
+      .then((data) => {
+        setDocResult(data);
+        if (data.valid && data.checked && data.nombre) {
+          setValue("nombre", data.nombre);
+          if (data.apellidoPaterno || data.apellidoMaterno) {
+            setValue(
+              "apellidos",
+              [data.apellidoPaterno, data.apellidoMaterno].filter(Boolean).join(" ")
+            );
+          }
+        }
+      })
+      .catch(() => setDocResult({ valid: false, message: "Error al validar documento" }))
+      .finally(() => setDocValidating(false));
+  }, [dniValue, tipoDocumento, setValue]);
 
   // RUC validation on 11 digits
   useEffect(() => {
@@ -90,6 +137,7 @@ export function RegistrationForm() {
       const { confirmarContrasena, ...rest } = data;
       const payload = {
         ...rest,
+        tipoDocumento: data.tipoDocumento,
         aceptaTerminos: Boolean(data.aceptaTerminos),
         accountType: data.accountType,
         codigoReferidos: data.codigoReferidos || undefined,
@@ -196,7 +244,23 @@ export function RegistrationForm() {
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 min-w-0">
-              <Input label="DNI" maxLength={8} inputMode="numeric" {...register("dni")} error={errors.dni?.message} />
+              <Select label="Tipo de documento" options={TIPO_DOCUMENTO_OPTIONS} {...register("tipoDocumento")} error={errors.tipoDocumento?.message} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input
+                label={tipoDocumento === "Carnet de Extranjería" ? "Número de carnet" : `Número de ${tipoDocumento}`}
+                maxLength={docMaxLength}
+                inputMode={tipoDocumento === "Pasaporte" ? "text" : "numeric"}
+                {...register("dni")}
+                error={errors.dni?.message || (!docValidating && docResult && !docResult.valid ? docResult.message : undefined)}
+              />
+              {docValidating && <p className="text-xs text-gray-400 mt-1">Validando {tipoDocumento}...</p>}
+              {!docValidating && docResult?.valid && docResult.checked && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  {tipoDocumento} válido
+                </p>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <Input label="Fecha de nacimiento" type="date" {...register("fechaNacimiento")} error={errors.fechaNacimiento?.message} />
