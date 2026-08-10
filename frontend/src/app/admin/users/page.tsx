@@ -34,6 +34,8 @@ export default function AdminUsersPage() {
     ruc: "", razon_social: "", is_verified: true,
   });
   const [saving, setSaving] = useState(false);
+  const [rucValidating, setRucValidating] = useState(false);
+  const [rucResult, setRucResult] = useState<{ valid: boolean; message?: string; razonSocial?: string } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; user?: AdminUser }>({ open: false });
 
   useEffect(() => { load(); getAdminRoles().then(setRoles).catch(() => {}); }, []);
@@ -42,6 +44,28 @@ export default function AdminUsersPage() {
     searchTimer.current = setTimeout(() => setDebounceSearch(search), 350);
   }, [search]);
   useEffect(() => { setPage(1); load(); }, [debounceSearch, filterRole, filterStatus]);
+
+  // Validación de RUC con API Peru (apiperudev) al completar los 11 dígitos
+  useEffect(() => {
+    const ruc = (form.ruc || "").trim();
+    if (!/^\d{11}$/.test(ruc)) { setRucResult(null); return; }
+    setRucValidating(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    fetch(`${apiUrl}/api/validate-ruc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ruc }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setRucResult(data);
+        if (data.valid && data.razonSocial) {
+          setForm(f => ({ ...f, razon_social: data.razonSocial }));
+        }
+      })
+      .catch(() => setRucResult({ valid: false, message: "Error al validar RUC" }))
+      .finally(() => setRucValidating(false));
+  }, [form.ruc]);
 
   async function load(p?: number) {
     setLoading(true);
@@ -71,23 +95,103 @@ export default function AdminUsersPage() {
   }
 
   async function handleSave() {
-    if (!form.email || !form.first_name || !form.last_name || !form.document_number || !form.ruc) {
+    const email = (form.email || "").trim();
+    const first_name = (form.first_name || "").trim();
+    const last_name = (form.last_name || "").trim();
+    const document_number = (form.document_number || "").trim();
+    const ruc = (form.ruc || "").trim();
+    const razon_social = (form.razon_social || "").trim();
+    const password = form.password || "";
+
+    if (!email || !first_name || !last_name || !document_number || !ruc) {
       toast.error("Correo, nombres, apellidos, DNI y RUC son obligatorios");
       return;
     }
-    if (!modal.user && !form.password) { toast.error("Contraseña obligatoria"); return; }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Ingresa un correo válido");
+      return;
+    }
+
+    if (password) {
+      if (password.length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres"); return; }
+      if (!/^\S+$/.test(password)) { toast.error("La contraseña no puede contener espacios"); return; }
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-])/.test(password)) {
+        toast.error("La contraseña debe contener mayúscula, minúscula, número y carácter especial");
+        return;
+      }
+    } else if (!modal.user) {
+      toast.error("Contraseña obligatoria");
+      return;
+    }
+
+    if (/\s/.test(document_number)) {
+      toast.error("El número de documento no puede contener espacios");
+      return;
+    }
+    const docOk =
+      form.document_type === "Carnet de Extranjería" ? /^\d{9}$/.test(document_number) :
+      form.document_type === "Pasaporte" ? /^[A-Za-z0-9]{6,12}$/.test(document_number) :
+      /^\d{8}$/.test(document_number);
+    if (!docOk) {
+      toast.error(
+        form.document_type === "Carnet de Extranjería" ? "El carnet de extranjería debe tener 9 dígitos" :
+        form.document_type === "Pasaporte" ? "El pasaporte debe tener entre 6 y 12 caracteres" :
+        "El DNI debe tener 8 dígitos"
+      );
+      return;
+    }
+
+    if (form.razon_social && !razon_social) {
+      toast.error("La razón social no puede contener solo espacios");
+      return;
+    }
+
+    if (!/^\d{11}$/.test(ruc)) {
+      toast.error("El RUC debe tener 11 dígitos");
+      return;
+    }
+
+    // Revalidar RUC con API Peru antes de guardar
+    setRucValidating(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const res = await fetch(`${apiUrl}/api/validate-ruc`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruc }),
+      });
+      const data = await res.json();
+      setRucResult(data);
+      if (!data.valid) {
+        toast.error(data.message || "El RUC no es válido");
+        return;
+      }
+    } catch {
+      setRucResult({ valid: false, message: "Error al validar RUC" });
+      toast.error("Error al validar el RUC. Intenta de nuevo.");
+      return;
+    } finally {
+      setRucValidating(false);
+    }
+
     setSaving(true);
     try {
+      const dto: any = {
+        ...form,
+        email, first_name, last_name, document_number, ruc, razon_social,
+        phone: (form.phone || "").trim(),
+      };
+      if (!dto.password) delete dto.password;
       if (modal.user) {
-        const dto: any = { ...form };
-        if (!dto.password) delete dto.password;
         await updateAdminUser(modal.user.id, dto);
         toast.success("Usuario actualizado");
       } else {
-        await createAdminUser(form);
+        await createAdminUser(dto);
         toast.success("Usuario creado");
       }
       setModal({ open: false });
+      setRucResult(null);
       load();
     } catch (e: any) { toast.error(e.message || "Error"); }
     finally { setSaving(false); }
@@ -243,8 +347,18 @@ export default function AdminUsersPage() {
                   {TIPO_DOCUMENTO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
-              <Field label="N° documento *" value={form.document_number} onChange={v => setForm({...form, document_number: v})} />
-              <Field label="RUC *" value={form.ruc} onChange={v => setForm({...form, ruc: v})} />
+              <Field label="N° documento *" value={form.document_number} maxLength={12} onChange={v => setForm({...form, document_number: v})} />
+              <div className="flex flex-col gap-1.5">
+                <Field label="RUC *" value={form.ruc} maxLength={11} inputMode="numeric" onChange={v => setForm({...form, ruc: v.replace(/\D/g, "")})} />
+                {rucValidating && <p className="text-xs text-gray-400 mt-1">Validando RUC...</p>}
+                {!rucValidating && rucResult && (
+                  rucResult.valid ? (
+                    <p className="text-xs text-green-600 mt-1">RUC válido</p>
+                  ) : (
+                    <p className="text-xs text-red-500 mt-1">{rucResult.message || "RUC no válido"}</p>
+                  )
+                )}
+              </div>
               <Field label="Razón social" value={form.razon_social} onChange={v => setForm({...form, razon_social: v})} />
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-gray-700">Rol</label>
@@ -318,13 +432,14 @@ export default function AdminUsersPage() {
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+function Field({ label, value, onChange, type = "text", placeholder, maxLength, inputMode }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; maxLength?: number; inputMode?: "numeric";
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-gray-700">{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        maxLength={maxLength} inputMode={inputMode}
         className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
     </div>
   );
