@@ -79,10 +79,16 @@ function DetallesContent() {
         .then(([_, p]) => {
           const specForm: Record<string, string> = {};
           Object.entries(p.specifications || {}).forEach(([k, v]) => { specForm[k] = String(v ?? ""); });
+          const specStock = specForm["Stock"] ?? specForm["stock"] ?? "";
+          const stockVal = p.stock != null && String(p.stock) !== "" ? String(p.stock) : specStock;
+          if (specStock !== "") {
+            const stockKey = specForm["Stock"] !== undefined ? "Stock" : "stock";
+            specForm[stockKey] = stockVal;
+          }
           setForm(specForm);
           setConditions({
             metodo_pago: p.metodo_pago || "",
-            stock: String(p.stock ?? ""),
+            stock: stockVal,
             precio_base: String(p.precio_base ?? (p.metodo_pago === "subasta" ? p.precio_inicial ?? "" : "")),
             precio_inicial: String(p.precio_inicial ?? ""),
             incremento_minimo: String(p.incremento_minimo ?? ""),
@@ -185,6 +191,21 @@ function DetallesContent() {
   function renderField(field: CategoryField) {
     const val = form[field.name] || "";
     const setVal = (v: string) => setForm(prev => ({ ...prev, [field.name]: v }));
+
+    if (/stock|cantidad|unidades/i.test(field.name) || /stock|cantidad|unidades/i.test(field.label)) {
+      return (
+        <div key={field.id}>
+          <label className="form-label" htmlFor={field.name}>{field.label}</label>
+          <input id={field.name} type="number" min="0" value={conditions.stock}
+            onChange={e => {
+              const v = e.target.value;
+              setConditions({ ...conditions, stock: v });
+              setForm(prev => ({ ...prev, [field.name]: v }));
+            }}
+            className="w-full form-input-custom focus:ring-purple-500" placeholder="0" />
+        </div>
+      );
+    }
 
     switch (field.type) {
       case "textarea":
