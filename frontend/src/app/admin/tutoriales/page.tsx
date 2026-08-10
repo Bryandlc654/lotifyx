@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminTutorials, createTutorial, updateTutorial, deleteTutorial, Tutorial } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminTutorialesPage() {
@@ -44,10 +45,11 @@ export default function AdminTutorialesPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este tutorial?")) return;
-    try { await deleteTutorial(id); toast.success("Tutorial eliminado"); load(); }
-    catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el tutorial")); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este tutorial?", async () => {
+      try { await deleteTutorial(id); toast.success("Tutorial eliminado"); load(); }
+      catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el tutorial")); }
+    });
   }
 
   async function handleToggleStatus(t: Tutorial) {

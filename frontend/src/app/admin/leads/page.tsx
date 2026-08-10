@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getLeads, deleteLead, Lead, isAuthenticated } from "@/lib/api";
 import { Trash2, Mail, Phone, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 
 export default function LeadsAdminPage() {
   const [items, setItems] = useState<Lead[]>([]);
@@ -21,10 +22,11 @@ export default function LeadsAdminPage() {
     finally { setLoading(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este lead?")) return;
-    try { await deleteLead(id); toast.success("Lead eliminado"); load(); if (selected?.id === id) setSelected(null); }
-    catch { toast.error("Error al eliminar"); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este lead?", async () => {
+      try { await deleteLead(id); toast.success("Lead eliminado"); load(); if (selected?.id === id) setSelected(null); }
+      catch { toast.error("Error al eliminar"); }
+    });
   }
 
   return (

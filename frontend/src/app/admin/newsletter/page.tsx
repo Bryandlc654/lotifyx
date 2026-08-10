@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminNewsletter, deleteNewsletterSubscriber, exportNewsletterCsv } from "@/lib/api";
 import { Mail, Calendar, CheckCircle, XCircle, Loader2, Download, Trash2 } from "lucide-react";
+import { confirmAction } from "@/lib/confirm";
 
 export default function AdminNewsletterPage() {
   const [subs, setSubs] = useState<any[]>([]);
@@ -14,9 +15,10 @@ export default function AdminNewsletterPage() {
     getAdminNewsletter().then(setSubs).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  async function handleDelete(id: string, email: string) {
-    if (!confirm(`¿Eliminar a "${email}" de la lista?`)) return;
-    try { await deleteNewsletterSubscriber(id); setSubs(prev => prev.filter(s => s.id !== id)); } catch {}
+  function handleDelete(id: string, email: string) {
+    confirmAction(`¿Eliminar a "${email}" de la lista?`, async () => {
+      try { await deleteNewsletterSubscriber(id); setSubs(prev => prev.filter(s => s.id !== id)); } catch {}
+    });
   }
 
   return (

@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getCategoryFieldsAdmin, createCategoryField, updateCategoryField, deleteCategoryField, getCategories, CategoryField, Category, isAuthenticated } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 const FIELD_TYPES = ["text", "textarea", "number", "image", "select", "gallery"];
@@ -74,10 +75,11 @@ export default function CategoryFieldsAdminPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteCategoryField(id); toast.success("Eliminado"); load(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deleteCategoryField(id); toast.success("Eliminado"); load(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   return (

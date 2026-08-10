@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getFaqCategoriesAdmin, createFaqCategory, updateFaqCategory, deleteFaqCategory, FaqCategory, isAuthenticated } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function FaqCategoriesAdminPage() {
@@ -40,10 +41,11 @@ export default function FaqCategoriesAdminPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteFaqCategory(id); toast.success("Eliminada"); load(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deleteFaqCategory(id); toast.success("Eliminada"); load(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   return (

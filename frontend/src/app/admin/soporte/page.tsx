@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminSupportTickets, updateSupportTicket, deleteSupportTicket, SupportTicket } from "@/lib/api";
 import { Search, MessageSquare, CheckCircle, XCircle, AlertCircle, Send, Loader2, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 const statusLabels: Record<string, string> = { open: "Abierto", in_progress: "En progreso", resolved: "Resuelto", closed: "Cerrado" };
@@ -41,9 +42,10 @@ export default function AdminSoportePage() {
     try { await updateSupportTicket(id, { status }); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al cambiar el estado")); }
   }
 
-  async function handleDelete(id: string, num: string) {
-    if (!confirm(`¿Eliminar ticket ${num}?`)) return;
-    try { await deleteSupportTicket(id); toast.success("Ticket eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el ticket")); }
+  function handleDelete(id: string, num: string) {
+    confirmAction(`¿Eliminar ticket ${num}?`, async () => {
+      try { await deleteSupportTicket(id); toast.success("Ticket eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el ticket")); }
+    });
   }
 
   const filtered = tickets.filter(t => {

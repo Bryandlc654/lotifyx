@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminEvents, createEvent, updateEvent, deleteEvent, AppEvent } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, Calendar, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminEventosPage() {
@@ -45,9 +46,10 @@ export default function AdminEventosPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este evento?")) return;
-    try { await deleteEvent(id); toast.success("Evento eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el evento")); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este evento?", async () => {
+      try { await deleteEvent(id); toast.success("Evento eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el evento")); }
+    });
   }
 
   async function handleToggleStatus(ev: AppEvent) {

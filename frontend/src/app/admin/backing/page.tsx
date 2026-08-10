@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getBackingLogos, createBackingLogo, updateBackingLogo, deleteBackingLogo, BackingLogo } from "@/lib/api";
 import { Plus, Trash2, Pencil, X, Check, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -46,10 +47,11 @@ export default function BackingPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteBackingLogo(id); toast.success("Eliminado"); load(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deleteBackingLogo(id); toast.success("Eliminado"); load(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   return (

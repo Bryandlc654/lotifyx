@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, Shield, Check } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function RbacPage() {
@@ -34,10 +35,11 @@ export default function RbacPage() {
     catch (e: any) {     toast.error(getErrorMessage(e)); }
   }
 
-  async function handleDeleteRole(id: string) {
-    if (!confirm("¿Eliminar este rol?")) return;
-    try { await deleteRbacRole(id); toast.success("Eliminado"); setSelectedRole(null); refresh(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDeleteRole(id: string) {
+    confirmAction("¿Eliminar este rol?", async () => {
+      try { await deleteRbacRole(id); toast.success("Eliminado"); setSelectedRole(null); refresh(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   async function togglePerm(permId: string) {

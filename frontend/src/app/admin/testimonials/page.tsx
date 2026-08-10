@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, Pencil, X, Check, Star, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function TestimonialsPage() {
@@ -54,10 +55,11 @@ export default function TestimonialsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este testimonio?")) return;
-    try { await deleteTestimonial(id); toast.success("Eliminado"); load(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este testimonio?", async () => {
+      try { await deleteTestimonial(id); toast.success("Eliminado"); load(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   function startEdit(item: Testimonial) {

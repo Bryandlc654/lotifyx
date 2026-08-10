@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { getBankAccounts, saveBankAccount, updateBankAccount, deleteBankAccount, getProfile, isAuthenticated, removeTokens } from "@/lib/api";
 import { Banknote, ChevronRight, Pencil, Trash2, Building2, User, Hash, X, MessageCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 interface BankAccount {
@@ -79,15 +80,16 @@ export default function MisCuentasPage() {
     }
   }
 
-  async function handleDelete(acc: BankAccount) {
-    if (!confirm(`¿Eliminar la cuenta ${acc.bank_name} - ${acc.account_number}?`)) return;
-    try {
-      await deleteBankAccount(acc.id);
-      toast.success("Cuenta eliminada");
-      setAccounts(prev => prev.filter(a => a.id !== acc.id));
-    } catch {
-      toast.error("Error al eliminar");
-    }
+  function handleDelete(acc: BankAccount) {
+    confirmAction(`¿Eliminar la cuenta ${acc.bank_name} - ${acc.account_number}?`, async () => {
+      try {
+        await deleteBankAccount(acc.id);
+        toast.success("Cuenta eliminada");
+        setAccounts(prev => prev.filter(a => a.id !== acc.id));
+      } catch {
+        toast.error("Error al eliminar");
+      }
+    });
   }
 
   const bankLogos: Record<string, string> = {

@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminHelpArticles, createHelpArticle, updateHelpArticle, deleteHelpArticle, HelpArticle } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, Search } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminAyudaPage() {
@@ -43,9 +44,10 @@ export default function AdminAyudaPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteHelpArticle(id); toast.success("Eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deleteHelpArticle(id); toast.success("Eliminado"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
+    });
   }
 
   async function handleToggleStatus(a: HelpArticle) {

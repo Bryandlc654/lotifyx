@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getFaqsAdmin, createFaq, updateFaq, deleteFaq, Faq, isAuthenticated, getFaqCategoriesAdmin, FaqCategory } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, Check, Search } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function FaqsAdminPage() {
@@ -46,10 +47,11 @@ export default function FaqsAdminPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deleteFaq(id); toast.success("Eliminada"); load(); }
-    catch (e: any) {     toast.error(getErrorMessage(e)); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deleteFaq(id); toast.success("Eliminada"); load(); }
+      catch (e: any) {     toast.error(getErrorMessage(e)); }
+    });
   }
 
   const filtered = search ? items.filter(f => f.question.toLowerCase().includes(search.toLowerCase()) || f.answer.toLowerCase().includes(search.toLowerCase()) || f.category.toLowerCase().includes(search.toLowerCase())) : items;

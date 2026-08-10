@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminReviews, adminDeleteReview, getImageUrl } from "@/lib/api";
 import type { Review } from "@/lib/api";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { Star, Search, Trash2, Loader2, Package } from "lucide-react";
 
 export default function AdminReviewsPage() {
@@ -31,15 +32,16 @@ export default function AdminReviewsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta reseña?")) return;
-    try {
-      await adminDeleteReview(id);
-      toast.success("Reseña eliminada");
-      setReviews(prev => prev.filter(r => r.id !== id));
-    } catch {
-      toast.error("Error al eliminar");
-    }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar esta reseña?", async () => {
+      try {
+        await adminDeleteReview(id);
+        toast.success("Reseña eliminada");
+        setReviews(prev => prev.filter(r => r.id !== id));
+      } catch {
+        toast.error("Error al eliminar");
+      }
+    });
   }
 
   const filtered = reviews.filter(r => {

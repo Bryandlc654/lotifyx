@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { Plus, Pencil, Trash2, X, ChevronRight, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -81,10 +82,11 @@ export default function CategoriesPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta categoría? Las subcategorías quedarán sin padre.")) return;
-    try { await deleteCategory(id); toast.success("Eliminada"); load(); }
-    catch (e: any) { toast.error("Error al eliminar"); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar esta categoría? Las subcategorías quedarán sin padre.", async () => {
+      try { await deleteCategory(id); toast.success("Eliminada"); load(); }
+      catch (e: any) { toast.error("Error al eliminar"); }
+    });
   }
 
   function toggleExpand(id: string) {

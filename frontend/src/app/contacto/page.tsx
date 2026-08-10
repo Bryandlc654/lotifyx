@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { createLead } from "@/lib/api";
+import { toast } from "sonner";
 
 const countries = [
   { code: "+1", label: "US" },
@@ -48,7 +49,7 @@ export default function ContactoPage() {
       });
       setSent(true);
     } catch {
-      alert("Error al enviar el mensaje. Intenta de nuevo.");
+      toast.error("Error al enviar el mensaje. Intenta de nuevo.");
     } finally {
       setSending(false);
     }

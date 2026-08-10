@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getBanners, createBanner, deleteBanner, updateBanner, Banner } from "@/lib/api";
 import { Plus, Trash2, Upload, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -63,15 +64,16 @@ export default function BannersPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este banner?")) return;
-    try {
-      await deleteBanner(id);
-      toast.success("Banner eliminado");
-      setBanners((prev) => prev.filter((b) => b.id !== id));
-    } catch (err: any) {
-      toast.error(err.message || "Error al eliminar");
-    }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este banner?", async () => {
+      try {
+        await deleteBanner(id);
+        toast.success("Banner eliminado");
+        setBanners((prev) => prev.filter((b) => b.id !== id));
+      } catch (err: any) {
+        toast.error(err.message || "Error al eliminar");
+      }
+    });
   }
 
   function startEdit(banner: Banner) {

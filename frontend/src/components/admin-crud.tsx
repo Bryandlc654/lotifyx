@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 
 interface CrudColumn {
   key: string;
@@ -70,13 +71,14 @@ export function AdminCrud({ title, columns, fields, load, create, update, remove
     } catch { toast.error("Error al actualizar"); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Eliminar?")) return;
-    try {
-      await remove(id);
-      toast.success("Eliminado");
-      loadItems();
-    } catch { toast.error("Error al eliminar"); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try {
+        await remove(id);
+        toast.success("Eliminado");
+        loadItems();
+      } catch { toast.error("Error al eliminar"); }
+    });
   }
 
   function openEdit(item: any) {

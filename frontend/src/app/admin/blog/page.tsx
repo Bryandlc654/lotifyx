@@ -6,6 +6,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, BlogPost } from "@/lib/api";
 import { Plus, Pencil, Trash2, Eye, X, EyeOff, Check, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 const QuillEditor = dynamic(() => import("react-quill").then(m => m.default), { ssr: false });
@@ -66,10 +67,11 @@ export default function AdminBlogPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este artículo?")) return;
-    try { await deleteBlogPost(id); toast.success("Artículo eliminado"); load(); }
-    catch { toast.error("Error al eliminar"); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar este artículo?", async () => {
+      try { await deleteBlogPost(id); toast.success("Artículo eliminado"); load(); }
+      catch { toast.error("Error al eliminar"); }
+    });
   }
 
   async function handleToggleStatus(post: BlogPost) {

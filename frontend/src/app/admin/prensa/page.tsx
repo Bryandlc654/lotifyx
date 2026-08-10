@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminPressArticles, createPressArticle, updatePressArticle, deletePressArticle, PressArticle } from "@/lib/api";
 import { Plus, Pencil, Trash2, EyeOff, Eye, Check, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { confirmAction } from "@/lib/confirm";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminPrensaPage() {
@@ -42,9 +43,10 @@ export default function AdminPrensaPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar?")) return;
-    try { await deletePressArticle(id); toast.success("Eliminada"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
+  function handleDelete(id: string) {
+    confirmAction("¿Eliminar?", async () => {
+      try { await deletePressArticle(id); toast.success("Eliminada"); load(); } catch (e) { toast.error(getErrorMessage(e, "Error al eliminar el artículo")); }
+    });
   }
 
   async function handleToggleStatus(a: PressArticle) {
