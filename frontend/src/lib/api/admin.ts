@@ -269,6 +269,21 @@ export async function getAdminDashboard() {
   return res.json();
 }
 
+export async function exportAdminDashboard(format: "csv" | "xlsx") {
+  const res = await authFetch(`${API_URL}/admin/dashboard/export?format=${format}`);
+  if (!res.ok) throw new Error("Error al exportar métricas");
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/);
+  const filename = match?.[1] || `metricas-lotifyx.${format}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function getAuditLogs(filters?: { action?: string; entity?: string }) {
   const params = new URLSearchParams();
   if (filters?.action) params.set("action", filters.action);

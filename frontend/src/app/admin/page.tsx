@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminDashboard } from "@/lib/api";
+import { getAdminDashboard, exportAdminDashboard } from "@/lib/api";
 import {
   Users, Package, ShoppingCart, DollarSign, TrendingUp,
-  Clock, CheckCircle, BarChart3, Activity,
+  Clock, CheckCircle, BarChart3, Activity, Download, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +33,9 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getAdminDashboard()
@@ -40,6 +43,27 @@ export default function AdminDashboardPage() {
       .catch(() => toast.error("Error al cargar dashboard"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  async function handleExport(format: "csv" | "xlsx") {
+    setExportOpen(false);
+    setExporting(true);
+    try {
+      await exportAdminDashboard(format);
+      toast.success(format === "xlsx" ? "Excel descargado" : "CSV descargado");
+    } catch (e: any) {
+      toast.error("Error al exportar métricas");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -59,11 +83,31 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       <div className="p-6 sm:p-8">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-3">
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <span className="text-xs text-gray-400 flex items-center gap-1">
-            <Activity className="h-3 w-3" /> Última actualización: ahora
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportOpen(o => !o)}
+                disabled={exporting}
+                className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60">
+                <Download className="h-4 w-4 text-purple-600" />
+                {exporting ? "Generando..." : "Descargar métricas"}
+                <ChevronDown className="h-3 w-3 text-gray-400" />
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
+                  <button onClick={() => handleExport("xlsx")}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">Excel (.xlsx)</button>
+                  <button onClick={() => handleExport("csv")}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50">CSV</button>
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-gray-400 flex items-center gap-1">
+              <Activity className="h-3 w-3" /> Última actualización: ahora
+            </span>
+          </div>
         </div>
         <p className="text-gray-500 text-sm mb-8">Resumen general de la plataforma</p>
 
