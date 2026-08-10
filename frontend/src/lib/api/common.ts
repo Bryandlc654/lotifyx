@@ -110,6 +110,7 @@ export interface Product {
   garantia: string;
   politicas_imagenes: string;
   status: string;
+  auction_estado?: string;
   created_at: string;
   updated_at: string;
 }

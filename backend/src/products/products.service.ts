@@ -47,8 +47,17 @@ export class ProductsService {
     return { data, total, page, totalPages: Math.ceil(total / limit) };
   }
 
-  findByUser(userId: string) {
-    return this.repo.find({ where: { user_id: userId, deleted_at: IsNull() }, order: { created_at: "DESC" }, take: 200 });
+  async findByUser(userId: string) {
+    const rows = await this.dataSource.query(
+      `SELECT p.*, a.estado AS auction_estado
+       FROM products p
+       LEFT JOIN auctions a ON a.product_id = p.id
+       WHERE p.user_id = $1 AND p.deleted_at IS NULL
+       ORDER BY p.created_at DESC
+       LIMIT 200`,
+      [userId],
+    );
+    return rows;
   }
 
   async findOne(id: string) {

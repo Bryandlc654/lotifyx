@@ -157,8 +157,11 @@ export default function MisProductosPage() {
                       </td>
                       <td className="px-5 py-4 hidden md:table-cell">
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          p.status === "active" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
-                        }`}>{p.status}</span>
+                          p.metodo_pago === "subasta" && p.auction_estado === "cerrado" ? "bg-red-50 text-red-500"
+                          : p.status === "active" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {p.metodo_pago === "subasta" && p.auction_estado === "cerrado" ? "cerrado" : p.status}
+                        </span>
                       </td>
                       <td className="px-5 py-4 hidden md:table-cell text-sm text-gray-400">{new Date(p.created_at).toLocaleDateString("es-PE")}</td>
                       <td className="px-5 py-4 text-right">
@@ -269,8 +272,9 @@ export default function MisProductosPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 font-medium">Estado:</span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    detailProduct.status === "active" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
-                  }`}>{detailProduct.status}</span>
+                    detailProduct.metodo_pago === "subasta" && detailProduct.auction_estado === "cerrado" ? "bg-red-50 text-red-500"
+                    : detailProduct.status === "active" ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"
+                  }`}>{detailProduct.metodo_pago === "subasta" && detailProduct.auction_estado === "cerrado" ? "cerrado" : detailProduct.status}</span>
                 </div>
               </div>
 
