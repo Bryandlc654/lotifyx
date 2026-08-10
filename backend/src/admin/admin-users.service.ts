@@ -43,6 +43,7 @@ export class AdminUsersService {
     const rows = await this.dataSource.query(
       `SELECT u.id, u.email, u.phone, u.status, u.is_verified, u.created_at, u.updated_at,
               up.first_name, up.last_name, up.document_type, up.document_number, up.account_type,
+              up.ruc, up.razon_social,
               r.id AS role_id, r.name AS role_name, r.is_admin AS role_is_admin
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
@@ -55,7 +56,7 @@ export class AdminUsersService {
         id: r.id, email: r.email, phone: r.phone, status: r.status,
         is_verified: r.is_verified, role_id: r.role_id,
         created_at: r.created_at, updated_at: r.updated_at,
-        profile: { first_name: r.first_name, last_name: r.last_name, document_type: r.document_type, document_number: r.document_number, account_type: r.account_type },
+        profile: { first_name: r.first_name, last_name: r.last_name, document_type: r.document_type, document_number: r.document_number, account_type: r.account_type, ruc: r.ruc, razon_social: r.razon_social },
         role: r.role_id ? { id: r.role_id, name: r.role_name, is_admin: r.role_is_admin } : null,
       })),
       total, page, limit, totalPages: Math.ceil(total / limit),
@@ -127,6 +128,11 @@ export class AdminUsersService {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException("Usuario no encontrado");
 
+    if (dto.email !== undefined && dto.email !== user.email) {
+      const ex = await this.userRepo.findOne({ where: { email: dto.email } });
+      if (ex) throw new ConflictException("El correo ya está registrado por otro usuario");
+    }
+
     const userFields: any = {};
     if (dto.email !== undefined) userFields.email = dto.email;
     if (dto.phone !== undefined) userFields.phone = dto.phone;
@@ -138,7 +144,12 @@ export class AdminUsersService {
     if (dto.is_verified !== undefined) userFields.is_verified = dto.is_verified;
 
     if (Object.keys(userFields).length > 0) {
-      await this.userRepo.update(id, userFields);
+      try {
+        await this.userRepo.update(id, userFields);
+      } catch (e: any) {
+        if (e?.code === "23505") throw new ConflictException("El correo ya está registrado por otro usuario");
+        throw e;
+      }
     }
 
     if (dto.status !== undefined && dto.status !== user.status) {
@@ -150,11 +161,24 @@ export class AdminUsersService {
     if (dto.last_name !== undefined) profileFields.last_name = dto.last_name;
     if (dto.document_type !== undefined) profileFields.document_type = dto.document_type;
     if (dto.document_number !== undefined) profileFields.document_number = dto.document_number;
-    if (dto.ruc !== undefined) profileFields.ruc = dto.ruc;
-    if (dto.razon_social !== undefined) profileFields.razon_social = dto.razon_social;
+    if (dto.ruc !== undefined && dto.ruc !== "") profileFields.ruc = dto.ruc;
+    if (dto.razon_social !== undefined && dto.razon_social !== "") profileFields.razon_social = dto.razon_social;
+
+    if (dto.ruc && dto.ruc !== "") {
+      const currentProfile = await this.profileRepo.findOne({ where: { user_id: id } });
+      if ((currentProfile?.ruc || "") !== dto.ruc) {
+        const ex = await this.profileRepo.findOne({ where: { ruc: dto.ruc } });
+        if (ex) throw new ConflictException("El RUC ya está registrado por otro usuario");
+      }
+    }
 
     if (Object.keys(profileFields).length > 0) {
-      await this.profileRepo.update({ user_id: id }, profileFields);
+      try {
+        await this.profileRepo.update({ user_id: id }, profileFields);
+      } catch (e: any) {
+        if (e?.code === "23505") throw new ConflictException("El RUC ya está registrado por otro usuario");
+        throw e;
+      }
     }
 
     const result = await this.findOne(id);
