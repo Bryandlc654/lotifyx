@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, Product, CategoryField, Review } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2 } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
@@ -34,6 +34,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [showBidModal, setShowBidModal] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [bidding, setBidding] = useState(false);
+  const [lot, setLot] = useState<any>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinQty, setJoinQty] = useState(1);
+  const [joining, setJoining] = useState(false);
   const [activeImg, setActiveImg] = useState(0);
   const cart = useCart();
 
@@ -61,6 +65,9 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
         onAuctionUpdate((data) => {
           setAuction((prev: any) => prev ? { ...prev, ...data } : prev);
         });
+      }
+      if (p.metodo_pago === "venta_por_lote") {
+        getLotByProduct(id).then(setLot).catch(() => {});
       }
       const uid = getCurrentUserId();
       setIsOwn(uid === p.user_id);
@@ -336,6 +343,130 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                         <p className="text-gray-500 text-sm mt-1">Esta subasta ya finalizó. No resultaste ganador.</p>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            ) : product.metodo_pago === "venta_por_lote" && lot ? (
+              <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
+                <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {sidebarSpecs.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {sidebarSpecs.map(([k, v]) => {
+                      const val = String(v ?? "");
+                      if (!val) return null;
+                      return (
+                        <span key={k} className="px-3 py-1 bg-[#f3efff] text-[#a885f7] text-[12px] font-semibold rounded-full">
+                          {val}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-[13px] text-gray-500 font-medium mb-6">
+                  <p>Estado: <span className="text-gray-700">Nuevo</span></p>
+                  <p>LOT: <span className="text-gray-700 font-bold uppercase">{product.sku || product.id.slice(0, 8)}</span></p>
+                </div>
+
+                <div className="border border-gray-200 rounded-2xl overflow-hidden mb-6">
+                  <div className="bg-[#f8f6ff] p-4 flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <h3 className="text-[#8b5cf6] font-bold text-[16px]">Venta por lote</h3>
+                      <p className="text-gray-500 text-[13px]">Reserva unidades y completa el lote junto a otros compradores</p>
+                    </div>
+                    <Layers className="w-8 h-8 text-[#8b5cf6] opacity-80" />
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Precio por unidad</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(lot.precio_individual).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Lote completo</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(lot.precio_lote).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Unidades</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">{lot.cantidad_reservada} / {lot.cantidad_total} reservadas</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Mínimo para cerrar</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">{lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Participantes</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">{lot.participantes_count}</span>
+                    </div>
+                    {lot.fecha_cierre && (
+                      <div className="flex justify-between items-center p-4">
+                        <span className="text-gray-500 text-[15px]">Cierre de convocatoria</span>
+                        <span className="text-[#2d3748] font-bold text-[16px]">{new Date(lot.fecha_cierre).toLocaleDateString("es-PE", { year: "numeric", month: "short", day: "numeric" })}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="px-4 pb-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                      <span>{lot.cantidad_disponible} unidad{lot.cantidad_disponible !== 1 ? "es" : ""} disponibles</span>
+                      <span>{Math.min(100, Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100))}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#8234FE] to-[#26BEFE] rounded-full" style={{ width: `${Math.min(100, Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100))}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {lot.estado === "abierto" && (
+                  <>
+                    <div className="bg-[#fffaf0] rounded-2xl p-5 mb-6 border border-orange-50">
+                      <p className="text-gray-700 font-bold text-[15px] mb-1">¿Cómo funciona?</p>
+                      <p className="text-gray-500 text-[12px] leading-snug">
+                        Reserva la cantidad que quieras comprar. Cuando se alcance el mínimo de {lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}, el lote se cierra y todas las reservas quedan confirmadas.
+                      </p>
+                    </div>
+                    {isOwn ? (
+                      <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
+                        <p className="text-purple-700 font-semibold text-sm">Este es tu lote</p>
+                        <p className="text-purple-600 text-xs mt-1">Tienes {lot.participantes_count} participante(s) y {lot.cantidad_reservada} unidad(es) reservada(s).</p>
+                      </div>
+                    ) : lot.my_participant ? (
+                      <div className="space-y-3">
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                          <p className="text-green-700 font-semibold text-sm">Has reservado {lot.my_participant.cantidad} unidad{lot.my_participant.cantidad !== 1 ? "es" : ""}</p>
+                          <p className="text-green-600 text-xs mt-1">Puedes ajustar tu cantidad mientras el lote esté abierto.</p>
+                        </div>
+                        <button onClick={() => { setJoinQty(lot.my_participant.cantidad); setShowJoinModal(true); }}
+                          className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                          Ajustar mi reserva
+                        </button>
+                      </div>
+                    ) : lot.cantidad_disponible <= 0 ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                        <p className="text-gray-600 font-semibold">Lote completo</p>
+                        <p className="text-gray-500 text-sm mt-1">Todas las unidades han sido reservadas.</p>
+                      </div>
+                    ) : (
+                      <button onClick={() => {
+                        if (!getCurrentUserId()) { setShowLoginModal(true); return; }
+                        setJoinQty(1);
+                        setShowJoinModal(true);
+                      }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
+                        Unirme al lote
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {lot.estado === "cerrado" && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                    <p className="text-green-700 font-bold text-lg">¡Lote completado!</p>
+                    <p className="text-green-600 text-sm mt-1">Se alcanzó el mínimo requerido y todas las reservas quedaron confirmadas.</p>
+                  </div>
+                )}
+
+                {lot.estado === "cancelado" && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                    <p className="text-gray-600 font-semibold">Lote cancelado</p>
+                    <p className="text-gray-500 text-sm mt-1">No se alcanzó el mínimo de unidades antes del cierre.</p>
                   </div>
                 )}
               </div>
@@ -769,6 +900,67 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               onMouseOver={e => e.currentTarget.style.backgroundColor = "#586375"}
               onMouseOut={e => e.currentTarget.style.backgroundColor = "#6b778d"}>
               Ir a pagar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Join Lot Modal */}
+      {showJoinModal && lot && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowJoinModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <button onClick={() => setShowJoinModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">{lot.my_participant ? "Ajustar reserva" : "Unirme al lote"}</h3>
+            <p className="text-sm text-gray-500 mb-6">Elige cuántas unidades quieres reservar</p>
+
+            <div className="bg-purple-50 rounded-xl p-4 mb-6 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Precio por unidad</span>
+                <span className="font-semibold text-gray-800">S/ {Number(lot.precio_individual).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Disponibles para ti</span>
+                <span className="font-semibold text-gray-800">{lot.cantidad_disponible + (lot.my_participant?.cantidad || 0)} unidad(es)</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Cantidad de unidades</label>
+              <input type="number" min={1} max={lot.cantidad_disponible + (lot.my_participant?.cantidad || 0)} value={joinQty}
+                onChange={e => setJoinQty(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
+            </div>
+
+            <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3 mb-6">
+              <span className="text-sm text-gray-500">Total al cerrar el lote</span>
+              <span className="font-bold text-lg text-gray-900">
+                S/ {((Number(lot.precio_individual) || 0) * Math.max(1, joinQty)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <button onClick={async () => {
+              setJoining(true);
+              try {
+                const res = await joinLot(lot.id, joinQty);
+                setShowJoinModal(false);
+                const fresh = await getLotByProduct(product.id).catch(() => null);
+                if (fresh) setLot(fresh);
+                if (res?.lot_cerrado) {
+                  toast.success("¡Lote completado! Tu reserva quedó confirmada.");
+                } else {
+                  toast.success("Te uniste al lote. La reserva queda pendiente hasta completar el mínimo.");
+                }
+              } catch (e: any) {
+                toast.error(e.message || "Error al unirte al lote");
+              } finally {
+                setJoining(false);
+              }
+            }} disabled={joining}
+              className="w-full bg-gradient-to-r from-purple-600 to-cyan-400 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-sm disabled:opacity-50">
+              {joining ? "Procesando..." : lot.my_participant ? "Guardar cambios" : "Confirmar reserva"}
             </button>
           </div>
         </div>

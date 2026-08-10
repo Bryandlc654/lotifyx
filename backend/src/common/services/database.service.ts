@@ -28,6 +28,9 @@ export class DatabaseService implements OnModuleInit {
     const migrations = [
       `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS cantidad_total INT`,
+      `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS cantidad_total INT DEFAULT 1`,
+      `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS cantidad_reservada INT DEFAULT 0`,
       `CREATE TABLE IF NOT EXISTS product_views (
          id SERIAL PRIMARY KEY,
          user_id UUID REFERENCES users(id) ON DELETE CASCADE,

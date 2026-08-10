@@ -43,6 +43,9 @@ export class Product {
   @Column({ type: "int", nullable: true })
   participantes_minimos: number;
 
+  @Column({ type: "int", nullable: true })
+  cantidad_total: number;
+
   @Column({ type: "timestamp", nullable: true })
   cierre_estimado: Date;
 

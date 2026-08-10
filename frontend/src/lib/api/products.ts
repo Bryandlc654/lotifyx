@@ -148,15 +148,28 @@ export async function getActiveProducts(categoryId?: string, search?: string, li
   return res.json();
 }
 
-export async function getAdminProducts(status?: string, sort?: "ASC" | "DESC", page: number = 1, limit: number = 20): Promise<{ data: import("./common").Product[]; total: number; page: number; totalPages: number }> {
+export async function getAdminProducts(status?: string, sort?: "ASC" | "DESC", page: number = 1, limit: number = 20, notMethod?: string): Promise<{ data: import("./common").Product[]; total: number; page: number; totalPages: number }> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (sort) params.set("sort", sort);
+  if (notMethod) params.set("notMethod", notMethod);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await authFetch(`${API_URL}/admin/products${qs}`);
+  if (!res.ok) throw new Error("Error al obtener productos");
+  return res.json();
+}
+
+export async function getAdminLots(status?: string, sort?: "ASC" | "DESC", page: number = 1, limit: number = 20): Promise<{ data: import("./common").Product[]; total: number; page: number; totalPages: number }> {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
   if (sort) params.set("sort", sort);
   params.set("page", String(page));
   params.set("limit", String(limit));
   const qs = params.toString() ? `?${params.toString()}` : "";
-  const res = await authFetch(`${API_URL}/admin/products${qs}`);
-  if (!res.ok) throw new Error("Error al obtener productos");
+  const res = await authFetch(`${API_URL}/admin/lots${qs}`);
+  if (!res.ok) throw new Error("Error al obtener lotes");
   return res.json();
 }
 

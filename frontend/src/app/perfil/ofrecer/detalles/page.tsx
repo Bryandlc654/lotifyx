@@ -42,6 +42,7 @@ function DetallesContent() {
     precio_lote: "",
     precio_individual: "",
     participantes_minimos: "",
+    cantidad_total: "",
     envio_delivery: false,
     envio_courier: false,
     costo_envio: "",
@@ -96,6 +97,7 @@ function DetallesContent() {
             precio_lote: String(p.precio_lote ?? ""),
             precio_individual: String(p.precio_individual ?? ""),
             participantes_minimos: String(p.participantes_minimos ?? ""),
+            cantidad_total: String(p.cantidad_total ?? ""),
             envio_delivery: p.envio_delivery,
             envio_courier: p.envio_courier,
             costo_envio: String(p.costo_envio || ""),
@@ -188,6 +190,11 @@ function DetallesContent() {
     );
   }
 
+  const isLot = conditions.metodo_pago === "venta_por_lote";
+  const lotTotal = isLot && conditions.precio_lote !== "" ? parseFloat(conditions.precio_lote) || 0 : 0;
+  const lotStock = isLot && conditions.stock !== "" ? parseInt(conditions.stock) || 0 : 0;
+  const lotUnitPrice = lotStock > 0 ? lotTotal / lotStock : 0;
+
   function renderField(field: CategoryField) {
     const val = form[field.name] || "";
     const setVal = (v: string) => setForm(prev => ({ ...prev, [field.name]: v }));
@@ -203,6 +210,23 @@ function DetallesContent() {
               setForm(prev => ({ ...prev, [field.name]: v }));
             }}
             className="w-full form-input-custom focus:ring-purple-500" placeholder="0" />
+        </div>
+      );
+    }
+
+    if (isLot && /precio/i.test(field.name)) {
+      const display = conditions.precio_lote !== "" ? conditions.precio_lote : val;
+      return (
+        <div key={field.id}>
+          <label className="form-label" htmlFor={field.name}>{field.label}{field.required && <span className="text-red-500 ml-0.5">*</span>}</label>
+          <input id={field.name} type="number" min="0" value={display}
+            onChange={e => {
+              const v = e.target.value;
+              setConditions({ ...conditions, precio_lote: v });
+              setForm(prev => ({ ...prev, [field.name]: v }));
+            }}
+            className="w-full form-input-custom focus:ring-purple-500" placeholder="0.00" />
+          <p className="text-xs text-gray-400 mt-1">Precio total del lote</p>
         </div>
       );
     }
@@ -278,9 +302,16 @@ function DetallesContent() {
         cierre_estimado: conditions.cierre_estimado
           ? new Date(conditions.cierre_estimado).toISOString() : undefined,
         incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
-        precio_lote: conditions.precio_lote ? parseFloat(conditions.precio_lote) : undefined,
-        precio_individual: conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined,
+        precio_lote: isLot
+          ? (lotTotal > 0 ? lotTotal : undefined)
+          : (conditions.precio_lote ? parseFloat(conditions.precio_lote) : undefined),
+        precio_individual: isLot
+          ? (lotUnitPrice > 0 ? Number(lotUnitPrice.toFixed(2)) : undefined)
+          : (conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined),
         participantes_minimos: conditions.participantes_minimos ? parseInt(conditions.participantes_minimos) : undefined,
+        cantidad_total: isLot
+          ? (lotStock > 0 ? lotStock : undefined)
+          : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
       };
       if (isEditing) {
         await updateProduct(editingId, payload);
@@ -395,16 +426,30 @@ function DetallesContent() {
                     <>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Precio por lote</label>
-                        <input type="number" step="0.01" value={conditions.precio_lote} onChange={e => setConditions({ ...conditions, precio_lote: e.target.value })}
-                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                        <div>
+                          <input type="number" step="0.01" readOnly value={lotTotal > 0 ? lotTotal : ""}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs bg-gray-50 text-gray-600" placeholder="0.00" />
+                          <p className="text-xs text-gray-400 mt-1">Se toma del precio ingresado en las especificaciones.</p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Precio individual</label>
-                        <input type="number" step="0.01" value={conditions.precio_individual} onChange={e => setConditions({ ...conditions, precio_individual: e.target.value })}
-                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                        <div>
+                          <input type="number" step="0.01" readOnly value={lotUnitPrice > 0 ? Number(lotUnitPrice.toFixed(2)) : ""}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs bg-gray-50 text-gray-600" placeholder="0.00" />
+                          <p className="text-xs text-gray-400 mt-1">Calculado automáticamente: precio por lote ÷ cantidad en stock.</p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
-                        <label className="form-label pt-2">Participantes mínimos</label>
+                        <label className="form-label pt-2">Cantidad total de unidades</label>
+                        <div>
+                          <input type="number" readOnly value={lotStock > 0 ? lotStock : ""}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs bg-gray-50 text-gray-600" placeholder="0" />
+                          <p className="text-xs text-gray-400 mt-1">Es igual a la cantidad en stock.</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Mínimo de unidades para cerrar</label>
                         <input type="number" value={conditions.participantes_minimos} onChange={e => setConditions({ ...conditions, participantes_minimos: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
                       </div>

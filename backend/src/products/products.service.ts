@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, In, ILike, IsNull, DataSource } from "typeorm";
+import { Repository, In, ILike, IsNull, Not, DataSource } from "typeorm";
 import { randomBytes } from "crypto";
 import { Product } from "./product.entity";
 import { AuditService } from "../audit/audit.service";
@@ -34,12 +34,13 @@ export class ProductsService {
     return this.repo.find({ where, order: { created_at: "DESC" }, take: limit || 200 });
   }
 
-  async findAllAdmin(status?: string, sort?: "ASC" | "DESC", page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT) {
+  async findAllAdmin(status?: string, sort?: "ASC" | "DESC", page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, notMetodoPago?: string) {
     const where: any = { deleted_at: IsNull() };
     if (status) {
       const statuses = status.split(",");
       where.status = statuses.length === 1 ? statuses[0] : In(statuses);
     }
+    if (notMetodoPago) where.metodo_pago = Not(notMetodoPago);
     const skip = (page - 1) * limit;
     const [data, total] = await this.repo.findAndCount({
       where, order: { created_at: sort || "DESC" }, take: limit, skip,
@@ -47,11 +48,52 @@ export class ProductsService {
     return { data, total, page, totalPages: Math.ceil(total / limit) };
   }
 
+  /** Lista productos de venta por lote con datos del lote para el panel de admin */
+  async findAdminLots(status?: string, sort: "ASC" | "DESC" = "DESC", page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT) {
+    const clauses: string[] = ["p.deleted_at IS NULL", "p.metodo_pago = 'venta_por_lote'"];
+    const params: any[] = [];
+    if (status) {
+      const statuses = status.split(",").filter(Boolean);
+      if (statuses.length === 1) {
+        params.push(statuses[0]);
+        clauses.push(`p.status = $${params.length}`);
+      } else if (statuses.length > 1) {
+        params.push(statuses);
+        clauses.push(`p.status = ANY($${params.length})`);
+      }
+    }
+    const where = clauses.join(" AND ");
+    const orderBy = sort === "ASC" ? "ASC" : "DESC";
+    const countRows = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS total FROM products p WHERE ${where}`,
+      params,
+    );
+    const rows = await this.dataSource.query(
+      `SELECT p.id, p.title, p.sku, p.user_id, p.category_id, p.status, p.stock, p.created_at,
+              p.precio_lote, p.precio_individual, p.participantes_minimos, p.cantidad_total, p.cierre_estimado,
+              l.estado AS lot_estado,
+              COALESCE((SELECT SUM(lp.cantidad) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado'), 0) AS cantidad_reservada,
+              (SELECT COUNT(*) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count
+       FROM products p
+       LEFT JOIN lot_sales l ON l.product_id = p.id
+       WHERE ${where}
+       ORDER BY p.created_at ${orderBy}
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, (page - 1) * limit],
+    );
+    const total = countRows[0]?.total || 0;
+    return { data: rows, total, page, totalPages: Math.ceil(total / limit) };
+  }
+
   async findByUser(userId: string) {
     const rows = await this.dataSource.query(
-      `SELECT p.*, a.estado AS auction_estado
+      `SELECT p.*, a.estado AS auction_estado,
+              l.estado AS lot_estado, l.cantidad_total AS lot_cantidad_total,
+              l.cantidad_reservada AS lot_cantidad_reservada,
+              l.participantes_minimos AS lot_participantes_minimos
        FROM products p
        LEFT JOIN auctions a ON a.product_id = p.id
+       LEFT JOIN lot_sales l ON l.product_id = p.id
        WHERE p.user_id = $1 AND p.deleted_at IS NULL
        ORDER BY p.created_at DESC
        LIMIT 200`,
@@ -82,7 +124,7 @@ export class ProductsService {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
     }
     // Clean empty decimal/date fields for auction/lot
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "cierre_estimado"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -103,11 +145,12 @@ export class ProductsService {
       }
       if ((dto as any).metodo_pago === "venta_por_lote" && (dto as any).precio_lote) {
         await this.dataSource.query(
-          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, fecha_cierre, estado)
-           VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
+          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cantidad_total, fecha_cierre, estado)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_lote, (dto as any).precio_individual || 0,
            (dto as any).participantes_minimos || 1,
+           (dto as any).cantidad_total || 1,
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : null]
         );
       }
@@ -124,7 +167,7 @@ export class ProductsService {
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
     }
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "cierre_estimado"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -161,7 +204,7 @@ export class ProductsService {
 
     // Actualizar lote si se modificaron campos de venta por lote
     if ((dto as any).metodo_pago === "venta_por_lote" &&
-        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos)) {
+        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos || (dto as any).cantidad_total)) {
       try {
         const updates: string[] = [];
         const params: any[] = [id];
@@ -180,6 +223,10 @@ export class ProductsService {
         if ((dto as any).participantes_minimos) {
           updates.push(`participantes_minimos = $${params.length + 1}`);
           params.push((dto as any).participantes_minimos);
+        }
+        if ((dto as any).cantidad_total) {
+          updates.push(`cantidad_total = $${params.length + 1}`);
+          params.push((dto as any).cantidad_total);
         }
         if (updates.length > 0) {
           await this.dataSource.query(

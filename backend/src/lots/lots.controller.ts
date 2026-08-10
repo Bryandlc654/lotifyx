@@ -10,7 +10,15 @@ export class LotsController {
   findOpen() { return this.service.findOpen(); }
 
   @Get("product/:productId")
-  findByProduct(@Param("productId") productId: string) { return this.service.findByProduct(productId); }
+  findByProduct(@Req() req, @Param("productId") productId: string) {
+    return this.service.findByProduct(productId, (req as any).user?.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("mine")
+  findMine(@Req() req) {
+    return this.service.getMyLots(req.user.id);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post()

@@ -22,6 +22,12 @@ export class LotSale {
   @Column({ type: "int", default: 1 })
   participantes_minimos: number;
 
+  @Column({ type: "int", default: 1 })
+  cantidad_total: number;
+
+  @Column({ type: "int", default: 0 })
+  cantidad_reservada: number;
+
   @Column({ type: "timestamp", nullable: true })
   fecha_cierre: Date;
 

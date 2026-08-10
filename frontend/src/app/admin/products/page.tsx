@@ -67,7 +67,7 @@ export default function AdminProductsPage() {
     setLoading(true);
     try {
       const status = statusFilter === "all" ? "" : statusFilter;
-      const res = await getAdminProducts(status || undefined, sortOrder, page);
+      const res = await getAdminProducts(status || undefined, sortOrder, page, 20, "venta_por_lote");
       setItems(res.data);
       setTotalPages(res.totalPages);
       setTotalItems(res.total);

@@ -100,6 +100,7 @@ export interface Product {
   precio_lote?: number;
   precio_individual?: number;
   participantes_minimos?: number;
+  cantidad_total?: number;
   cierre_estimado?: string;
   envio_delivery: boolean;
   envio_courier: boolean;
@@ -111,6 +112,10 @@ export interface Product {
   politicas_imagenes: string;
   status: string;
   auction_estado?: string;
+  lot_estado?: string;
+  lot_cantidad_total?: number;
+  lot_cantidad_reservada?: number;
+  lot_participantes_minimos?: number;
   created_at: string;
   updated_at: string;
 }
