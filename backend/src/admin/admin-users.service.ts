@@ -92,9 +92,19 @@ export class AdminUsersService {
   async create(dto: {
     email: string; password: string; phone?: string; role_id?: string; status?: string;
     first_name: string; last_name: string; document_type?: string; document_number?: string;
+    ruc?: string; razon_social?: string;
   }) {
+    if (!dto.email || !dto.first_name || !dto.last_name || !dto.document_number || !dto.ruc) {
+      throw new BadRequestException("Correo, nombres, apellidos, DNI y RUC son obligatorios");
+    }
+
     const exists = await this.userRepo.findOne({ where: { email: dto.email } });
     if (exists) throw new ConflictException("El correo ya está registrado");
+
+    if (dto.ruc) {
+      const withRuc = await this.profileRepo.findOne({ where: { ruc: dto.ruc } });
+      if (withRuc) throw new ConflictException("El RUC ya está registrado por otro usuario");
+    }
 
     const hash = await bcrypt.hash(dto.password, 12);
     const referral = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -111,6 +121,7 @@ export class AdminUsersService {
       this.profileRepo.create({
         user_id: user.id, first_name: dto.first_name, last_name: dto.last_name,
         document_type: dto.document_type, document_number: dto.document_number,
+        ruc: dto.ruc, razon_social: dto.razon_social,
       })
     );
 
@@ -164,8 +175,9 @@ export class AdminUsersService {
     if (dto.ruc !== undefined && dto.ruc !== "") profileFields.ruc = dto.ruc;
     if (dto.razon_social !== undefined && dto.razon_social !== "") profileFields.razon_social = dto.razon_social;
 
+    const currentProfile = await this.profileRepo.findOne({ where: { user_id: id } });
+
     if (dto.ruc && dto.ruc !== "") {
-      const currentProfile = await this.profileRepo.findOne({ where: { user_id: id } });
       if ((currentProfile?.ruc || "") !== dto.ruc) {
         const ex = await this.profileRepo.findOne({ where: { ruc: dto.ruc } });
         if (ex) throw new ConflictException("El RUC ya está registrado por otro usuario");
@@ -174,7 +186,13 @@ export class AdminUsersService {
 
     if (Object.keys(profileFields).length > 0) {
       try {
-        await this.profileRepo.update({ user_id: id }, profileFields);
+        if (currentProfile) {
+          await this.profileRepo.update({ user_id: id }, profileFields);
+        } else {
+          await this.profileRepo.save(
+            this.profileRepo.create({ user_id: id, ...profileFields })
+          );
+        }
       } catch (e: any) {
         if (e?.code === "23505") throw new ConflictException("El RUC ya está registrado por otro usuario");
         throw e;

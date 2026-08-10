@@ -70,7 +70,10 @@ export default function AdminUsersPage() {
   }
 
   async function handleSave() {
-    if (!form.email || !form.first_name) { toast.error("Email y nombre son obligatorios"); return; }
+    if (!form.email || !form.first_name || !form.last_name || !form.document_number || !form.ruc) {
+      toast.error("Correo, nombres, apellidos, DNI y RUC son obligatorios");
+      return;
+    }
     if (!modal.user && !form.password) { toast.error("Contraseña obligatoria"); return; }
     setSaving(true);
     try {
@@ -157,7 +160,11 @@ export default function AdminUsersPage() {
                             {u.profile?.first_name?.[0] || u.email[0].toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{u.profile?.first_name} {u.profile?.last_name}</p>
+                            <p className="font-medium text-gray-900 truncate">
+                              {u.profile?.first_name
+                                ? `${u.profile.first_name} ${u.profile.last_name || ""}`.trim()
+                                : u.email}
+                            </p>
                             <p className="text-xs text-gray-400 truncate">{u.email}</p>
                           </div>
                         </div>
@@ -222,14 +229,14 @@ export default function AdminUsersPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-5">{modal.user ? "Editar usuario" : "Nuevo usuario"}</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Email" value={form.email} onChange={v => setForm({...form, email: v})} type="email" />
+              <Field label="Email *" value={form.email} onChange={v => setForm({...form, email: v})} type="email" />
               <Field label="Contraseña" value={form.password} onChange={v => setForm({...form, password: v})} type="password" placeholder={modal.user ? "Dejar vacío para no cambiar" : ""} />
               <Field label="Teléfono" value={form.phone} onChange={v => setForm({...form, phone: v})} />
-              <Field label="Nombre" value={form.first_name} onChange={v => setForm({...form, first_name: v})} />
-              <Field label="Apellidos" value={form.last_name} onChange={v => setForm({...form, last_name: v})} />
+              <Field label="Nombre *" value={form.first_name} onChange={v => setForm({...form, first_name: v})} />
+              <Field label="Apellidos *" value={form.last_name} onChange={v => setForm({...form, last_name: v})} />
               <Field label="Tipo documento" value={form.document_type} onChange={v => setForm({...form, document_type: v})} placeholder="DNI" />
-              <Field label="N° documento" value={form.document_number} onChange={v => setForm({...form, document_number: v})} />
-              <Field label="RUC" value={form.ruc} onChange={v => setForm({...form, ruc: v})} />
+              <Field label="N° documento *" value={form.document_number} onChange={v => setForm({...form, document_number: v})} />
+              <Field label="RUC *" value={form.ruc} onChange={v => setForm({...form, ruc: v})} />
               <Field label="Razón social" value={form.razon_social} onChange={v => setForm({...form, razon_social: v})} />
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-gray-700">Rol</label>
