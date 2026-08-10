@@ -191,7 +191,10 @@ function DetallesContent() {
   }
 
   const isLot = conditions.metodo_pago === "venta_por_lote";
-  const lotTotal = isLot && conditions.precio_lote !== "" ? parseFloat(conditions.precio_lote) || 0 : 0;
+  const specPriceKey = Object.keys(form).find(k => /precio/i.test(k));
+  const specPriceValue = specPriceKey ? form[specPriceKey] : "";
+  const lotTotalRaw = conditions.precio_lote !== "" ? conditions.precio_lote : specPriceValue;
+  const lotTotal = isLot && lotTotalRaw !== "" ? parseFloat(lotTotalRaw) || 0 : 0;
   const lotStock = isLot && conditions.stock !== "" ? parseInt(conditions.stock) || 0 : 0;
   const lotUnitPrice = lotStock > 0 ? lotTotal / lotStock : 0;
 
