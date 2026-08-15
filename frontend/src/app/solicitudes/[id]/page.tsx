@@ -13,9 +13,9 @@ import { LoginModal } from "@/components/layout/login-modal";
 import {
   getRequest, getCategories, getCategoryFields, getMyProducts,
   getRequestOffers, getMyRequestOffer, makeRequestOffer, acceptRequestOffer,
-  getCurrentUserId,
+  checkCoincidencia, getCurrentUserId,
 } from "@/lib/api";
-import type { BuyerRequest, Category, CategoryField, RequestOffer } from "@/lib/api";
+import type { BuyerRequest, Category, CategoryField, RequestOffer, CoincidenciaResult } from "@/lib/api";
 
 export default function SolicitudDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +38,10 @@ export default function SolicitudDetallePage() {
   const [offerEnvio, setOfferEnvio] = useState("0");
   const [offerMensaje, setOfferMensaje] = useState("");
   const [sending, setSending] = useState(false);
+  const [coincidencia, setCoincidencia] = useState<CoincidenciaResult | null>(null);
+  const [coincidenciaLoading, setCoincidenciaLoading] = useState(false);
+  const [offerVariante, setOfferVariante] = useState(false);
+  const [variantConfirm, setVariantConfirm] = useState<Record<string, boolean>>({});
 
   const isOwn = !!userId && request?.user_id === userId;
 
@@ -86,10 +90,14 @@ export default function SolicitudDetallePage() {
   }
 
   async function handleAccept(offer: RequestOffer) {
-    if (!window.confirm(`¿Aceptar la oferta de S/ ${Number(offer.precio).toFixed(2)} × ${offer.cantidad} unid. de ${offer.seller?.first_name || "este vendedor"}?`)) return;
+    if (offer.es_variante && !variantConfirm[offer.id]) {
+      toast.error("Debes aceptar expresamente esta variante antes de continuar");
+      return;
+    }
+    if (!window.confirm(`¿Aceptar la oferta de S/ ${Number(offer.precio).toFixed(2)} × ${offer.cantidad} unid. de ${offer.seller?.first_name || "este vendedor"}?${offer.es_variante ? "\n\nAl ser una variante de tu especificación, la aceptación es expresa y definitiva." : ""}`)) return;
     setAcceptingId(offer.id);
     try {
-      const res = await acceptRequestOffer(id, offer.id);
+      const res = await acceptRequestOffer(id, offer.id, offer.es_variante ? { aceptar_variante: true } : undefined);
       toast.success(res.message || "Oferta aceptada");
       const total = Number(res.total_amount || 0);
       router.push(`/checkout?source=remaining_balance&order_id=${res.order_id}&amount=${total}`);
@@ -99,9 +107,35 @@ export default function SolicitudDetallePage() {
     }
   }
 
+  async function handleProductChange(pid: string) {
+    setOfferProduct(pid);
+    setCoincidencia(null);
+    setOfferVariante(false);
+    if (!pid) return;
+    setCoincidenciaLoading(true);
+    try {
+      const res = await checkCoincidencia(id, pid);
+      setCoincidencia(res);
+      setOfferVariante(res && !res.es_estricta);
+    } catch {
+      setCoincidencia(null);
+    } finally {
+      setCoincidenciaLoading(false);
+    }
+  }
+
   async function handleOffer(e: React.FormEvent) {
     e.preventDefault();
     if (!offerProduct || !offerPrecio) { toast.error("Selecciona un producto e ingresa el precio"); return; }
+    const esVariante = !!(coincidencia && !coincidencia.es_estricta && offerVariante);
+    if (coincidencia && !coincidencia.es_estricta && !offerVariante) {
+      toast.error("Tu producto no coincide estrictamente. Marca la opción para ofertarlo como variante.");
+      return;
+    }
+    if (esVariante && !offerMensaje.trim()) {
+      toast.error("Al ofrecer una variante debes explicar en qué se diferencia en el mensaje");
+      return;
+    }
     setSending(true);
     try {
       await makeRequestOffer(id, {
@@ -110,6 +144,7 @@ export default function SolicitudDetallePage() {
         cantidad: Number(offerCantidad) || request?.cantidad || 1,
         costo_envio: Number(offerEnvio) || 0,
         mensaje: offerMensaje || undefined,
+        es_variante: esVariante,
       });
       toast.success("Oferta enviada. El comprador la revisará.");
       const mo = await getMyRequestOffer(id);
@@ -256,6 +291,15 @@ export default function SolicitudDetallePage() {
                           <div>
                             <p className="font-bold text-slate-800">{o.seller?.first_name} {o.seller?.last_name}</p>
                             <p className="text-xs text-slate-400">{o.product?.title || "Producto ofrecido"}</p>
+                            {o.es_variante ? (
+                              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                                Variante propuesta{o.coincidencia ? ` · coincidencia ${o.coincidencia}` : ""}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">
+                                <Check className="w-3 h-3" /> Coincidencia estricta
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="text-left md:text-right">
@@ -270,6 +314,19 @@ export default function SolicitudDetallePage() {
                       )}
                       {o.mensaje && (
                         <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 mt-3">{o.mensaje}</p>
+                      )}
+                      {o.es_variante && o.estado === "pendiente" && request.estado === "abierta" && (
+                        <label className="flex items-start gap-2 mt-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!variantConfirm[o.id]}
+                            onChange={e => setVariantConfirm(prev => ({ ...prev, [o.id]: e.target.checked }))}
+                            className="mt-0.5 accent-amber-600"
+                          />
+                          <span className="text-xs text-amber-700 font-semibold">
+                            Acepto expresamente esta variante en reemplazo de la especificación solicitada
+                          </span>
+                        </label>
                       )}
                       <div className="flex items-center justify-between mt-4">
                         <p className="text-xs text-slate-400">
@@ -319,16 +376,53 @@ export default function SolicitudDetallePage() {
                 <form onSubmit={handleOffer} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="form-label">Tu producto *</label>
-                    <select value={offerProduct} onChange={e => setOfferProduct(e.target.value)} className="form-input-custom w-full">
+                    <select value={offerProduct} onChange={e => handleProductChange(e.target.value)} className="form-input-custom w-full">
                       <option value="">Selecciona uno de tus productos activos</option>
                       {myProducts.map(p => (
-                        <option key={p.id} value={p.id}>{p.title}</option>
+                        <option key={p.id} value={p.id}>{p.title}{p.nivel_coincidencia && p.nivel_coincidencia !== "estricta" ? ` (coincidencia: ${p.nivel_coincidencia})` : ""}</option>
                       ))}
                     </select>
                     {myProducts.length === 0 && (
                       <p className="text-xs text-slate-400 mt-1">
                         No tienes productos activos. <button type="button" onClick={() => router.push("/perfil/ofrecer")} className="text-[#8234FE] font-semibold">Publica un producto</button> primero.
                       </p>
+                    )}
+
+                    {coincidenciaLoading && (
+                      <p className="text-xs text-slate-400 mt-2 inline-flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Analizando coincidencia con tu producto...
+                      </p>
+                    )}
+
+                    {coincidencia && (
+                      <div className={`mt-3 rounded-xl border p-3 text-sm ${coincidencia.es_estricta ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"}`}>
+                        {coincidencia.es_estricta ? (
+                          <p className="font-bold text-green-700 inline-flex items-center gap-1.5">
+                            <Check className="w-4 h-4" /> Coincidencia estricta (100%): tus especificaciones cumplen la solicitud.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="font-bold text-amber-700">
+                              Coincidencia: {coincidencia.nivel === "flexible" ? "flexible" : "amplia"}
+                            </p>
+                            {coincidencia.faltantes.length > 0 && (
+                              <p className="text-xs text-amber-700 mt-1">Falta en tu producto: {coincidencia.faltantes.map(d => d.label).join(", ")}.</p>
+                            )}
+                            {coincidencia.variantes.length > 0 && (
+                              <p className="text-xs text-amber-700 mt-1">Tu producto varía en: {coincidencia.variantes.map(d => `${d.label} (solicitado: ${String(d.esperado)} — ofreces: ${String(d.ofrecido)})`).join(", ")}.</p>
+                            )}
+                            <p className="text-xs text-amber-700 mt-1">
+                              La regla de esta solicitud es coincidencia técnica estricta. Al ofertar tu producto como variante, el comprador deberá aceptarla expresamente.
+                            </p>
+                            <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                              <input type="checkbox" checked={offerVariante} onChange={e => setOfferVariante(e.target.checked)} className="mt-0.5 accent-amber-600" />
+                              <span className="text-xs text-amber-800 font-semibold">
+                                Ofrezco mi producto como variante y acepto expresamente que el comprador decida sobre ella
+                              </span>
+                            </label>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div>

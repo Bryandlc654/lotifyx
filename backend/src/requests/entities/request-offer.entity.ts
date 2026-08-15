@@ -39,6 +39,18 @@ export class RequestOffer {
   @Column({ type: "uuid", nullable: true })
   order_id: string;
 
+  /** true si la oferta no coincide estrictamente con la solicitud */
+  @Column({ default: false })
+  es_variante: boolean;
+
+  /** Nivel de coincidencia calculado: estricta | flexible | amplia */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  coincidencia: string;
+
+  /** Confirmación expresa del comprador al aceptar una variante */
+  @Column({ default: false })
+  aceptacion_variante: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -4,6 +4,7 @@ import { Repository, DataSource } from "typeorm";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { BuyerRequest } from "./entities/buyer-request.entity";
 import { RequestOffer } from "./entities/request-offer.entity";
+import { MatchingService } from "./matching.service";
 
 @Injectable()
 export class RequestsService {
@@ -11,6 +12,7 @@ export class RequestsService {
     @InjectRepository(BuyerRequest) private readonly requestsRepo: Repository<BuyerRequest>,
     @InjectRepository(RequestOffer) private readonly offersRepo: Repository<RequestOffer>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly matching: MatchingService,
   ) {}
 
   private num(v: any): number | null {
@@ -138,6 +140,33 @@ export class RequestsService {
     return { message: "Solicitud cancelada" };
   }
 
+  // ─── Coincidencia de producto ────────────────────────────
+
+  /** Análisis de coincidencia entre un producto del vendedor y una solicitud (base: estricta). */
+  async checkCoincidencia(userId: string, requestId: string, productId: string) {
+    const req = await this.requestsRepo.findOne({ where: { id: requestId } });
+    if (!req) throw new NotFoundException("Solicitud no encontrada");
+    if (req.estado !== "abierta") throw new BadRequestException("La solicitud ya no está abierta");
+
+    const product = await this.dataSource.query(
+      `SELECT id, title, category_id, specifications, nivel_coincidencia FROM products
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, [productId, userId],
+    );
+    if (!product.length) throw new BadRequestException("Selecciona un producto tuyo existente");
+    const p = product[0];
+
+    const fields = await this.dataSource.query(
+      `SELECT name, label, grupo FROM category_fields WHERE category_id = $1`, [req.category_id],
+    );
+    const result = this.matching.calcularCoincidencia(p.specifications, req.specifications, fields);
+    return {
+      ...result,
+      mismo_categoria: p.category_id === req.category_id,
+      producto: { id: p.id, title: p.title, nivel_coincidencia: p.nivel_coincidencia || "estricta" },
+      regla: "estricta",
+    };
+  }
+
   // ─── Ofertas de los vendedores ──────────────────────────
 
   async makeOffer(userId: string, requestId: string, dto: any) {
@@ -147,15 +176,38 @@ export class RequestsService {
     if (req.user_id === userId) throw new ForbiddenException("No puedes ofertar en tu propia solicitud");
 
     const product = await this.dataSource.query(
-      `SELECT id, title, status FROM products WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, [dto?.product_id, userId],
+      `SELECT id, title, category_id, specifications, nivel_coincidencia, status FROM products WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, [dto?.product_id, userId],
     );
     if (!product.length) throw new BadRequestException("Selecciona un producto tuyo existente");
-    if (product[0].status !== "active") throw new BadRequestException("El producto debe estar aprobado y activo");
+    const p = product[0];
+    if (p.status !== "active") throw new BadRequestException("El producto debe estar aprobado y activo");
+    if (p.category_id !== req.category_id) {
+      throw new BadRequestException("El producto debe pertenecer a la misma categoría que la solicitud");
+    }
 
     const precio = this.num(dto?.precio);
     if (precio === null || precio <= 0) throw new BadRequestException("Ingresa un precio válido");
     const cantidad = Math.max(1, Math.floor(this.num(dto?.cantidad) ?? req.cantidad ?? 1));
     const envio = Math.max(0, this.num(dto?.costo_envio) ?? 0);
+
+    // Coincidencia de producto (regla base de la demanda: estricta)
+    const fields = await this.dataSource.query(
+      `SELECT name, label, grupo FROM category_fields WHERE category_id = $1`, [req.category_id],
+    );
+    const match = this.matching.calcularCoincidencia(p.specifications, req.specifications, fields);
+    const requiereVariante = match.nivel !== "estricta";
+    if (requiereVariante && !Boolean(dto?.es_variante)) {
+      const detalle = match.faltantes.length
+        ? `faltan: ${match.faltantes.map(d => d.label).join(", ")}`
+        : `varía: ${match.variantes.map(d => d.label).join(", ")}`;
+      throw new BadRequestException(
+        `Tu producto no coincide estrictamente con la solicitud (${detalle}). ` +
+        `Márcalo como variante para ofertarlo y el comprador deberá aceptarlo expresamente.`,
+      );
+    }
+    if (requiereVariante && !String(dto?.mensaje || "").trim()) {
+      throw new BadRequestException("Al ofrecer una variante debes explicar en un mensaje en qué se diferencia");
+    }
 
     const existing = await this.offersRepo.findOne({
       where: { request_id: requestId, seller_id: userId, estado: "pendiente" },
@@ -171,6 +223,8 @@ export class RequestsService {
       costo_envio: envio,
       mensaje: dto?.mensaje ?? null,
       estado: "pendiente",
+      es_variante: requiereVariante,
+      coincidencia: match.nivel,
     });
     await this.offersRepo.save(offer);
     return offer;
@@ -178,7 +232,7 @@ export class RequestsService {
 
   async myOffer(userId: string, requestId: string) {
     return this.dataSource.query(
-      `SELECT ro.*, json_build_object('id', p.id, 'title', p.title) AS product
+      `SELECT ro.*, json_build_object('id', p.id, 'title', p.title, 'nivel_coincidencia', p.nivel_coincidencia) AS product
        FROM request_offers ro
        LEFT JOIN products p ON p.id = ro.product_id
        WHERE ro.request_id = $1 AND ro.seller_id = $2
@@ -193,7 +247,7 @@ export class RequestsService {
     return this.dataSource.query(
       `SELECT ro.*,
          json_build_object('id', u.id, 'first_name', up.first_name, 'last_name', up.last_name, 'email', u.email, 'phone', u.phone) AS seller,
-         json_build_object('id', p.id, 'title', p.title) AS product
+         json_build_object('id', p.id, 'title', p.title, 'nivel_coincidencia', p.nivel_coincidencia) AS product
        FROM request_offers ro
        LEFT JOIN users u ON u.id = ro.seller_id
        LEFT JOIN user_profiles up ON up.user_id = ro.seller_id
@@ -203,7 +257,7 @@ export class RequestsService {
     );
   }
 
-  async acceptOffer(userId: string, requestId: string, offerId: string) {
+  async acceptOffer(userId: string, requestId: string, offerId: string, dto: any = {}) {
     const req = await this.requestsRepo.findOne({ where: { id: requestId } });
     if (!req) throw new NotFoundException("Solicitud no encontrada");
     if (req.user_id !== userId) throw new ForbiddenException("Solo el solicitante puede aceptar ofertas");
@@ -213,6 +267,11 @@ export class RequestsService {
     if (!offer) throw new NotFoundException("Oferta no encontrada");
     if (offer.estado !== "pendiente") throw new BadRequestException("La oferta ya no está disponible");
     if (offer.seller_id === userId) throw new BadRequestException("No puedes aceptar tu propia oferta");
+    if (offer.es_variante && !Boolean(dto?.aceptar_variante)) {
+      throw new BadRequestException(
+        "Esta oferta es una variante de tu especificación. Debes aceptarla expresamente para continuar.",
+      );
+    }
 
     const qty = Math.max(1, Math.floor(Number(offer.cantidad) || 1));
     const unitPrice = Number(offer.precio) || 0;
@@ -234,8 +293,8 @@ export class RequestsService {
         [order.id, offer.product_id, unitPrice, qty],
       );
       await qr.query(
-        `UPDATE request_offers SET estado = 'aceptada', order_id = $2 WHERE id = $1`,
-        [offerId, order.id],
+        `UPDATE request_offers SET estado = 'aceptada', order_id = $2, aceptacion_variante = $3 WHERE id = $1`,
+        [offerId, order.id, offer.es_variante],
       );
       await qr.query(
         `UPDATE request_offers SET estado = 'rechazada' WHERE request_id = $1 AND id != $2 AND estado = 'pendiente'`,
@@ -261,9 +320,11 @@ export class RequestsService {
       `SELECT ro.*,
          json_build_object('id', r.id, 'title', r.title, 'category_id', r.category_id,
            'precio_minimo', r.precio_minimo, 'precio_maximo', r.precio_maximo,
-           'cantidad', r.cantidad, 'estado', r.estado, 'fecha_limite', r.fecha_limite, 'created_at', r.created_at) AS request
+           'cantidad', r.cantidad, 'estado', r.estado, 'fecha_limite', r.fecha_limite, 'created_at', r.created_at) AS request,
+         json_build_object('id', p.id, 'title', p.title, 'nivel_coincidencia', p.nivel_coincidencia) AS product
        FROM request_offers ro
        JOIN buyer_requests r ON r.id = ro.request_id
+       LEFT JOIN products p ON p.id = ro.product_id
        WHERE ro.seller_id = $1
        ORDER BY ro.created_at DESC
        LIMIT 200`, [userId],

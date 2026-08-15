@@ -4,11 +4,12 @@ import { BuyerRequest } from "./entities/buyer-request.entity";
 import { RequestOffer } from "./entities/request-offer.entity";
 import { RequestsService } from "./requests.service";
 import { RequestsController } from "./requests.controller";
+import { MatchingService } from "./matching.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer])],
   controllers: [RequestsController],
-  providers: [RequestsService],
+  providers: [RequestsService, MatchingService],
   exports: [RequestsService],
 })
 export class RequestsModule {}

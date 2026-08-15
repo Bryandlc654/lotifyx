@@ -21,11 +21,11 @@ export class CategoryFieldsService {
     return field;
   }
 
-  create(dto: { category_id: string; name: string; label: string; type: string; required?: boolean; options?: string[] }) {
-    return this.repo.save(this.repo.create(dto));
+  create(dto: { category_id: string; name: string; label: string; type: string; required?: boolean; options?: string[]; grupo?: string }) {
+    return this.repo.save(this.repo.create({ grupo: "principal", ...dto }));
   }
 
-  async update(id: string, dto: Partial<{ name: string; label: string; type: string; required: boolean; options: string[]; order_index: number }>) {
+  async update(id: string, dto: Partial<{ name: string; label: string; type: string; required: boolean; options: string[]; order_index: number; grupo: string }>) {
     const field = await this.findOne(id);
     return this.repo.save({ ...field, ...dto });
   }

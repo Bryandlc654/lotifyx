@@ -77,9 +77,16 @@ export class RequestsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(":id/coincidencia")
+  @HttpCode(HttpStatus.OK)
+  coincidencia(@Req() req, @Param("id") id: string, @Body() dto: any) {
+    return this.service.checkCoincidencia(req.user.id, id, dto?.product_id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(":id/offers/:offerId/accept")
   @HttpCode(HttpStatus.OK)
-  accept(@Req() req, @Param("id") id: string, @Param("offerId") offerId: string) {
-    return this.service.acceptOffer(req.user.id, id, offerId);
+  accept(@Req() req, @Param("id") id: string, @Param("offerId") offerId: string, @Body() dto: any) {
+    return this.service.acceptOffer(req.user.id, id, offerId, dto);
   }
 }

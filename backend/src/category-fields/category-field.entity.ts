@@ -27,6 +27,10 @@ export class CategoryField {
   @Column({ default: 0 })
   order_index: number;
 
+  /** Grupo de coincidencia: principal | secundario (para nivel flexible) */
+  @Column({ length: 50, default: "principal" })
+  grupo: string;
+
   @CreateDateColumn()
   created_at: Date;
 

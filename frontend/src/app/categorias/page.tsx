@@ -269,7 +269,14 @@ export default function CategoriasPage() {
 
                         <div className={viewMode === "list" ? "flex-1 min-w-0 flex flex-col justify-between" : "flex flex-col flex-1"}>
                           <div>
-                            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{tipo}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{tipo}</p>
+                              {product.nivel_coincidencia && product.nivel_coincidencia !== "estricta" && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100 uppercase tracking-wide">
+                                  {product.nivel_coincidencia === "flexible" ? "Coincidencia flexible" : "Coincidencia amplia"}
+                                </span>
+                              )}
+                            </div>
                             <h3 className="text-sm font-medium text-gray-900 mt-1 line-clamp-2 group-hover:text-[#8234FE] transition-colors">
                               {product.specifications?.["Título del Producto"] || product.title}
                             </h3>

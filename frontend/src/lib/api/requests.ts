@@ -30,10 +30,23 @@ export interface RequestOffer {
   mensaje?: string | null;
   estado: string;
   order_id?: string | null;
+  es_variante?: boolean;
+  coincidencia?: string;
+  aceptacion_variante?: boolean;
   created_at: string;
   seller?: { id: string; first_name?: string; last_name?: string; email?: string; phone?: string } | null;
-  product?: { id: string; title?: string } | null;
+  product?: { id: string; title?: string; nivel_coincidencia?: string } | null;
   request?: BuyerRequest | null;
+}
+
+export interface CoincidenciaResult {
+  nivel: "estricta" | "flexible" | "amplia";
+  es_estricta: boolean;
+  faltantes: { campo: string; label: string; grupo: string; esperado: any; ofrecido: any }[];
+  variantes: { campo: string; label: string; grupo: string; esperado: any; ofrecido: any }[];
+  mismo_categoria?: boolean;
+  producto?: { id: string; title: string; nivel_coincidencia: string };
+  regla?: string;
 }
 
 export interface RequestListResponse {
@@ -102,9 +115,18 @@ export async function getMyRequestOffer(requestId: string): Promise<RequestOffer
   return res.json();
 }
 
+export async function checkCoincidencia(requestId: string, productId: string): Promise<CoincidenciaResult> {
+  const res = await authFetch(`${API_URL}/requests/${requestId}/coincidencia`, {
+    method: "POST",
+    body: JSON.stringify({ product_id: productId }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al analizar coincidencia" }))).message);
+  return res.json();
+}
+
 export async function makeRequestOffer(
   requestId: string,
-  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; mensaje?: string },
+  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; mensaje?: string; es_variante?: boolean },
 ): Promise<RequestOffer> {
   const res = await authFetch(`${API_URL}/requests/${requestId}/offers`, {
     method: "POST",
@@ -114,8 +136,11 @@ export async function makeRequestOffer(
   return res.json();
 }
 
-export async function acceptRequestOffer(requestId: string, offerId: string): Promise<any> {
-  const res = await authFetch(`${API_URL}/requests/${requestId}/offers/${offerId}/accept`, { method: "POST" });
+export async function acceptRequestOffer(requestId: string, offerId: string, dto?: { aceptar_variante?: boolean }): Promise<any> {
+  const res = await authFetch(`${API_URL}/requests/${requestId}/offers/${offerId}/accept`, {
+    method: "POST",
+    body: JSON.stringify(dto || {}),
+  });
   if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al aceptar la oferta" }))).message);
   return res.json();
 }

@@ -64,6 +64,15 @@ export default function MisOfertasPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+                        {o.es_variante ? (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">
+                            Variante {o.coincidencia ? `· ${o.coincidencia}` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600">
+                            Coincidencia estricta
+                          </span>
+                        )}
                         <h3 className="font-bold text-slate-900 mt-1">{o.request?.title || "Solicitud"}</h3>
                         <p className="text-xs text-slate-400">{o.product?.title || "Producto"}</p>
                         {o.request?.estado === "aceptada" && o.estado === "aceptada" ? (

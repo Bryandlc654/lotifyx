@@ -180,9 +180,12 @@ export default function NuevaSolicitudPage() {
           </nav>
 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
-            <h1 className="text-xl font-extrabold text-slate-900 mb-6">
+            <h1 className="text-xl font-extrabold text-slate-900 mb-2">
               {editingId ? "Editar solicitud de compra" : "Publicar solicitud de compra"}
             </h1>
+            <p className="text-xs text-slate-500 mb-6 bg-slate-50 rounded-lg px-3 py-2">
+              Regla base: <strong>coincidencia técnica estricta</strong>. Si un vendedor ofrece un producto que no cumple tus especificaciones, quedará marcado como <strong>variante</strong> y solo se concreta si lo aceptas expresamente.
+            </p>
 
             <div className="mb-4">
               <label className="form-label">Categoría *</label>

@@ -22,9 +22,9 @@ export default function CategoryFieldsAdminPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("");
-  const [form, setForm] = useState({ category_id: "", name: "", label: "", type: "text", required: false, options: "" });
+  const [form, setForm] = useState({ category_id: "", name: "", label: "", type: "text", required: false, options: "", grupo: "principal" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ category_id: "", name: "", label: "", type: "text", required: false, options: "" });
+  const [editForm, setEditForm] = useState({ category_id: "", name: "", label: "", type: "text", required: false, options: "", grupo: "principal" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
@@ -49,11 +49,11 @@ export default function CategoryFieldsAdminPage() {
     if (!form.name || !form.category_id) return;
     setSaving(true);
     try {
-      const dto: any = { category_id: form.category_id, name: form.name, label: form.label, type: form.type, required: form.required };
+      const dto: any = { category_id: form.category_id, name: form.name, label: form.label, type: form.type, required: form.required, grupo: form.grupo };
       if (form.type === "select" && form.options) dto.options = form.options.split(",").map(s => s.trim()).filter(Boolean);
       await createCategoryField(dto);
       toast.success("Creado");
-      setForm({ category_id: activeTab, name: "", label: "", type: "text", required: false, options: "" });
+      setForm({ category_id: activeTab, name: "", label: "", type: "text", required: false, options: "", grupo: "principal" });
       load();
     }
     catch (e: any) {     toast.error(getErrorMessage(e)); }
@@ -104,6 +104,11 @@ export default function CategoryFieldsAdminPage() {
               <input value={form.options} onChange={e => setForm({ ...form, options: e.target.value })}
                 placeholder="Opciones separadas por coma" className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200" />
             )}
+            <select value={form.grupo} onChange={e => setForm({ ...form, grupo: e.target.value })}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 bg-white">
+              <option value="principal">Principal</option>
+              <option value="secundario">Secundario</option>
+            </select>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input type="checkbox" checked={form.required} onChange={e => setForm({ ...form, required: e.target.checked })}
                 className="rounded border-gray-300 text-primary-600" />
@@ -163,6 +168,11 @@ export default function CategoryFieldsAdminPage() {
                           <input value={editForm.options} onChange={e => setEditForm({ ...editForm, options: e.target.value })}
                             placeholder="Opciones separadas por coma" className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm" />
                         )}
+                        <select value={editForm.grupo} onChange={e => setEditForm({ ...editForm, grupo: e.target.value })}
+                          className="rounded border border-gray-300 px-3 py-1.5 text-sm bg-white">
+                          <option value="principal">Principal</option>
+                          <option value="secundario">Secundario</option>
+                        </select>
                         <label className="flex items-center gap-1.5 cursor-pointer">
                           <input type="checkbox" checked={editForm.required} onChange={e => setEditForm({ ...editForm, required: e.target.checked })}
                             className="rounded border-gray-300 text-primary-600" />
@@ -177,6 +187,9 @@ export default function CategoryFieldsAdminPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">{f.type}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${(f.grupo || "principal") === "principal" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"}`}>
+                            {f.grupo || "principal"}
+                          </span>
                           <span className="text-sm font-medium text-gray-900">{f.label}</span>
                           <span className="text-xs text-gray-400">({f.name})</span>
                           {f.required && <span className="text-xs text-red-500">*</span>}
@@ -186,7 +199,7 @@ export default function CategoryFieldsAdminPage() {
                         </div>
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
-                        <button onClick={() => { setEditingId(f.id); setEditForm({ category_id: f.category_id, name: f.name, label: f.label, type: f.type, required: f.required, options: f.options?.join(", ") || "" }); }}
+                        <button onClick={() => { setEditingId(f.id); setEditForm({ category_id: f.category_id, name: f.name, label: f.label, type: f.type, required: f.required, options: f.options?.join(", ") || "", grupo: f.grupo || "principal" }); }}
                           className="p-1.5 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
                         <button onClick={() => handleDelete(f.id)} className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                       </div>
