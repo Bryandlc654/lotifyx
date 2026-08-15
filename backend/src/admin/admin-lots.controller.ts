@@ -41,8 +41,8 @@ export class AdminLotsController {
   }
 
   @Put(":id/pricing")
-  @RequirePermission("products.update")
+  @RequirePermission("products.write")
   savePricing(@Param("id") id: string, @Body() body: any) {
-    return this.lotsService.savePricing(id, body.tiers);
+    return this.lotsService.savePricing(id, body.tiers, body.meta_venta);
   }
 }

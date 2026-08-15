@@ -184,7 +184,7 @@ export async function saveAdminLotPricing(id: string, tiers: any[], meta_venta?:
     method: "PUT",
     body: JSON.stringify({ tiers, meta_venta }),
   });
-  if (!res.ok) throw new Error("Error al guardar rangos");
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al guardar rangos" }))).message);
   return res.json();
 }
 
