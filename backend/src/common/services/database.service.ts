@@ -31,6 +31,10 @@ export class DatabaseService implements OnModuleInit {
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS cantidad_total INT`,
       `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS cantidad_total INT DEFAULT 1`,
       `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS cantidad_reservada INT DEFAULT 0`,
+      `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS cmc INT DEFAULT 1`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS min_qty INT DEFAULT 1`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS cmc INT DEFAULT 1`,
+      `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1`,
       `CREATE TABLE IF NOT EXISTS product_views (
          id SERIAL PRIMARY KEY,
          user_id UUID REFERENCES users(id) ON DELETE CASCADE,

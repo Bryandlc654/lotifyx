@@ -1,13 +1,13 @@
 "use client";
 
-import { X, Trash2, ShoppingCart } from "lucide-react";
+import { X, Trash2, ShoppingCart, Plus, Minus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { getImageUrl } from "@/lib/api";
 
 export function CartSidebar() {
   const router = useRouter();
-  const { items, isOpen, closeCart, removeItem, clearCart } = useCart();
+  const { items, isOpen, closeCart, removeItem, updateQty, clearCart } = useCart();
 
   return (
     <>
@@ -50,11 +50,23 @@ export function CartSidebar() {
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold text-gray-900 truncate">{item.title}</h4>
                     {item.sku && <p className="text-xs text-gray-400">Lot: {item.sku}</p>}
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-sm font-bold text-gray-900">S/ {item.price.toFixed(2)}</span>
-                      <button onClick={() => removeItem(item.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => updateQty(item.id, (item.qty || 1) - 1)} disabled={(item.qty || 1) <= (item.minQty || 1)} className="w-6 h-6 rounded border border-gray-300 text-gray-500 hover:bg-gray-100 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed">
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-sm font-semibold text-gray-800 w-8 text-center">{item.qty || 1}</span>
+                        <button onClick={() => updateQty(item.id, (item.qty || 1) + 1)} className="w-6 h-6 rounded border border-gray-300 text-gray-500 hover:bg-gray-100 flex items-center justify-center">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {(item.minQty || 1) > 1 && <p className="text-[10px] text-gray-400 mt-1">Mínimo {item.minQty} unidad{item.minQty !== 1 ? "es" : ""}</p>}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">S/ {(item.price * (item.qty || 1)).toFixed(2)}</span>
+                        <button onClick={() => removeItem(item.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -68,7 +80,7 @@ export function CartSidebar() {
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Total ({items.length} items)</span>
               <span className="font-bold text-gray-900">
-                S/ {items.reduce((sum, i) => sum + i.price, 0).toFixed(2)}
+                S/ {items.reduce((sum, i) => sum + i.price * (i.qty || 1), 0).toFixed(2)}
               </span>
             </div>
             <button onClick={() => { closeCart(); router.push("/checkout"); }}

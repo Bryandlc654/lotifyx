@@ -19,6 +19,7 @@ export class OrdersService {
             'product_id', oi.product_id,
             'product_title', p.title,
             'price', oi.price,
+            'qty', oi.qty,
             'seller', CASE WHEN p.user_id IS NOT NULL THEN
               json_build_object(
                 'id', p.user_id,
@@ -99,6 +100,7 @@ export class OrdersService {
             'product_title', p.title,
             'product_sku', p.sku,
             'price', oi.price,
+            'qty', oi.qty,
             'seller', CASE WHEN p.user_id IS NOT NULL THEN
               json_build_object(
                 'id', p.user_id,
@@ -226,7 +228,7 @@ export class OrdersService {
 
   async getSales(userId: string) {
     const orders = await this.dataSource.query(
-      `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price,
+      `SELECT o.*, oi.id as item_id, oi.product_id, oi.price as item_price, oi.qty as item_qty,
               p.title as product_title, p.sku as product_sku,
               buyer.email as buyer_email,
               bup.first_name as buyer_first_name, bup.last_name as buyer_last_name
@@ -263,6 +265,7 @@ export class OrdersService {
           product_title: row.product_title,
           product_sku: row.product_sku,
           price: row.item_price,
+          qty: row.item_qty || 1,
         });
       }
     }

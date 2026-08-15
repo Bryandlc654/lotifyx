@@ -42,6 +42,8 @@ function DetallesContent() {
     precio_lote: "",
     precio_individual: "",
     participantes_minimos: "",
+    cmc: "",
+    min_qty: "",
     cantidad_total: "",
     envio_delivery: false,
     envio_courier: false,
@@ -97,6 +99,8 @@ function DetallesContent() {
             precio_lote: String(p.precio_lote ?? ""),
             precio_individual: String(p.precio_individual ?? ""),
             participantes_minimos: String(p.participantes_minimos ?? ""),
+            cmc: String(p.cmc ?? ""),
+            min_qty: String(p.min_qty ?? ""),
             cantidad_total: String(p.cantidad_total ?? ""),
             envio_delivery: p.envio_delivery,
             envio_courier: p.envio_courier,
@@ -312,6 +316,8 @@ function DetallesContent() {
           ? (lotUnitPrice > 0 ? Number(lotUnitPrice.toFixed(2)) : undefined)
           : (conditions.precio_individual ? parseFloat(conditions.precio_individual) : undefined),
         participantes_minimos: conditions.participantes_minimos ? parseInt(conditions.participantes_minimos) : undefined,
+        cmc: conditions.cmc ? parseInt(conditions.cmc) : undefined,
+        min_qty: conditions.metodo_pago === "plataforma" && conditions.min_qty ? parseInt(conditions.min_qty) : undefined,
         cantidad_total: isLot
           ? (lotStock > 0 ? lotStock : undefined)
           : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
@@ -403,6 +409,18 @@ function DetallesContent() {
                     </select>
                   </div>
 
+                  {/* Venta directa divisible: CMC = cantidad mínima por pedido */}
+                  {conditions.metodo_pago === "plataforma" && (
+                    <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                      <label className="form-label pt-2">CMC por pedido (mín.)</label>
+                      <div>
+                        <input type="number" value={conditions.min_qty} onChange={e => setConditions({ ...conditions, min_qty: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
+                        <p className="text-xs text-gray-400 mt-1">Cantidad mínima de unidades que debe comprar cada cliente por pedido.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Auction fields */}
                   {conditions.metodo_pago === "subasta" && (
                     <>
@@ -455,6 +473,14 @@ function DetallesContent() {
                         <label className="form-label pt-2">Mínimo de unidades para cerrar</label>
                         <input type="number" value={conditions.participantes_minimos} onChange={e => setConditions({ ...conditions, participantes_minimos: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">CMC por comprador (mín.)</label>
+                        <div>
+                          <input type="number" value={conditions.cmc} onChange={e => setConditions({ ...conditions, cmc: e.target.value })}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
+                          <p className="text-xs text-gray-400 mt-1">Cantidad mínima de unidades que cada comprador debe comprometer.</p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Cierre de convocatoria</label>

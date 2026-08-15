@@ -101,6 +101,8 @@ export interface Product {
   precio_individual?: number;
   participantes_minimos?: number;
   cantidad_total?: number;
+  min_qty?: number;
+  cmc?: number;
   cierre_estimado?: string;
   envio_delivery: boolean;
   envio_courier: boolean;

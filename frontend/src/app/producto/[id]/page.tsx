@@ -38,6 +38,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinQty, setJoinQty] = useState(1);
   const [joining, setJoining] = useState(false);
+  const [buyQty, setBuyQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
   const cart = useCart();
 
@@ -133,8 +134,11 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     return sidebarKeys.some(s => key.includes(s));
   });
 
+  const minJoinQty = Math.max(1, lot?.cmc || 1);
   const maxJoinQty = Math.max(1, lot ? lot.cantidad_disponible + (lot.my_participant?.cantidad || 0) : 1);
-  const joinQtyInvalid = joinQty < 1 || joinQty > maxJoinQty;
+  const joinQtyInvalid = joinQty < minJoinQty || joinQty > maxJoinQty;
+
+  const minBuyQty = Math.max(1, product?.min_qty || 1);
 
   const textSpecs = textEntries.filter(([k]) => {
     const key = k.toLowerCase().replace(/_/g, " ");
@@ -396,6 +400,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <span className="text-[#2d3748] font-bold text-[16px]">{lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}</span>
                     </div>
                     <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">CMC por comprador</span>
+                      <span className="text-[#2d3748] font-bold text-[16px]">{minJoinQty} unidad{minJoinQty !== 1 ? "es" : ""} mínimo</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Participantes</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">{lot.participantes_count}</span>
                     </div>
@@ -423,7 +431,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     <div className="bg-[#fffaf0] rounded-2xl p-5 mb-6 border border-orange-50">
                       <p className="text-gray-700 font-bold text-[15px] mb-1">¿Cómo funciona?</p>
                       <p className="text-gray-500 text-[12px] leading-snug">
-                        Reserva la cantidad que quieras comprar. Cuando se alcance el mínimo de {lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}, el lote se cierra y todas las reservas quedan confirmadas.
+                        Reserva al menos {minJoinQty} unidad{minJoinQty !== 1 ? "es" : ""} (CMC). Cuando se alcance el mínimo de {lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}, el lote se cierra y todas las reservas quedan confirmadas.
                       </p>
                     </div>
                     {isOwn ? (
@@ -450,7 +458,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     ) : (
                       <button onClick={() => {
                         if (!getCurrentUserId()) { setShowLoginModal(true); return; }
-                        setJoinQty(1);
+                        setJoinQty(minJoinQty);
                         setShowJoinModal(true);
                       }} className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#38bdf8] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-[16px]">
                         Unirme al lote
@@ -536,6 +544,27 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   </div>
                 )}
 
+                {product.metodo_pago === "plataforma" && product.stock != null && product.stock > 0 && (
+                  <div className="mb-4">
+                    <label className="text-xs font-medium text-gray-600 mb-1.5 block">Cantidad</label>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setBuyQty(q => Math.max(minBuyQty, q - 1))}
+                        className="w-9 h-9 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 font-bold text-lg flex items-center justify-center">−</button>
+                      <input type="number" min={minBuyQty} max={product.stock} value={buyQty}
+                        onChange={e => setBuyQty(Math.min(Math.max(minBuyQty, parseInt(e.target.value) || minBuyQty), product.stock ?? minBuyQty))}
+                        className="w-16 text-center rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
+                      <button onClick={() => setBuyQty(q => Math.min(product.stock ?? minBuyQty, q + 1))}
+                        className="w-9 h-9 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 font-bold text-lg flex items-center justify-center">+</button>
+                      {minBuyQty > 1 && (
+                        <span className="text-[11px] text-purple-600 bg-purple-50 rounded-full px-2 py-1 font-medium">CMC: mínimo {minBuyQty}</span>
+                      )}
+                    </div>
+                    {buyQty < minBuyQty && (
+                      <p className="text-xs text-red-500 mt-1.5">Cantidad mínima de compra (CMC): {minBuyQty} unidad{minBuyQty !== 1 ? "es" : ""}.</p>
+                    )}
+                  </div>
+                )}
+
                 {!getCurrentUserId() && (
                   <div className="mb-3">
                     <label className="flex items-start gap-2 cursor-pointer">
@@ -558,6 +587,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     <button disabled={product.stock != null && product.stock <= 0}
                       onClick={() => {
                         if (product.stock != null && product.stock <= 0) return;
+                        if (buyQty < minBuyQty) { toast.error(`Cantidad mínima de compra (CMC): ${minBuyQty} unidad${minBuyQty !== 1 ? "es" : ""}.`); return; }
                         if (!getCurrentUserId()) {
                           if (!acceptTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
                           setShowLoginModal(true);
@@ -570,6 +600,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                           image: mainImage,
                           price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
                           regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
+                          qty: buyQty,
+                          minQty: minBuyQty,
                         });
                         setShowCartSuccess(true);
                       }}
@@ -925,6 +957,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 <span className="font-semibold text-gray-800">S/ {Number(lot.precio_individual).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
+                <span className="text-gray-500">CMC (mínimo por comprador)</span>
+                <span className="font-semibold text-gray-800">{minJoinQty} unidad{minJoinQty !== 1 ? "es" : ""}</span>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Disponibles para ti</span>
                 <span className="font-semibold text-gray-800">{lot.cantidad_disponible + (lot.my_participant?.cantidad || 0)} unidad(es)</span>
               </div>
@@ -932,11 +968,13 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
 
             <div className="mb-4">
               <label className="text-sm font-medium text-gray-700 mb-1.5 block">Cantidad de unidades</label>
-              <input type="number" min={1} max={maxJoinQty} value={joinQty}
-                onChange={e => setJoinQty(Math.min(Math.max(1, parseInt(e.target.value) || 1), maxJoinQty))}
+              <input type="number" min={minJoinQty} max={maxJoinQty} value={joinQty}
+                onChange={e => setJoinQty(Math.min(Math.max(minJoinQty, parseInt(e.target.value) || minJoinQty), maxJoinQty))}
                 className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500 ${joinQtyInvalid ? "border-red-400" : "border-gray-300"}`} />
               {joinQtyInvalid && (
-                <p className="text-xs text-red-500 mt-1.5">Máximo {maxJoinQty} unidad{maxJoinQty !== 1 ? "es" : ""} disponible{maxJoinQty !== 1 ? "s" : ""}.</p>
+                <p className="text-xs text-red-500 mt-1.5">
+                  {joinQty < minJoinQty ? `Mínimo ${minJoinQty} unidad${minJoinQty !== 1 ? "es" : ""} (CMC).` : `Máximo ${maxJoinQty} unidad${maxJoinQty !== 1 ? "es" : ""} disponible${maxJoinQty !== 1 ? "s" : ""}.`}
+                </p>
               )}
             </div>
 

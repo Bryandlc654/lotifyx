@@ -89,7 +89,7 @@ export class CheckoutController {
     }
 
     const proofUrl = file.filename;
-    const total = items.reduce((sum, i) => sum + i.price, 0);
+    const total = items.reduce((sum, i: any) => sum + i.price * (Math.max(1, Math.floor(Number(i.qty) || 1))), 0);
 
     const order = await this.checkoutService.createOrder({
       userId: req.user.id,

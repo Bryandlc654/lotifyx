@@ -38,7 +38,7 @@ export class CheckoutService implements OnModuleInit {
   async createOrder(data: {
     userId: string;
     total: number;
-    items: { id: string; price: number }[];
+    items: { id: string; price: number; qty?: number }[];
     originAccountId: string;
     operationNumber: string;
     amount: number;
@@ -52,6 +52,21 @@ export class CheckoutService implements OnModuleInit {
       );
       if (ownProducts.length > 0) {
         throw new BadRequestException("No puedes comprar tus propios productos");
+      }
+      const cmcRows = await this.dataSource.query(
+        `SELECT id, min_qty FROM products WHERE id = ANY($1) AND deleted_at IS NULL`,
+        [productIds],
+      );
+      const cmcById: Record<string, number> = {};
+      for (const r of cmcRows) cmcById[r.id] = Math.max(1, Number(r.min_qty) || 1);
+      for (const item of data.items) {
+        const min = cmcById[item.id] || 1;
+        const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
+        if (qty < min) {
+          throw new BadRequestException(
+            `Cantidad mínima de compra (CMC): debes comprar al menos ${min} unidad(es) del producto`
+          );
+        }
       }
     }
     const queryRunner = this.dataSource.createQueryRunner();
@@ -68,11 +83,11 @@ export class CheckoutService implements OnModuleInit {
       );
 
       if (data.items.length > 0) {
-        const values = data.items.map((_, i) => `($1, $${2 + i * 2}, $${3 + i * 2}, NOW())`).join(", ");
+        const values = data.items.map((_, i) => `($1, $${2 + i * 3}, $${3 + i * 3}, $${4 + i * 3}, NOW())`).join(", ");
         const params = [order.id];
-        for (const item of data.items) { params.push(item.id, item.price); }
+        for (const item of data.items) { params.push(item.id, item.price, Math.max(1, Math.floor(Number(item.qty) || 1))); }
         await queryRunner.query(
-          `INSERT INTO order_items (order_id, product_id, price, created_at) VALUES ${values}`,
+          `INSERT INTO order_items (order_id, product_id, price, qty, created_at) VALUES ${values}`,
           params,
         );
       }
@@ -110,8 +125,10 @@ export class CheckoutService implements OnModuleInit {
 
       if (!bidLink || isRemainingOrder) {
         await queryRunner.query(
-          `UPDATE products SET stock = GREATEST(stock - 1, 0)
-           WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1) AND stock > 0`,
+          `UPDATE products p
+           SET stock = GREATEST(p.stock - oi.qty, 0)
+           FROM order_items oi
+           WHERE oi.order_id = $1 AND oi.product_id = p.id AND p.stock > 0`,
           [id],
         );
 

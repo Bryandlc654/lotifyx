@@ -123,6 +123,10 @@ export default function LotesPage() {
                           <Package className="h-4 w-4 text-gray-400" />
                           Mínimo {lot.participantes_minimos} unidad{lot.participantes_minimos !== 1 ? "es" : ""}
                         </span>
+                        <span className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4 text-gray-400" />
+                          CMC {lot.cmc || 1} mín.
+                        </span>
                         {lot.fecha_cierre && (
                           <span className="flex items-center gap-1.5 ml-auto">
                             <CalendarClock className="h-4 w-4 text-gray-400" />

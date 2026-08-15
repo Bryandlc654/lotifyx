@@ -46,6 +46,14 @@ export class Product {
   @Column({ type: "int", nullable: true })
   cantidad_total: number;
 
+  /** CMC: cantidad mínima de compra por pedido en venta directa divisible */
+  @Column({ type: "int", nullable: true })
+  min_qty: number;
+
+  /** CMC por participante para ventas por lote (demanda agregada) */
+  @Column({ type: "int", nullable: true })
+  cmc: number;
+
   @Column({ type: "timestamp", nullable: true })
   cierre_estimado: Date;
 

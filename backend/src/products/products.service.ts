@@ -70,7 +70,7 @@ export class ProductsService {
     );
     const rows = await this.dataSource.query(
       `SELECT p.id, p.title, p.sku, p.user_id, p.category_id, p.status, p.stock, p.created_at,
-              p.precio_lote, p.precio_individual, p.participantes_minimos, p.cantidad_total, p.cierre_estimado,
+              p.precio_lote, p.precio_individual, p.participantes_minimos, p.cmc, p.cantidad_total, p.cierre_estimado,
               l.estado AS lot_estado,
               COALESCE((SELECT SUM(lp.cantidad) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado'), 0) AS cantidad_reservada,
               (SELECT COUNT(*) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count
@@ -124,7 +124,7 @@ export class ProductsService {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
     }
     // Clean empty decimal/date fields for auction/lot
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -145,11 +145,12 @@ export class ProductsService {
       }
       if ((dto as any).metodo_pago === "venta_por_lote" && (dto as any).precio_lote) {
         await this.dataSource.query(
-          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cantidad_total, fecha_cierre, estado)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente')
+          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cmc, cantidad_total, fecha_cierre, estado)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_lote, (dto as any).precio_individual || 0,
            (dto as any).participantes_minimos || 1,
+           (dto as any).cmc || 1,
            (dto as any).cantidad_total || 1,
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : null]
         );
@@ -167,7 +168,7 @@ export class ProductsService {
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
     }
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -204,7 +205,7 @@ export class ProductsService {
 
     // Actualizar lote si se modificaron campos de venta por lote
     if ((dto as any).metodo_pago === "venta_por_lote" &&
-        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos || (dto as any).cantidad_total)) {
+        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos || (dto as any).cmc || (dto as any).cantidad_total)) {
       try {
         const updates: string[] = [];
         const params: any[] = [id];
@@ -223,6 +224,10 @@ export class ProductsService {
         if ((dto as any).participantes_minimos) {
           updates.push(`participantes_minimos = $${params.length + 1}`);
           params.push((dto as any).participantes_minimos);
+        }
+        if ((dto as any).cmc) {
+          updates.push(`cmc = $${params.length + 1}`);
+          params.push((dto as any).cmc);
         }
         if ((dto as any).cantidad_total) {
           updates.push(`cantidad_total = $${params.length + 1}`);

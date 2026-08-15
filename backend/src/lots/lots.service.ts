@@ -8,7 +8,7 @@ import { LotParticipant } from "./lot-participant.entity";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
-  l.participantes_minimos, l.cantidad_total, l.cantidad_reservada,
+  l.participantes_minimos, l.cmc, l.cantidad_total, l.cantidad_reservada,
   l.fecha_cierre, l.estado, l.created_at, l.updated_at,
   COALESCE((SELECT SUM(lp.cantidad) FROM lot_participants lp
             WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado'), 0) AS cantidad_reservada_calc,
@@ -34,11 +34,12 @@ export class LotsService implements OnModuleInit {
     try {
       // Crear registros de lote faltantes para productos existentes
       const missing = await this.dataSource.query(
-        `SELECT p.id, p.user_id, p.precio_lote, p.precio_individual,
-                COALESCE(p.participantes_minimos, 1) AS participantes_minimos,
-                COALESCE(p.cantidad_total, 1) AS cantidad_total,
-                p.cierre_estimado, p.status
-         FROM products p
+         `SELECT p.id, p.user_id, p.precio_lote, p.precio_individual,
+                 COALESCE(p.participantes_minimos, 1) AS participantes_minimos,
+                 COALESCE(p.cmc, 1) AS cmc,
+                 COALESCE(p.cantidad_total, 1) AS cantidad_total,
+                 p.cierre_estimado, p.status
+          FROM products p
          LEFT JOIN lot_sales l ON l.product_id = p.id
          WHERE p.metodo_pago = 'venta_por_lote' AND l.id IS NULL`
       );
@@ -46,11 +47,12 @@ export class LotsService implements OnModuleInit {
         if (!p.precio_lote || Number(p.precio_lote) <= 0) continue;
         const estado = p.status === "active" ? "abierto" : "pendiente";
         await this.dataSource.query(
-          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cantidad_total, fecha_cierre, estado)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cmc, cantidad_total, fecha_cierre, estado)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (product_id) DO NOTHING`,
           [p.id, p.user_id, p.precio_lote, p.precio_individual || 0,
-           p.participantes_minimos, p.cantidad_total,
+           p.participantes_minimos, p.cmc,
+           p.cantidad_total,
            p.cierre_estimado ? new Date(p.cierre_estimado) : null, estado]
         );
       }
@@ -133,6 +135,7 @@ export class LotsService implements OnModuleInit {
     precio_lote: number;
     precio_individual: number;
     participantes_minimos?: number;
+    cmc?: number;
     cantidad_total?: number;
     fecha_cierre?: string;
   }) {
@@ -144,6 +147,10 @@ export class LotsService implements OnModuleInit {
       Math.max(1, Math.floor(Number(dto.participantes_minimos) || 1)),
       cantidad_total,
     );
+    const cmc = Math.min(
+      Math.max(1, Math.floor(Number(dto.cmc) || 1)),
+      cantidad_total,
+    );
 
     const data: any = {
       product_id: dto.product_id,
@@ -151,6 +158,7 @@ export class LotsService implements OnModuleInit {
       precio_lote: dto.precio_lote,
       precio_individual: dto.precio_individual,
       participantes_minimos,
+      cmc,
       cantidad_total,
       estado: "pendiente",
     };
@@ -166,6 +174,11 @@ export class LotsService implements OnModuleInit {
 
     const qty = Math.floor(Number(cantidad));
     if (!qty || qty < 1) throw new BadRequestException("Ingresa una cantidad válida");
+
+    const cmc = Math.max(1, lot.cmc || 1);
+    if (qty < cmc) {
+      throw new BadRequestException(`Debes comprometer al menos ${cmc} unidad(es) (CMC)`);
+    }
 
     // El lote nunca puede superar el stock real del producto
     const [prodRow] = await this.dataSource.query(
@@ -345,6 +358,7 @@ export class LotsService implements OnModuleInit {
       precio_lote: Number(row.precio_lote || 0),
       precio_individual: Number(row.precio_individual || 0),
       participantes_minimos: Number(row.participantes_minimos || 1),
+      cmc: Number(row.cmc || 1),
       cantidad_total: total,
       cantidad_reservada: reserved,
       cantidad_disponible: Math.max(0, total - reserved),

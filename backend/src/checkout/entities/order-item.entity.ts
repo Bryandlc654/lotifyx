@@ -16,6 +16,9 @@ export class OrderItem {
   @Column({ type: "decimal", precision: 10, scale: 2 })
   price: number;
 
+  @Column({ type: "int", default: 1 })
+  qty: number;
+
   @CreateDateColumn()
   created_at: Date;
 }

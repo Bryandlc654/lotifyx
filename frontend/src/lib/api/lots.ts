@@ -7,6 +7,7 @@ export interface LotSale {
   precio_lote: number;
   precio_individual: number;
   participantes_minimos: number;
+  cmc: number;
   cantidad_total: number;
   cantidad_reservada: number;
   cantidad_disponible: number;

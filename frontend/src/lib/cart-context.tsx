@@ -9,12 +9,15 @@ export interface CartItem {
   image: string;
   price: number;
   regularPrice?: number;
+  qty?: number;
+  minQty?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
   addItem: (item: CartItem) => void;
   removeItem: (id: string) => void;
+  updateQty: (id: string, qty: number) => void;
   clearCart: () => void;
   totalItems: number;
   isOpen: boolean;
@@ -61,6 +64,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const updateQty = useCallback((id: string, qty: number) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, qty: Math.max(i.minQty || 1, qty) } : i));
+  }, []);
+
   const removeItem = useCallback((id: string) => {
     setItems(prev => prev.filter(i => i.id !== id));
   }, []);
@@ -72,7 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openCart = useCallback(() => setIsOpen(true), []);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, totalItems: items.length, isOpen, toggleCart, closeCart, openCart }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, totalItems: items.reduce((s, i) => s + (i.qty || 1), 0), isOpen, toggleCart, closeCart, openCart }}>
       {children}
     </CartContext.Provider>
   );

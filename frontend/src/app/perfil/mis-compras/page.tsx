@@ -22,6 +22,7 @@ interface OrderItem {
   product_id: string;
   product_title?: string;
   price: number;
+  qty?: number;
   seller?: Seller;
 }
 
@@ -194,8 +195,8 @@ export default function MisComprasPage() {
                       <div className="space-y-2">
                         {order.items.map((item) => (
                           <div key={item.id} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">{item.product_title || "Producto"}</span>
-                            <span className="font-semibold text-gray-800">S/ {Number(item.price).toFixed(2)}</span>
+                            <span className="text-gray-700">{(item.qty || 1) > 1 ? `${item.product_title || "Producto"} × ${item.qty}` : (item.product_title || "Producto")}</span>
+                            <span className="font-semibold text-gray-800">S/ {(Number(item.price) * (item.qty || 1)).toFixed(2)}</span>
                     </div>
                   ))}
                </div>
@@ -290,8 +291,8 @@ export default function MisComprasPage() {
                   return (
                     <div key={item.id}>
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-700">{item.product_title || "Producto"}</span>
-                      <span className="font-medium">S/ {Number(item.price).toFixed(2)}</span>
+                      <span className="text-gray-700">{(item.qty || 1) > 1 ? `${item.product_title || "Producto"} × ${item.qty}` : (item.product_title || "Producto")}</span>
+                      <span className="font-medium">S/ {(Number(item.price) * (item.qty || 1)).toFixed(2)}</span>
                     </div>
                     {item.seller != null && showSeller && (
                        <div className="ml-2 mb-2 bg-gray-50 rounded-lg p-3 space-y-1">

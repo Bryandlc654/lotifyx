@@ -54,6 +54,7 @@ interface LotRow {
   precio_lote: number | null;
   precio_individual: number | null;
   participantes_minimos: number | null;
+  cmc: number | null;
   cantidad_total: number | null;
   cierre_estimado: string | null;
   lot_estado: string | null;
@@ -303,6 +304,7 @@ export default function AdminLotesPage() {
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Cantidad total</span><span className="text-gray-700 font-medium">{detail.cantidad_total ?? "—"}</span></div>
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Reservadas</span><span className="text-gray-700 font-medium">{detail.cantidad_reservada ?? 0}</span></div>
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Mínimo para cerrar</span><span className="text-gray-700 font-medium">{detail.participantes_minimos ?? "—"}</span></div>
+                    <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">CMC por comprador</span><span className="text-gray-700 font-medium">{detail.cmc ?? "—"}</span></div>
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Participantes</span><span className="text-gray-700 font-medium">{detail.participantes_count ?? 0}</span></div>
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Cierre</span><span className="text-gray-700 font-medium">{detail.cierre_estimado ? new Date(detail.cierre_estimado).toLocaleString("es-PE") : "—"}</span></div>
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Estado lote</span>

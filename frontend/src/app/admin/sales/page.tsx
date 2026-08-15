@@ -12,7 +12,7 @@ interface Seller {
 
 interface OrderItem {
   id: string; product_id: string; product_title: string; product_sku: string;
-  price: number; seller?: Seller | null;
+  price: number; qty?: number; seller?: Seller | null;
 }
 
 interface Order {
@@ -206,8 +206,8 @@ export default function AdminSalesPage() {
                         )}
                         {order.items.map(item => (
                           <div key={item.id} className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-gray-700 truncate max-w-[140px]">{item.product_title || "Producto"}</span>
-                            <span className="text-gray-500 flex-shrink-0">S/ {Number(item.price).toFixed(2)}</span>
+                            <span className="text-gray-700 truncate max-w-[140px]">{(item.qty || 1) > 1 ? `${item.product_title || "Producto"} × ${item.qty}` : (item.product_title || "Producto")}</span>
+                            <span className="text-gray-500 flex-shrink-0">S/ {(Number(item.price) * (item.qty || 1)).toFixed(2)}</span>
                           </div>
                         ))}
                       </div>
@@ -314,7 +314,7 @@ export default function AdminSalesPage() {
                 <span className="text-gray-500 block mb-2">Productos</span>
                 {detail.items.map((item) => (
                   <div key={item.id} className="mb-2">
-                    <div className="flex justify-between py-1"><span className="text-gray-700">{item.product_title || "Producto"}</span><span className="font-medium">S/ {Number(item.price).toFixed(2)}</span></div>
+                    <div className="flex justify-between py-1"><span className="text-gray-700">{(item.qty || 1) > 1 ? `${item.product_title || "Producto"} × ${item.qty}` : (item.product_title || "Producto")}</span><span className="font-medium">S/ {(Number(item.price) * (item.qty || 1)).toFixed(2)}</span></div>
                     {item.seller != null && (
                       <div className="ml-2 bg-gray-50 rounded-lg p-3 space-y-1">
                         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Vendedor</p>

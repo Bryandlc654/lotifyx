@@ -162,7 +162,7 @@ export default function ResenaPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800">{item.product_title || "Producto"}</h3>
-                      <p className="text-sm text-gray-400">S/ {Number(item.price).toFixed(2)}</p>
+                      <p className="text-sm text-gray-400">{(item.qty || 1) > 1 ? `${item.qty} × S/ ${Number(item.price).toFixed(2)}` : `S/ ${Number(item.price).toFixed(2)}`}</p>
                     </div>
                   </div>
 

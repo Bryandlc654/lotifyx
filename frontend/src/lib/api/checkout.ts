@@ -29,7 +29,7 @@ export async function submitClaim(data: { order_id: string; reason: string; desc
 }
 
 export async function submitCheckout(data: {
-  items: { id: string; price: number }[];
+  items: { id: string; price: number; qty?: number }[];
   origin_account_id: string;
   operation_number: string;
   amount: number;

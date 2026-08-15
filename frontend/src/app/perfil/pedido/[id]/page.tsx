@@ -243,13 +243,14 @@ export default function PedidoPage() {
                       <h3 className="text-md font-bold text-gray-800">{item.product_title || "Producto"}</h3>
                       <p className="text-xs text-gray-400 mb-4">SKU: {item.product_sku || "-"}</p>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 bg-gray-50 border border-gray-100 rounded text-[10px] text-gray-600">Cantidad: 1 unidad</span>
+                        <span className="px-3 py-1 bg-gray-50 border border-gray-100 rounded text-[10px] text-gray-600">Cantidad: {(item.qty || 1) > 1 ? `${item.qty} unidades` : "1 unidad"}</span>
+                        {(item.qty || 1) > 1 && <span className="px-3 py-1 bg-gray-50 border border-gray-100 rounded text-[10px] text-gray-600">{item.qty} × {formatPrice(item.price)}</span>}
                       </div>
                     </div>
                     <div className="w-full md:w-48 text-right space-y-1">
                       <div className="flex justify-between md:justify-end gap-4">
                         <span className="text-sm text-gray-500">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-700">{formatPrice(item.price)}</span>
+                        <span className="text-sm font-medium text-gray-700">{formatPrice(Number(item.price) * (item.qty || 1))}</span>
                       </div>
                       <div className="flex justify-between md:justify-end gap-4">
                         <span className="text-sm text-gray-500">Envío</span>
@@ -257,7 +258,7 @@ export default function PedidoPage() {
                       </div>
                       <div className="flex justify-between md:justify-end gap-4 pt-2 border-t border-gray-100">
                         <span className="text-sm font-semibold text-gray-700">Total</span>
-                        <span className="text-lg font-bold text-gray-800">{formatPrice(item.price)}</span>
+                        <span className="text-lg font-bold text-gray-800">{formatPrice(Number(item.price) * (item.qty || 1))}</span>
                       </div>
                     </div>
                   </div>

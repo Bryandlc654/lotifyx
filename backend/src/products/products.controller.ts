@@ -25,8 +25,8 @@ export class ProductsController {
   downloadTemplate(@Res() res: Response) {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([
-      ["Título*", "Categoría*", "Precio", "Marca", "Modelo", "Stock", "Descripción", "Condición"],
-      ["Smart TV 50\"", "Electrónica", "799.00", "Samsung", "UN50TU7000", "10", "TV LED 4K UHD 50 pulgadas", "Nuevo"],
+      ["Título*", "Categoría*", "Precio", "Marca", "Modelo", "Stock", "Mínimo por pedido (CMC)", "Mínimo por participante (CMC)", "Descripción", "Condición"],
+      ["Smart TV 50\"", "Electrónica", "799.00", "Samsung", "UN50TU7000", "10", "1", "1", "TV LED 4K UHD 50 pulgadas", "Nuevo"],
     ]);
     XLSX.utils.book_append_sheet(wb, ws, "Productos");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
@@ -88,6 +88,8 @@ export class ProductsController {
       const stock = row["Stock"] || "";
       const descripcion = row["Descripción"] || row["Descripcion"] || "";
       const condicion = row["Condición"] || row["Condicion"] || "Nuevo";
+      const minQty = parseInt(row["Mínimo por pedido (CMC)"] ?? row["Mínimo por pedido"] ?? row["min_qty"] ?? "") || undefined;
+      const cmc = parseInt(row["Mínimo por participante (CMC)"] ?? row["Mínimo por participante"] ?? row["cmc"] ?? "") || undefined;
 
       if (!title) {
         errors.push({ row: i + 2, error: "Falta título" });
@@ -106,6 +108,8 @@ export class ProductsController {
           category_id: categoryId,
           stock: parseInt(stock) || 0,
           title,
+          min_qty: minQty,
+          cmc,
           specifications: {
             Precio: String(price),
             Marca: String(marca),

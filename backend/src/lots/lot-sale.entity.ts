@@ -22,6 +22,10 @@ export class LotSale {
   @Column({ type: "int", default: 1 })
   participantes_minimos: number;
 
+  /** CMC: cantidad mínima de unidades que cada comprador debe comprometer */
+  @Column({ type: "int", default: 1 })
+  cmc: number;
+
   @Column({ type: "int", default: 1 })
   cantidad_total: number;
 
