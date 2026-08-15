@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Req, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Param, Body, Req, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { LotsService } from "./lots.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 
@@ -36,4 +36,14 @@ export class LotsController {
 
   @Get(":id/participants")
   getParticipants(@Param("id") id: string) { return this.service.getParticipants(id); }
+
+  @Get(":id/pricing")
+  getPricing(@Param("id") id: string) { return this.service.getTiers(id); }
+
+  @UseGuards(JwtAuthGuard)
+  @Put(":id/pricing")
+  @HttpCode(HttpStatus.OK)
+  savePricing(@Req() req, @Param("id") id: string, @Body() body: any) {
+    return this.service.savePricing(id, body.tiers);
+  }
 }

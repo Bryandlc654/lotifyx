@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft, Check, Truck, Package, MapPin, Phone, Mail, User,
-  Copy, ChevronDown, ChevronUp, Loader2, MessageCircle, Star,
+  Copy, ChevronDown, ChevronUp, Loader2, MessageCircle, Star, Gift,
 } from "lucide-react";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") + "/api";
@@ -254,15 +254,34 @@ export default function PedidoPage() {
                       </div>
                       <div className="flex justify-between md:justify-end gap-4">
                         <span className="text-sm text-gray-500">Envío</span>
-                        <span className="text-sm font-medium text-gray-700">S/ 0.00</span>
+                        <span className="text-sm font-medium text-gray-700">{formatPrice(Number(order.shipping_cost) || 0)}</span>
                       </div>
                       <div className="flex justify-between md:justify-end gap-4 pt-2 border-t border-gray-100">
                         <span className="text-sm font-semibold text-gray-700">Total</span>
-                        <span className="text-lg font-bold text-gray-800">{formatPrice(Number(item.price) * (item.qty || 1))}</span>
+                        <span className="text-lg font-bold text-gray-800">{formatPrice((Number(item.price) * (item.qty || 1)) + (Number(order.shipping_cost) || 0))}</span>
                       </div>
                     </div>
                   </div>
                 ))}
+
+                {order.benefits && order.benefits.length > 0 && (
+                  <div className="mt-6 border-t border-gray-100 pt-5">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Beneficios aplicados (RCG)</h3>
+                    <div className="space-y-2">
+                      {order.benefits.map((b: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between bg-purple-50 border border-purple-100 rounded-lg px-4 py-2.5 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Gift className="w-4 h-4 text-purple-600" />
+                            <span className="text-gray-700 font-medium">{b.beneficio_aplicado}</span>
+                          </div>
+                          {b.unidades_extra > 0 && (
+                            <span className="text-[11px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+{b.unidades_extra} unidades</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </article>
 
               {/* Buyer/Seller info */}

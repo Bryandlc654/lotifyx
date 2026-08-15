@@ -71,9 +71,17 @@ export class ProductsService {
     const rows = await this.dataSource.query(
       `SELECT p.id, p.title, p.sku, p.user_id, p.category_id, p.status, p.stock, p.created_at,
               p.precio_lote, p.precio_individual, p.participantes_minimos, p.cmc, p.cantidad_total, p.cierre_estimado,
-              l.estado AS lot_estado,
+              l.estado AS lot_estado, l.meta_venta, l.destacado,
               COALESCE((SELECT SUM(lp.cantidad) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado'), 0) AS cantidad_reservada,
-              (SELECT COUNT(*) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count
+              (SELECT COUNT(*) FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                   'id', t.id, 'desde', t.desde, 'hasta', t.hasta,
+                   'tipo_beneficio', t.tipo_beneficio, 'valor', t.valor,
+                   'activacion', t.activacion, 'descripcion', t.descripcion)
+                 ORDER BY t.desde ASC)
+                 FROM lot_rcg_tiers t WHERE t.lot_sale_id = l.id),
+                '[]'::json) AS rcg_tiers
        FROM products p
        LEFT JOIN lot_sales l ON l.product_id = p.id
        WHERE ${where}
@@ -82,7 +90,12 @@ export class ProductsService {
       [...params, limit, (page - 1) * limit],
     );
     const total = countRows[0]?.total || 0;
-    return { data: rows, total, page, totalPages: Math.ceil(total / limit) };
+    const data = rows.map((r: any) => {
+      let rcg_tiers: any[] = [];
+      try { rcg_tiers = Array.isArray(r.rcg_tiers) ? r.rcg_tiers : []; } catch { rcg_tiers = []; }
+      return { ...r, rcg_tiers, meta_venta: r.meta_venta ? Number(r.meta_venta) : null, destacado: r.destacado === true || r.destacado === "t" };
+    });
+    return { data, total, page, totalPages: Math.ceil(total / limit) };
   }
 
   async findByUser(userId: string) {

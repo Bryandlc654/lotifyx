@@ -114,6 +114,12 @@ export class CheckoutService implements OnModuleInit {
         [id],
       );
 
+      // Si la orden proviene de una venta por lote, marca la garantía del participante como pagada
+      await queryRunner.query(
+        `UPDATE lot_participants SET garantia_pagada = true WHERE order_id = $1`,
+        [id],
+      );
+
       const [bidLink] = await queryRunner.query(
         `SELECT id FROM auction_bids WHERE checkout_id = $1 LIMIT 1`,
         [id],
@@ -134,7 +140,7 @@ export class CheckoutService implements OnModuleInit {
 
         await queryRunner.query(
           `UPDATE funds SET pending_balance = pending_balance + (
-             SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1
+             SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1
            )
            WHERE user_id = (
              SELECT p.user_id FROM order_items oi
@@ -248,9 +254,9 @@ export class CheckoutService implements OnModuleInit {
       );
       await this.dataSource.query(
         `UPDATE funds SET available_balance = available_balance + (
-           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1::uuid
+           SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1::uuid
          ), pending_balance = pending_balance - (
-           SELECT SUM(oi.price) FROM order_items oi WHERE oi.order_id = $1::uuid
+           SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1::uuid
          )
          WHERE user_id = (
            SELECT p.user_id FROM order_items oi

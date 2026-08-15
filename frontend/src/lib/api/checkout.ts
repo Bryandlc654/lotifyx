@@ -7,6 +7,12 @@ export async function getMyOrders() {
   return res.json();
 }
 
+export async function getOrderDetail(orderId: string) {
+  const res = await authFetch(`${API_URL}/checkout/orders/${orderId}`);
+  if (!res.ok) throw new Error("Error al obtener el pedido");
+  return res.json();
+}
+
 export async function getMySales() {
   const res = await authFetch(`${API_URL}/checkout/sales`);
   if (!res.ok) throw new Error("Error al obtener ventas");

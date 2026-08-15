@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
 import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct } from "@/lib/api";
+import { getLotByProduct, saveLotPricing, RcgTier } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -54,6 +55,8 @@ function DetallesContent() {
     garantia: "",
     politicas_imagenes: "",
   });
+  const [tiers, setTiers] = useState<RcgTier[]>([]);
+  const [metaVenta, setMetaVenta] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
@@ -111,6 +114,16 @@ function DetallesContent() {
             garantia: p.garantia || "",
             politicas_imagenes: p.politicas_imagenes || "",
           });
+          if (p.metodo_pago === "venta_por_lote") {
+            getLotByProduct(editingId)
+              .then(lot => {
+                if (lot) {
+                  setTiers((lot.rcg_tiers || []).map(t => ({ ...t })));
+                  if (lot.meta_venta != null) setMetaVenta(String(lot.meta_venta));
+                }
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => toast.error("Error al cargar producto"))
         .finally(() => setLoading(false));
@@ -322,12 +335,34 @@ function DetallesContent() {
           ? (lotStock > 0 ? lotStock : undefined)
           : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
       };
+      let savedId = editingId;
       if (isEditing) {
         await updateProduct(editingId, payload);
         toast.success("Producto actualizado con éxito");
       } else {
-        await createProduct(payload);
+        const created = await createProduct(payload);
+        savedId = created?.id || "";
         toast.success("Producto creado con éxito");
+      }
+      if (isLot && savedId) {
+        try {
+          const lot = await getLotByProduct(savedId);
+          if (lot) {
+            const cleanTiers = tiers
+              .filter(t => t.desde != null)
+              .map(t => ({
+                desde: Number(t.desde) || 1,
+                hasta: t.hasta != null ? Number(t.hasta) : null,
+                tipo_beneficio: t.tipo_beneficio || "descuento",
+                valor: Number(t.valor) || 0,
+                activacion: t.activacion || "al_cierre",
+                descripcion: t.descripcion || null,
+              }));
+            await saveLotPricing(lot.id, cleanTiers, metaVenta !== "" ? Number(metaVenta) : null);
+          }
+        } catch {
+          toast.error("Producto guardado, pero no se pudieron guardar los rangos");
+        }
       }
       router.push("/perfil/mis-productos");
     } catch (e: any) {
@@ -486,6 +521,94 @@ function DetallesContent() {
                         <label className="form-label pt-2">Cierre de convocatoria</label>
                         <input type="datetime-local" value={conditions.cierre_estimado} onChange={e => setConditions({ ...conditions, cierre_estimado: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" />
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-5 mt-2">
+                        <label className="text-sm font-bold text-gray-800 block mb-1">Incentivos y rangos de compra (RCG)</label>
+                        <p className="text-xs text-gray-400 mb-4">
+                          Define rangos sobre las unidades comprometidas en total. Cuando el lote alcanza un rango se activa <strong>un beneficio</strong>.
+                          Pueden activarse al alcanzar el CMC individual, al cerrar el lote o al superar la meta de venta.
+                        </p>
+
+                        <div className="grid grid-cols-[180px_1fr] gap-4 items-start mb-4">
+                          <label className="form-label pt-2">Meta de venta (expectativa)</label>
+                          <div>
+                            <input type="number" value={metaVenta} onChange={e => setMetaVenta(e.target.value)}
+                              className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="Por defecto: cantidad total" />
+                            <p className="text-xs text-gray-400 mt-1">Unidades que, al superarse, activan los beneficios "Al superar expectativa".</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {tiers.length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">
+                              Aún no has configurado rangos. Agrega el primero.
+                            </p>
+                          )}
+                          {tiers.map((t, idx) => (
+                            <div key={idx} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rango {idx + 1}</span>
+                                <button type="button" onClick={() => setTiers(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-xs text-red-500 hover:text-red-700 font-medium">Quitar</button>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <div>
+                                  <label className="form-label">Desde</label>
+                                  <input type="number" value={t.desde} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, desde: Number(e.target.value) } : x))}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="1" />
+                                </div>
+                                <div>
+                                  <label className="form-label">Hasta</label>
+                                  <input type="number" value={t.hasta ?? ""} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, hasta: e.target.value !== "" ? Number(e.target.value) : null } : x))}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="Sin límite" />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="form-label">Activación</label>
+                                  <select value={t.activacion} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, activacion: e.target.value } : x))}
+                                    className="w-full form-input-custom focus:ring-purple-500">
+                                    <option value="al_cmc">Al alcanzar CMC (por comprador)</option>
+                                    <option value="al_cierre">Al cerrar lote</option>
+                                    <option value="superar_expectativa">Al superar expectativa</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="form-label">Beneficio</label>
+                                  <select value={t.tipo_beneficio} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, tipo_beneficio: e.target.value } : x))}
+                                    className="w-full form-input-custom focus:ring-purple-500">
+                                    <option value="precio">Precio (S/)</option>
+                                    <option value="descuento">Descuento (%)</option>
+                                    <option value="flete">Flete (S/)</option>
+                                    <option value="unidades_extra">Unidades extra</option>
+                                    <option value="destaque">Destacar compra</option>
+                                    <option value="otro">Otro</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="form-label">Valor</label>
+                                  <input type="number" step="0.01" value={t.valor} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, valor: Number(e.target.value) } : x))}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder={t.tipo_beneficio === "descuento" || t.tipo_beneficio === "cashback" ? "5" : t.tipo_beneficio === "unidades_extra" ? "2" : "0.00"} />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="form-label">Descripción para el comprador</label>
+                                <input type="text" value={t.descripcion || ""} onChange={e => setTiers(prev => prev.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))}
+                                  className="w-full form-input-custom focus:ring-purple-500" placeholder={t.tipo_beneficio === "otro" ? "Ej: Regalo sorpresa al unirte" : "Ej: Descuento del 5% por unidad"} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button type="button" onClick={() => setTiers(prev => [...prev, {
+                          desde: prev.length > 0 ? Math.max(1, prev[prev.length - 1].desde) + 1 : 1,
+                          hasta: null,
+                          tipo_beneficio: "descuento",
+                          valor: 5,
+                          activacion: "al_cierre",
+                          descripcion: "",
+                        }])}
+                          className="mt-3 text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors">
+                          + Agregar rango
+                        </button>
                       </div>
                     </>
                   )}

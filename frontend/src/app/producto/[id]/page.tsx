@@ -7,11 +7,30 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
 import { LoginModal } from "@/components/layout/login-modal";
+
+const ACTIVATION_LABEL: Record<string, string> = {
+  al_cmc: "Al alcanzar CMC",
+  al_cierre: "Al cerrar el lote",
+  superar_expectativa: "Al superar expectativa",
+};
+
+function tierText(t: any): string {
+  const v = Number(t.valor || 0);
+  switch (t.tipo_beneficio) {
+    case "precio": return `Precio de S/ ${v.toFixed(2)} por unidad`;
+    case "descuento": return `Descuento del ${v}%`;
+    case "flete": return v > 0 ? `Flete por S/ ${v.toFixed(2)}` : "Flete gratis";
+    case "unidades_extra": return `+${v} unidad(es) adicional(es)`;
+    case "destaque": return "Compra destacada";
+    case "cashback": return `Cashback del ${v}%`;
+    default: return t.descripcion || "Beneficio especial";
+  }
+}
 
 export default function ProductoDetallePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -425,6 +444,59 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     </div>
                   </div>
                 </div>
+
+                {lot.rcg_tiers && lot.rcg_tiers.length > 0 && (
+                  <div className="border border-[#f3efff] bg-[#fbfaff] rounded-2xl p-5 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-[#8b5cf6] font-bold text-[15px] flex items-center gap-1.5">
+                        <Gift className="w-4 h-4" /> Incentivos por rangos
+                      </h3>
+                      {lot.destacado && (
+                        <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">Compra destacada</span>
+                      )}
+                    </div>
+                    <p className="text-gray-500 text-[12px] mb-3">
+                      Al alcanzar cada rango de unidades comprometidas se activa el beneficio para quienes participan.
+                      {lot.meta_venta ? ` Meta de venta: ${lot.meta_venta} unidad(es).` : ""}
+                      {lot.expectativa_superada && <span className="text-green-600 font-semibold"> ¡Expectativa superada!</span>}
+                    </p>
+                    <div className="overflow-hidden rounded-xl border border-gray-100">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-[#f8f6ff] text-[11px] uppercase tracking-wide text-gray-500">
+                            <th className="px-3 py-2 font-semibold">Rango</th>
+                            <th className="px-3 py-2 font-semibold">Beneficio</th>
+                            <th className="px-3 py-2 font-semibold">Se activa</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {lot.rcg_tiers.map((t: any, i: number) => {
+                            const alcanzado = t.activacion === "superar_expectativa"
+                              ? lot.expectativa_superada
+                              : t.activacion === "al_cmc"
+                                ? (lot.my_participant?.cantidad || 0) >= Number(t.desde)
+                                : lot.cantidad_reservada >= Number(t.desde) && (!t.hasta || lot.cantidad_reservada <= Number(t.hasta));
+                            const activo = lot.tier_actual?.id === t.id;
+                            return (
+                              <tr key={i} className={activo ? "bg-purple-50" : "bg-white"}>
+                                <td className="px-3 py-2 text-[13px] text-gray-700 font-semibold whitespace-nowrap">
+                                  {t.desde}{t.hasta ? ` – ${t.hasta}` : "+"}
+                                </td>
+                                <td className="px-3 py-2 text-[13px] text-gray-700">{tierText(t)}</td>
+                                <td className="px-3 py-2 text-[12px] text-gray-500">
+                                  {ACTIVATION_LABEL[t.activacion] || t.activacion}
+                                  {alcanzado && (
+                                    <span className="ml-1.5 text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">Alcanzado</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {lot.estado === "abierto" && (
                   <>
@@ -985,6 +1057,22 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
               </span>
             </div>
 
+            {(() => {
+              const cmcTier = (lot.rcg_tiers || [])
+                .filter((t: any) => t.activacion === "al_cmc" && Math.max(1, joinQty) >= Number(t.desde))
+                .sort((a: any, b: any) => Number(b.desde) - Number(a.desde))[0];
+              if (!cmcTier) return null;
+              return (
+                <div className="flex items-start gap-2 bg-purple-50 rounded-xl px-4 py-3 mb-6 text-sm">
+                  <Gift className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Beneficio que recibirás al unirte:</p>
+                    <p className="text-purple-700 font-semibold">{tierText(cmcTier)}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
             <button onClick={async () => {
               if (joinQtyInvalid) return;
               setJoining(true);
@@ -994,7 +1082,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 const fresh = await getLotByProduct(product.id).catch(() => null);
                 if (fresh) setLot(fresh);
                 if (res?.lot_cerrado) {
-                  toast.success("¡Lote completado! Tu reserva quedó confirmada.");
+                  toast.success("¡Lote completado! Se generó tu orden de compra; confirma el pago en Mis Compras.");
                 } else {
                   toast.success("Te uniste al lote. La reserva queda pendiente hasta completar el mínimo.");
                 }

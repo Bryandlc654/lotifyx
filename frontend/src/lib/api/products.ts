@@ -173,6 +173,21 @@ export async function getAdminLots(status?: string, sort?: "ASC" | "DESC", page:
   return res.json();
 }
 
+export async function getAdminLotDetail(id: string): Promise<{ lot: any; tiers: any[]; participants: any[]; benefits: any[] }> {
+  const res = await authFetch(`${API_URL}/admin/lots/${id}`);
+  if (!res.ok) throw new Error("Error al obtener detalle del lote");
+  return res.json();
+}
+
+export async function saveAdminLotPricing(id: string, tiers: any[], meta_venta?: number | null): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/lots/${id}/pricing`, {
+    method: "PUT",
+    body: JSON.stringify({ tiers, meta_venta }),
+  });
+  if (!res.ok) throw new Error("Error al guardar rangos");
+  return res.json();
+}
+
 export async function approveProduct(id: string): Promise<import("./common").Product> {
   const res = await authFetch(`${API_URL}/admin/products/${id}/approve`, { method: "PATCH" });
   if (!res.ok) throw new Error("Error al aprobar producto");

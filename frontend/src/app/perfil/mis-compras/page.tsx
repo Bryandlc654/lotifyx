@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyOrders, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId } from "@/lib/api";
+import { getMyOrders, getOrderDetail, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId } from "@/lib/api";
 import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet, Star } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -29,6 +29,7 @@ interface OrderItem {
 interface Order {
   id: string;
   total_amount: number;
+  shipping_cost?: number;
   status: string;
   operation_number: string;
   amount: number;
@@ -37,6 +38,7 @@ interface Order {
   items: OrderItem[];
   bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
   remaining_balance?: boolean;
+  benefits?: Array<{ beneficio_aplicado: string; unidades_extra: number }>;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -139,11 +141,16 @@ export default function MisComprasPage() {
                             <span className="sm:hidden">{cfg.label.split(" ")[0]}</span>
                           </span>
                         </div>
-                        <button onClick={() => {
+                        <button onClick={async () => {
                           if (order.status === "completed") {
                             router.push(`/perfil/pedido/${order.id}`);
                           } else {
-                            setSelectedOrder(order);
+                            try {
+                              const detail = await getOrderDetail(order.id);
+                              setSelectedOrder({ ...order, ...detail });
+                            } catch {
+                              setSelectedOrder(order);
+                            }
                           }
                         }}
                           className="flex items-center gap-1 text-[10px] text-purple-600 hover:underline">
@@ -201,9 +208,15 @@ export default function MisComprasPage() {
                   ))}
                </div>
 
-                       <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-                        <span className="font-bold text-gray-800">Total</span>
-                        <span className="text-lg font-bold text-gray-900">S/ {Number(order.total_amount).toFixed(2)}</span>
+                       <div className="mt-4 pt-3 border-t border-gray-100 space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-gray-800">Envío</span>
+                          <span className="font-semibold text-gray-700">S/ {Number(order.shipping_cost || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-gray-800">Total</span>
+                          <span className="text-lg font-bold text-gray-900">S/ {Number(order.total_amount).toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -333,12 +346,31 @@ export default function MisComprasPage() {
                   );
                 })}
                 </div>
-                {selectedOrder.remaining_balance && selectedOrder.status === "pending_payment" && (
+                {selectedOrder.benefits && selectedOrder.benefits.length > 0 && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <span className="text-gray-500 block mb-2">Beneficios aplicados (RCG)</span>
+                    {selectedOrder.benefits.map((b, i) => (
+                      <div key={i} className="flex items-center justify-between bg-purple-50 border border-purple-100 rounded-lg px-3 py-2 mb-1.5 text-sm">
+                        <span className="text-gray-700 font-medium">{b.beneficio_aplicado}</span>
+                        {b.unidades_extra > 0 && (
+                          <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+{b.unidades_extra} unidades</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedOrder.status === "pending_payment" && (
                 <button onClick={() => router.push(`/checkout?source=remaining_balance&order_id=${selectedOrder.id}&amount=${selectedOrder.total_amount}`)}
                   className="mt-4 w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-90 transition-opacity text-sm flex items-center justify-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                  Pagar saldo pendiente — S/ {Number(selectedOrder.total_amount).toFixed(2)}
+                  {selectedOrder.remaining_balance ? `Pagar saldo pendiente` : `Confirmar pago`} — S/ {Number(selectedOrder.total_amount).toFixed(2)}
                 </button>
+                )}
+                {Number(selectedOrder.shipping_cost || 0) > 0 && (
+                  <div className="flex justify-between pt-3 border-t border-gray-100 font-medium text-sm text-gray-600">
+                    <span>Envío</span>
+                    <span>S/ {Number(selectedOrder.shipping_cost).toFixed(2)}</span>
+                  </div>
                 )}
                 <div className="flex justify-between pt-3 border-t border-gray-100 font-bold text-lg">
                  <span>Total</span>

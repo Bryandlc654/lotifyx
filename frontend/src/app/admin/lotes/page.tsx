@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminLots, approveProduct, rejectProduct, deleteProduct, getAdminUsers, getCategories } from "@/lib/api";
+import { getAdminLots, getAdminLotDetail, saveAdminLotPricing, approveProduct, rejectProduct, deleteProduct, getAdminUsers, getCategories } from "@/lib/api";
 import { Check, X, Eye, Search, XCircle, Trash2, ArrowUpDown, Layers, Users } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,10 +56,20 @@ interface LotRow {
   participantes_minimos: number | null;
   cmc: number | null;
   cantidad_total: number | null;
+  meta_venta?: number | null;
+  destacado?: boolean;
+  rcg_tiers?: any[];
   cierre_estimado: string | null;
   lot_estado: string | null;
   cantidad_reservada: number;
   participantes_count: number;
+}
+
+interface LotDetail {
+  lot: any;
+  tiers: any[];
+  participants: any[];
+  benefits: any[];
 }
 
 export default function AdminLotesPage() {
@@ -68,6 +78,11 @@ export default function AdminLotesPage() {
   const [statusFilter, setStatusFilter] = useState("draft,pending_approval");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<LotRow | null>(null);
+  const [lotDetail, setLotDetail] = useState<LotDetail | null>(null);
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingTiers, setPricingTiers] = useState<any[]>([]);
+  const [pricingMeta, setPricingMeta] = useState("");
+  const [pricingSaving, setPricingSaving] = useState(false);
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [deleteConfirm, setDeleteConfirm] = useState<LotRow | null>(null);
   const [page, setPage] = useState(1);
@@ -140,6 +155,67 @@ export default function AdminLotesPage() {
     }
   }
 
+  async function openDetail(p: LotRow) {
+    setDetail(p);
+    setLotDetail(null);
+    try {
+      const d = await getAdminLotDetail(p.id);
+      setLotDetail(d);
+    } catch {
+      toast.error("Error al cargar detalle del lote");
+    }
+  }
+
+  function openPricing() {
+    const d = lotDetail;
+    setPricingTiers((d?.tiers || []).map(t => ({ ...t })));
+    setPricingMeta(d?.lot?.meta_venta != null ? String(d.lot.meta_venta) : "");
+    setPricingOpen(true);
+  }
+
+  async function savePricing() {
+    if (!detail) return;
+    setPricingSaving(true);
+    try {
+      const clean = pricingTiers
+        .filter(t => t.desde != null && t.desde !== "")
+        .map(t => ({
+          desde: Number(t.desde) || 1,
+          hasta: t.hasta != null && t.hasta !== "" ? Number(t.hasta) : null,
+          tipo_beneficio: t.tipo_beneficio || "descuento",
+          valor: Number(t.valor) || 0,
+          activacion: t.activacion || "al_cierre",
+          descripcion: t.descripcion || null,
+        }));
+      await saveAdminLotPricing(detail.id, clean, pricingMeta !== "" ? Number(pricingMeta) : null);
+      toast.success("Rangos guardados");
+      setPricingOpen(false);
+      const d = await getAdminLotDetail(detail.id);
+      setLotDetail(d);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "Error al guardar rangos");
+    } finally {
+      setPricingSaving(false);
+    }
+  }
+
+  const tierText = (t: any) => {
+    const v = Number(t.valor || 0);
+    switch (t.tipo_beneficio) {
+      case "precio": return `Precio S/ ${v.toFixed(2)}`;
+      case "descuento": return `Descuento ${v}%`;
+      case "flete": return v > 0 ? `Flete S/ ${v.toFixed(2)}` : "Flete gratis";
+      case "unidades_extra": return `+${v} unidades`;
+      case "destaque": return "Compra destacada";
+      case "cashback": return `Cashback ${v}%`;
+      default: return t.descripcion || "Beneficio especial";
+    }
+  };
+
+  const activationLabel = (a: string) =>
+    a === "al_cmc" ? "Al alcanzar CMC" : a === "al_cierre" ? "Al cerrar lote" : "Al superar expectativa";
+
   const filtered = items.filter(p => {
     const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || (p.sku || "").toLowerCase().includes(search.toLowerCase());
     return matchSearch;
@@ -207,6 +283,9 @@ export default function AdminLotesPage() {
                     <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-5 py-3">
                         <span className="font-semibold text-gray-900 text-sm">{p.title}</span>
+                        {p.destacado && (
+                          <span className="ml-2 text-[10px] font-medium text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">Destacado</span>
+                        )}
                         {p.lot_estado === "abierto" && (
                           <span className="ml-2 text-[10px] font-medium text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">En convocatoria</span>
                         )}
@@ -239,7 +318,7 @@ export default function AdminLotesPage() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex gap-1 justify-end">
-                          <button onClick={() => setDetail(p)}
+                          <button onClick={() => openDetail(p)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Ver detalles">
                             <Eye className="h-4 w-4" />
                           </button>
@@ -290,9 +369,15 @@ export default function AdminLotesPage() {
             <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <h2 className="font-bold text-gray-900 text-base truncate pr-2">{detail.title}</h2>
-                <button onClick={() => setDetail(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
-                  <XCircle className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={openPricing}
+                    className="text-xs font-semibold text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg px-3 py-1.5 transition-colors">
+                    Editar RCG
+                  </button>
+                  <button onClick={() => setDetail(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               <div className="p-5 space-y-5 text-sm">
 
@@ -322,6 +407,57 @@ export default function AdminLotesPage() {
                     <div className="flex gap-2"><span className="text-gray-400 w-32 flex-shrink-0">Envío</span><span className="text-gray-700">—</span></div>
                   </div>
                 </div>
+
+                {lotDetail && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Rangos RCG</h3>
+                    {lotDetail.tiers.length === 0 ? (
+                      <p className="text-xs text-gray-400">No hay rangos configurados.</p>
+                    ) : (
+                      <div className="overflow-hidden rounded-lg border border-gray-100">
+                        <table className="w-full text-left">
+                          <thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-400">
+                            <tr>
+                              <th className="px-2.5 py-1.5">Rango</th>
+                              <th className="px-2.5 py-1.5">Beneficio</th>
+                              <th className="px-2.5 py-1.5">Activación</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 text-xs">
+                            {lotDetail.tiers.map((t: any) => (
+                              <tr key={t.id}>
+                                <td className="px-2.5 py-1.5 font-semibold text-gray-700">{t.desde}{t.hasta ? ` – ${t.hasta}` : "+"}</td>
+                                <td className="px-2.5 py-1.5 text-gray-700">{tierText(t)}</td>
+                                <td className="px-2.5 py-1.5 text-gray-500">{activationLabel(t.activacion)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {lotDetail.benefits.length > 0 && (
+                      <div className="mt-3">
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Beneficios aplicados</h3>
+                        <div className="space-y-1.5">
+                          {lotDetail.benefits.map((b: any) => (
+                            <div key={b.id} className="flex items-center justify-between bg-purple-50 rounded-lg px-3 py-2">
+                              <div>
+                                <p className="text-xs font-medium text-gray-700">{b.beneficio_aplicado}</p>
+                                <p className="text-[10px] text-gray-400">
+                                  {b.comprador_first_name ? `${b.comprador_first_name} ${b.comprador_last_name || ""}`.trim() : "—"}
+                                  {" · "}{new Date(b.applied_at).toLocaleString("es-PE")}
+                                </p>
+                              </div>
+                              {b.unidades_extra > 0 && (
+                                <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+{b.unidades_extra} unid.</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-gray-100 space-y-1">
                   {detail.sku && <div className="flex gap-2 text-xs"><span className="text-gray-400 w-32 flex-shrink-0">SKU</span><span className="text-gray-700 font-mono text-xs">{detail.sku}</span></div>}
@@ -357,7 +493,129 @@ export default function AdminLotesPage() {
             </div>
           </div>
         )}
+
+        {pricingOpen && detail && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 className="font-bold text-gray-900 text-base">Editar rangos RCG</h3>
+                <button onClick={() => setPricingOpen(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4 text-sm">
+                <p className="text-xs text-gray-400">
+                  Rango sobre las unidades comprometidas en total. Cada rango activa un beneficio al alcanzarse.
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-semibold text-gray-500 w-40 flex-shrink-0">Meta de venta (expectativa)</label>
+                  <input type="number" value={pricingMeta} onChange={e => setPricingMeta(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200"
+                    placeholder="Por defecto: cantidad total" />
+                </div>
+
+                <div className="space-y-3">
+                  {pricingTiers.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">Sin rangos configurados.</p>
+                  )}
+                  {pricingTiers.map((t, idx) => (
+                    <div key={idx} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rango {idx + 1}</span>
+                        <button type="button" onClick={() => setPricingTiers(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium">Quitar</button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div>
+                          <label className="form-label">Desde</label>
+                          <input type="number" value={t.desde} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, desde: Number(e.target.value) } : x))}
+                            className="w-full form-input-custom focus:ring-purple-500" placeholder="1" />
+                        </div>
+                        <div>
+                          <label className="form-label">Hasta</label>
+                          <input type="number" value={t.hasta ?? ""} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, hasta: e.target.value !== "" ? Number(e.target.value) : null } : x))}
+                            className="w-full form-input-custom focus:ring-purple-500" placeholder="Sin límite" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="form-label">Activación</label>
+                          <select value={t.activacion} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, activacion: e.target.value } : x))}
+                            className="w-full form-input-custom focus:ring-purple-500">
+                            <option value="al_cmc">Al alcanzar CMC (por comprador)</option>
+                            <option value="al_cierre">Al cerrar lote</option>
+                            <option value="superar_expectativa">Al superar expectativa</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="form-label">Beneficio</label>
+                          <select value={t.tipo_beneficio} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, tipo_beneficio: e.target.value } : x))}
+                            className="w-full form-input-custom focus:ring-purple-500">
+                            <option value="precio">Precio (S/)</option>
+                            <option value="descuento">Descuento (%)</option>
+                            <option value="flete">Flete (S/)</option>
+                            <option value="unidades_extra">Unidades extra</option>
+                            <option value="destaque">Destacar compra</option>
+                            <option value="otro">Otro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="form-label">Valor</label>
+                          <input type="number" step="0.01" value={t.valor} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, valor: Number(e.target.value) } : x))}
+                            className="w-full form-input-custom focus:ring-purple-500" placeholder="0" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="form-label">Descripción para el comprador</label>
+                        <input type="text" value={t.descripcion || ""} onChange={e => setPricingTiers(prev => prev.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))}
+                          className="w-full form-input-custom focus:ring-purple-500" placeholder="Ej: Descuento del 5% por unidad" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setPricingTiers(prev => [...prev, {
+                  desde: prev.length > 0 ? Math.max(1, prev[prev.length - 1].desde) + 1 : 1,
+                  hasta: null,
+                  tipo_beneficio: "descuento",
+                  valor: 5,
+                  activacion: "al_cierre",
+                  descripcion: "",
+                }])}
+                  className="text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors">
+                  + Agregar rango
+                </button>
+
+                <div className="flex gap-3 justify-end pt-3 border-t border-gray-100">
+                  <button onClick={() => setPricingOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={savePricing} disabled={pricingSaving}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60">
+                    {pricingSaving ? "Guardando..." : "Guardar rangos"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+      <style>{`
+        .form-label {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: #4b5563;
+          margin-bottom: 0.375rem;
+          display: block;
+        }
+        .form-input-custom {
+          font-size: 0.875rem;
+          color: #374151;
+          border-color: #d1d5db;
+          border-radius: 0.5rem;
+          border-width: 1px;
+          padding: 0.5rem 0.75rem;
+        }
+      `}</style>
     </AdminLayout>
   );
 }

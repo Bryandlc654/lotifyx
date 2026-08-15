@@ -223,7 +223,18 @@ export class OrdersService {
       `SELECT 1 FROM auctions WHERE remaining_order_id = $1 LIMIT 1`, [orderId]
     );
 
-    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking, bid_info: bidInfo || null, remaining_balance: !!remainingInfo };
+    const benefits = await this.dataSource.query(
+      `SELECT ba.beneficio_aplicado, ba.monto, ba.unidades_extra, ba.estado, ba.applied_at,
+              ba.tier_id, ba.lot_sale_id,
+              t.tipo_beneficio, t.desde, t.activacion
+       FROM lot_benefit_applications ba
+       LEFT JOIN lot_rcg_tiers t ON t.id = ba.tier_id
+       WHERE ba.order_id = $1::uuid
+       ORDER BY ba.applied_at ASC`,
+      [orderId],
+    );
+
+    return { ...order, ...sellerInfo, seller_id: sellerId, items, tracking_history: tracking, bid_info: bidInfo || null, remaining_balance: !!remainingInfo, benefits };
   }
 
   async getSales(userId: string) {
@@ -249,6 +260,7 @@ export class OrdersService {
           id: row.id,
           user_id: row.user_id,
           total_amount: row.total_amount,
+          shipping_cost: row.shipping_cost || 0,
           status: row.status,
           rejected_reason: row.rejected_reason,
           created_at: row.created_at,
@@ -290,7 +302,7 @@ export class OrdersService {
       this.dataSource.query(
         `SELECT
            COUNT(DISTINCT o.id)::int as total_sales,
-           COALESCE(SUM(oi.price) FILTER (WHERE o.status = 'completed'), 0)::numeric as revenue,
+           COALESCE(SUM(oi.price * oi.qty) FILTER (WHERE o.status = 'completed'), 0)::numeric as revenue,
            COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'completed')::int as completed,
            COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'pending_payment')::int as pending_payment
          FROM orders o

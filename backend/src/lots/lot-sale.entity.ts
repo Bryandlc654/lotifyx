@@ -32,6 +32,14 @@ export class LotSale {
   @Column({ type: "int", default: 0 })
   cantidad_reservada: number;
 
+  /** Meta de venta publicada (expectativa a superar). Si es nulo se usa cantidad_total */
+  @Column({ type: "int", nullable: true })
+  meta_venta: number;
+
+  /** Marca el lote como destacado cuando un beneficio de destaque queda activo */
+  @Column({ type: "boolean", default: false })
+  destacado: boolean;
+
   @Column({ type: "timestamp", nullable: true })
   fecha_cierre: Date;
 
