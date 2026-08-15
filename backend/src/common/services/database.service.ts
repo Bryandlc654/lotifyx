@@ -75,6 +75,40 @@ export class DatabaseService implements OnModuleInit {
          created_at TIMESTAMPTZ DEFAULT NOW()
        )`,
       `CREATE INDEX IF NOT EXISTS idx_product_views_user ON product_views (user_id)`,
+      `CREATE TABLE IF NOT EXISTS buyer_requests (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         user_id UUID NOT NULL,
+         category_id UUID NOT NULL,
+         title VARCHAR(255) NOT NULL,
+         description TEXT,
+         specifications JSONB DEFAULT '{}',
+         image TEXT,
+         precio_minimo NUMERIC(10,2),
+         precio_maximo NUMERIC(10,2),
+         cantidad INT DEFAULT 1,
+         fecha_limite TIMESTAMPTZ,
+         estado VARCHAR(20) DEFAULT 'abierta',
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_buyer_requests_user ON buyer_requests (user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_buyer_requests_estado ON buyer_requests (estado)`,
+      `CREATE TABLE IF NOT EXISTS request_offers (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         request_id UUID NOT NULL REFERENCES buyer_requests(id) ON DELETE CASCADE,
+         seller_id UUID NOT NULL,
+         product_id UUID NOT NULL,
+         precio NUMERIC(10,2) NOT NULL,
+         cantidad INT DEFAULT 1,
+         costo_envio NUMERIC(10,2) DEFAULT 0,
+         mensaje TEXT,
+         estado VARCHAR(20) DEFAULT 'pendiente',
+         order_id UUID,
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_request_offers_request ON request_offers (request_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_request_offers_seller ON request_offers (seller_id)`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

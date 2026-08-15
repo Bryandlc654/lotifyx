@@ -39,6 +39,7 @@ import { MessagesModule } from "./messages/messages.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { AuctionsModule } from "./auctions/auctions.module";
 import { LotsModule } from "./lots/lots.module";
+import { RequestsModule } from "./requests/requests.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
@@ -143,6 +144,7 @@ import { ValidateDocumentController } from "./validate-document.controller";
     ReviewsModule,
     AuctionsModule,
     LotsModule,
+    RequestsModule,
   ],
 
   controllers: [DebugController, ValidateRucController, ValidateDocumentController],
@@ -176,6 +178,8 @@ export class AppModule implements NestModule {
         { path: "api/auctions/:id/bids", method: RequestMethod.GET },
         { path: "api/lots/open", method: RequestMethod.GET },
         { path: "api/lots/product/:productId", method: RequestMethod.GET },
+        { path: "api/requests", method: RequestMethod.GET },
+        { path: "api/requests/:id", method: RequestMethod.GET },
         { path: "api/products", method: RequestMethod.GET },
         { path: "api/products/active", method: RequestMethod.GET },
         { path: "api/products/:id", method: RequestMethod.GET },

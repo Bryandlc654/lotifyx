@@ -21,6 +21,7 @@ interface UserData {
 const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/categorias", label: "Categorías" },
+  { href: "/solicitudes", label: "Solicitudes" },
   { href: "/contacto", label: "Contacto" },
 ];
 

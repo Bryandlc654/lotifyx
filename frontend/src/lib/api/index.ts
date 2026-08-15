@@ -5,6 +5,7 @@ export * from "./admin";
 export * from "./checkout";
 export * from "./auctions";
 export * from "./lots";
+export * from "./requests";
 export * from "./messages";
 export * from "./reviews";
 export * from "./profile";

@@ -11,6 +11,8 @@ const NAV_ITEMS = [
   { id: "perfil", href: "/perfil", label: "Editar Perfil", roles: ["all"] },
   { id: "dashboard", href: "/perfil/dashboard", label: "Dashboard", roles: ["vendedor"] },
   { id: "mis-compras", href: "/perfil/mis-compras", label: "Mis Compras", roles: ["all-no-superadmin"] },
+  { id: "solicitudes", href: "/perfil/solicitudes", label: "Mis Solicitudes", roles: ["all-no-superadmin"] },
+  { id: "ofertas", href: "/perfil/ofertas", label: "Mis Ofertas", roles: ["vendedor"] },
   { id: "mensajes", href: "/perfil/mensajes", label: "Mensajes", roles: ["all-no-superadmin"] },
   { id: "mis-cuentas", href: "/perfil/mis-cuentas", label: "Mis Cuentas", roles: ["all-no-superadmin"] },
   { id: "mis-ventas", href: "/perfil/mis-ventas", label: "Mis Ventas", roles: ["vendedor"] },
