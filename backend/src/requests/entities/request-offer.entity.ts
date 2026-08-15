@@ -39,6 +39,14 @@ export class RequestOffer {
   @Column({ type: "uuid", nullable: true })
   order_id: string;
 
+  /** Orden de saldo (segundo hito) creada al aceptar la oferta */
+  @Column({ type: "uuid", nullable: true })
+  remaining_order_id: string;
+
+  /** % de garantía de compromiso ofrecido por el vendedor (mínimo = umbral config) */
+  @Column({ type: "int", nullable: true })
+  garantia_pct: number | null;
+
   /** true si la oferta no coincide estrictamente con la solicitud */
   @Column({ default: false })
   es_variante: boolean;

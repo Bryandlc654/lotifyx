@@ -169,6 +169,28 @@ export default function PedidoPage() {
                   <p className="text-[10px] text-gray-500">Depósito confirmado</p>
                 </div>
               </div>
+              {order.payment_stage === "garantia" && (
+                <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 px-4 py-2 rounded-lg">
+                  <div className="bg-purple-100 text-purple-600 p-1 rounded-full">
+                    <Check className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 leading-tight">Hito 1 · Garantía de compromiso</p>
+                    <p className="text-[10px] text-gray-500">Se imputa al precio final; falta pagar el saldo</p>
+                  </div>
+                </div>
+              )}
+              {order.payment_stage === "saldo" && (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-lg">
+                  <div className="bg-indigo-100 text-indigo-600 p-1 rounded-full">
+                    <Check className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-700 leading-tight">Hito 2 · Saldo final</p>
+                    <p className="text-[10px] text-gray-500">Completa el pago del precio total</p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg">
                 <Package className="h-6 w-6 text-blue-500" />
                 <div>

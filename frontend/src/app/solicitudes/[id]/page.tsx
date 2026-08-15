@@ -13,7 +13,7 @@ import { LoginModal } from "@/components/layout/login-modal";
 import {
   getRequest, getCategories, getCategoryFields, getMyProducts,
   getRequestOffers, getMyRequestOffer, makeRequestOffer, acceptRequestOffer,
-  checkCoincidencia, getCurrentUserId,
+  checkCoincidencia, getCurrentUserId, getUmbrales,
 } from "@/lib/api";
 import type { BuyerRequest, Category, CategoryField, RequestOffer, CoincidenciaResult } from "@/lib/api";
 
@@ -37,6 +37,7 @@ export default function SolicitudDetallePage() {
   const [offerCantidad, setOfferCantidad] = useState("");
   const [offerEnvio, setOfferEnvio] = useState("0");
   const [offerMensaje, setOfferMensaje] = useState("");
+  const [offerGarantia, setOfferGarantia] = useState("5");
   const [sending, setSending] = useState(false);
   const [coincidencia, setCoincidencia] = useState<CoincidenciaResult | null>(null);
   const [coincidenciaLoading, setCoincidenciaLoading] = useState(false);
@@ -48,6 +49,9 @@ export default function SolicitudDetallePage() {
   useEffect(() => {
     const uid = getCurrentUserId();
     setUserId(uid);
+    getUmbrales().then((d) => {
+      if (d) setOfferGarantia(String(d.garantia_subasta_inversa_pct));
+    }).catch(() => {});
     Promise.all([getRequest(id), getCategories(), getCategoryFields()])
       .then(([r, cs, fs]) => {
         setRequest(r);
@@ -99,8 +103,8 @@ export default function SolicitudDetallePage() {
     try {
       const res = await acceptRequestOffer(id, offer.id, offer.es_variante ? { aceptar_variante: true } : undefined);
       toast.success(res.message || "Oferta aceptada");
-      const total = Number(res.total_amount || 0);
-      router.push(`/checkout?source=remaining_balance&order_id=${res.order_id}&amount=${total}`);
+      const amount = Number(res.guarantee_amount ?? res.total_amount ?? 0);
+      router.push(`/checkout?source=remaining_balance&order_id=${res.order_id}&amount=${amount}`);
     } catch (e: any) {
       toast.error(e.message || "Error al aceptar la oferta");
       setAcceptingId(null);
@@ -145,6 +149,7 @@ export default function SolicitudDetallePage() {
         costo_envio: Number(offerEnvio) || 0,
         mensaje: offerMensaje || undefined,
         es_variante: esVariante,
+        garantia_pct: offerGarantia ? Number(offerGarantia) : undefined,
       });
       toast.success("Oferta enviada. El comprador la revisará.");
       const mo = await getMyRequestOffer(id);
@@ -332,6 +337,13 @@ export default function SolicitudDetallePage() {
                         <p className="text-xs text-slate-400">
                           Total: <span className="font-bold text-slate-700">S/ {(Number(o.precio) * o.cantidad + Number(o.costo_envio)).toFixed(2)}</span>
                         </p>
+                        {o.garantia_pct ? (
+                          <p className="text-xs text-slate-500">
+                            Garantía <b>{o.garantia_pct}%</b> + saldo al confirmar
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500">Pago en 2 hitos: garantía + saldo</p>
+                        )}
                         {request.estado === "abierta" ? (
                           o.estado === "pendiente" ? (
                             <button
@@ -366,7 +378,7 @@ export default function SolicitudDetallePage() {
               <h2 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
                 <BadgeCheck className="w-5 h-5 text-[#8234FE]" /> Haz tu oferta
               </h2>
-              <p className="text-sm text-slate-500 mb-4">El comprador paga mediante depósito y el pago lo aprueba la plataforma.</p>
+              <p className="text-sm text-slate-500 mb-4">El comprador paga mediante depósito y el pago lo aprueba la plataforma. El pago se divide en dos hitos: <b>garantía de compromiso</b> (se imputa al precio final) y <b>saldo</b>.</p>
 
               {pendingOffer ? (
                 <div className="flex items-center gap-3 text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
@@ -436,6 +448,11 @@ export default function SolicitudDetallePage() {
                   <div>
                     <label className="form-label">Costo de envío (S/)</label>
                     <input type="number" min="0" step="0.01" value={offerEnvio} onChange={e => setOfferEnvio(e.target.value)} className="form-input-custom w-full" placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="form-label">Garantía de compromiso (%)</label>
+                    <input type="number" min="1" max="100" step="1" value={offerGarantia} onChange={e => setOfferGarantia(e.target.value)} className="form-input-custom w-full" placeholder="5" />
+                    <p className="text-xs text-slate-400 mt-1">% mínimo según umbral configurado por la plataforma. Se imputa al precio final.</p>
                   </div>
                   <div className="md:col-span-2">
                     <label className="form-label">Mensaje / condiciones</label>

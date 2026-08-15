@@ -38,6 +38,7 @@ interface Order {
   items: OrderItem[];
   bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
   remaining_balance?: boolean;
+  payment_stage?: string | null;
   benefits?: Array<{ beneficio_aplicado: string; unidades_extra: number }>;
 }
 
@@ -140,6 +141,16 @@ export default function MisComprasPage() {
                             <span className="hidden sm:inline">{cfg.label}</span>
                             <span className="sm:hidden">{cfg.label.split(" ")[0]}</span>
                           </span>
+                          {order.payment_stage === "garantia" && (
+                            <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                              Hito 1 · Garantía
+                            </span>
+                          )}
+                          {order.payment_stage === "saldo" && (
+                            <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              Hito 2 · Saldo
+                            </span>
+                          )}
                         </div>
                         <button onClick={async () => {
                           if (order.status === "completed") {

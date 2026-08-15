@@ -30,6 +30,8 @@ export interface RequestOffer {
   mensaje?: string | null;
   estado: string;
   order_id?: string | null;
+  remaining_order_id?: string | null;
+  garantia_pct?: number | null;
   es_variante?: boolean;
   coincidencia?: string;
   aceptacion_variante?: boolean;
@@ -126,7 +128,7 @@ export async function checkCoincidencia(requestId: string, productId: string): P
 
 export async function makeRequestOffer(
   requestId: string,
-  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; mensaje?: string; es_variante?: boolean },
+  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; mensaje?: string; es_variante?: boolean; garantia_pct?: number },
 ): Promise<RequestOffer> {
   const res = await authFetch(`${API_URL}/requests/${requestId}/offers`, {
     method: "POST",

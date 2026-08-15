@@ -12,11 +12,13 @@ import { AdminWithdrawalsController } from "./admin-withdrawals.controller";
 import { AdminReviewsController } from "./admin-reviews.controller";
 import { AdminAuctionsController } from "./admin-auctions.controller";
 import { AdminVerificationsController } from "./admin-verifications.controller";
+import { AdminConfigController } from "./admin-config.controller";
 import { ProductsModule } from "../products/products.module";
 import { LotsModule } from "../lots/lots.module";
 import { CheckoutModule } from "../checkout/checkout.module";
 import { AuditModule } from "../audit/audit.module";
 import { VerificationsModule } from "../verifications/verifications.module";
+import { ConfigModule } from "../config/config.module";
 import { User } from "../auth/entities/user.entity";
 import { UserProfile } from "../auth/entities/user-profile.entity";
 import { UserVerification } from "../auth/entities/user-verification.entity";
@@ -25,8 +27,8 @@ import { Permission } from "../auth/entities/permission.entity";
 import { RolePermission } from "../auth/entities/role-permission.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule],
-  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminLotsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController, AdminVerificationsController],
+  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule, ConfigModule],
+  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminLotsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController, AdminVerificationsController, AdminConfigController],
   providers: [AdminUsersService, AdminRbacService],
 })
 export class AdminModule {}

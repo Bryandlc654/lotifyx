@@ -7,6 +7,7 @@ import { LotSale } from "./lot-sale.entity";
 import { LotParticipant } from "./lot-participant.entity";
 import { LotRcgTier } from "./lot-rcg-tier.entity";
 import { LotBenefitApplication } from "./lot-benefit-application.entity";
+import { ConfigService } from "../config/config.service";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
@@ -39,6 +40,7 @@ export class LotsService implements OnModuleInit {
     @InjectRepository(LotParticipant)
     private readonly participantsRepo: Repository<LotParticipant>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
@@ -339,6 +341,7 @@ export class LotsService implements OnModuleInit {
 
       const basePrice = Number(lot.precio_individual || 0);
       const cmcMin = this.cmcOf(lot);
+      const pct = await this.config.getPct("garantia_demanda_agregada_pct");
 
       for (const p of participants) {
         const cantidad = Math.max(1, Number(p.cantidad) || 1);
@@ -354,21 +357,38 @@ export class LotsService implements OnModuleInit {
         const shippingCost = fleteTier ? Number(fleteTier.valor || 0) : 0;
         const itemsTotal = unitPrice * cantidad;
         const total = itemsTotal + shippingCost;
+        const guarantee = Number((total * pct / 100).toFixed(2));
+        const saldo = Number((total - guarantee).toFixed(2));
 
         const [order] = await queryRunner.query(
-          `INSERT INTO orders (user_id, total_amount, shipping_cost, status, created_at, updated_at)
-           VALUES ($1, $2, $3, 'pending_payment', NOW(), NOW())
+          `INSERT INTO orders (user_id, total_amount, shipping_cost, status, payment_stage, created_at, updated_at)
+           VALUES ($1, $2, $3, 'pending_payment', 'garantia', NOW(), NOW())
            RETURNING id`,
-          [p.comprador_id, total, shippingCost],
+          [p.comprador_id, guarantee, shippingCost],
         );
         await queryRunner.query(
           `INSERT INTO order_items (order_id, product_id, price, qty, created_at)
            VALUES ($1, $2, $3, $4, NOW())`,
           [order.id, lot.product_id, unitPrice, cantidad],
         );
+        let remainingOrderId: string | null = null;
+        if (saldo > 0) {
+          const [remaining] = await queryRunner.query(
+            `INSERT INTO orders (user_id, total_amount, shipping_cost, status, payment_stage, created_at, updated_at)
+             VALUES ($1, $2, $3, 'pending_payment', 'saldo', NOW(), NOW())
+             RETURNING id`,
+            [p.comprador_id, saldo, 0],
+          );
+          await queryRunner.query(
+            `INSERT INTO order_items (order_id, product_id, price, qty, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [remaining.id, lot.product_id, unitPrice, cantidad],
+          );
+          remainingOrderId = remaining.id;
+        }
         await queryRunner.query(
-          `UPDATE lot_participants SET order_id = $2 WHERE id = $1`,
-          [p.id, order.id],
+          `UPDATE lot_participants SET order_id = $2, remaining_order_id = $3, garantia_pct = $4 WHERE id = $1`,
+          [p.id, order.id, remainingOrderId, pct],
         );
 
         const seenTiers = new Set<string>();

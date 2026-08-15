@@ -19,6 +19,15 @@ export class LotParticipant {
   @Column({ default: false })
   garantia_pagada: boolean;
 
+  @Column({ type: "uuid", nullable: true })
+  order_id: string;
+
+  @Column({ type: "uuid", nullable: true })
+  remaining_order_id: string;
+
+  @Column({ type: "int", nullable: true })
+  garantia_pct: number;
+
   @Column({ length: 20, default: "pendiente" })
   estado: string;
 

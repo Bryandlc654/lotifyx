@@ -41,6 +41,7 @@ import { AuctionsModule } from "./auctions/auctions.module";
 import { LotsModule } from "./lots/lots.module";
 import { RequestsModule } from "./requests/requests.module";
 import { VerificationsModule } from "./verifications/verifications.module";
+import { ConfigModule as LotifyConfigModule } from "./config/config.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
@@ -147,6 +148,7 @@ import { ValidateDocumentController } from "./validate-document.controller";
     LotsModule,
     RequestsModule,
     VerificationsModule,
+    LotifyConfigModule,
   ],
 
   controllers: [DebugController, ValidateRucController, ValidateDocumentController],

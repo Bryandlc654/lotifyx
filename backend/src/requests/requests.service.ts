@@ -5,6 +5,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { BuyerRequest } from "./entities/buyer-request.entity";
 import { RequestOffer } from "./entities/request-offer.entity";
 import { MatchingService } from "./matching.service";
+import { ConfigService } from "../config/config.service";
 
 @Injectable()
 export class RequestsService {
@@ -13,6 +14,7 @@ export class RequestsService {
     @InjectRepository(RequestOffer) private readonly offersRepo: Repository<RequestOffer>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly matching: MatchingService,
+    private readonly config: ConfigService,
   ) {}
 
   private num(v: any): number | null {
@@ -214,6 +216,15 @@ export class RequestsService {
     });
     if (existing) throw new BadRequestException("Ya tienes una oferta pendiente en esta solicitud");
 
+    let garantiaPct: number | null = null;
+    if (dto?.garantia_pct !== undefined && dto?.garantia_pct !== null && dto?.garantia_pct !== "") {
+      const minPct = await this.config.getPct("garantia_subasta_inversa_pct");
+      garantiaPct = Math.floor(Number(dto.garantia_pct));
+      if (!Number.isFinite(garantiaPct) || garantiaPct < minPct || garantiaPct > 100) {
+        throw new BadRequestException(`La garantía de compromiso debe estar entre ${minPct}% y 100%`);
+      }
+    }
+
     const offer = this.offersRepo.create({
       request_id: requestId,
       seller_id: userId,
@@ -225,6 +236,7 @@ export class RequestsService {
       estado: "pendiente",
       es_variante: requiereVariante,
       coincidencia: match.nivel,
+      garantia_pct: garantiaPct,
     });
     await this.offersRepo.save(offer);
     return offer;
@@ -278,23 +290,41 @@ export class RequestsService {
     const shipping = Number(offer.costo_envio) || 0;
     const total = Number((unitPrice * qty + shipping).toFixed(2));
 
+    const pct = offer.garantia_pct ?? (await this.config.getPct("garantia_subasta_inversa_pct"));
+    const guarantee = Number((total * pct / 100).toFixed(2));
+    const saldo = Number((total - guarantee).toFixed(2));
+
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
     try {
       const [order] = await qr.query(
-        `INSERT INTO orders (user_id, total_amount, shipping_cost, status, created_at, updated_at)
-         VALUES ($1, $2, $3, 'pending_payment', NOW(), NOW()) RETURNING id, total_amount`,
-        [userId, total, shipping],
+        `INSERT INTO orders (user_id, total_amount, shipping_cost, status, payment_stage, created_at, updated_at)
+         VALUES ($1, $2, $3, 'pending_payment', 'garantia', NOW(), NOW()) RETURNING id, total_amount`,
+        [userId, guarantee, shipping],
       );
       await qr.query(
         `INSERT INTO order_items (order_id, product_id, price, qty, created_at)
          VALUES ($1, $2, $3, $4, NOW())`,
         [order.id, offer.product_id, unitPrice, qty],
       );
+      let remainingOrderId: string | null = null;
+      if (saldo > 0) {
+        const [remaining] = await qr.query(
+          `INSERT INTO orders (user_id, total_amount, shipping_cost, status, payment_stage, created_at, updated_at)
+           VALUES ($1, $2, $3, 'pending_payment', 'saldo', NOW(), NOW()) RETURNING id, total_amount`,
+          [userId, saldo, 0],
+        );
+        await qr.query(
+          `INSERT INTO order_items (order_id, product_id, price, qty, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [remaining.id, offer.product_id, unitPrice, qty],
+        );
+        remainingOrderId = remaining.id;
+      }
       await qr.query(
-        `UPDATE request_offers SET estado = 'aceptada', order_id = $2, aceptacion_variante = $3 WHERE id = $1`,
-        [offerId, order.id, offer.es_variante],
+        `UPDATE request_offers SET estado = 'aceptada', order_id = $2, remaining_order_id = $4, garantia_pct = $5, aceptacion_variante = $3 WHERE id = $1`,
+        [offerId, order.id, offer.es_variante, remainingOrderId, pct],
       );
       await qr.query(
         `UPDATE request_offers SET estado = 'rechazada' WHERE request_id = $1 AND id != $2 AND estado = 'pendiente'`,
@@ -304,8 +334,12 @@ export class RequestsService {
       await qr.commitTransaction();
       return {
         order_id: order.id,
-        total_amount: order.total_amount,
-        message: "Oferta aceptada. Se generó tu orden; confirma el pago en Mis Compras.",
+        guarantee_amount: guarantee,
+        remaining_order_id: remainingOrderId,
+        remaining_amount: saldo,
+        total_amount: total,
+        garantia_pct: pct,
+        message: `Oferta aceptada. Pagas la garantía de compromiso (${pct}% = S/ ${guarantee.toFixed(2)}) y luego el saldo (S/ ${saldo.toFixed(2)}) en Mis Compras.`,
       };
     } catch (e) {
       await qr.rollbackTransaction();

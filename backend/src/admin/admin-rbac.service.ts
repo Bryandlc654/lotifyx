@@ -97,6 +97,7 @@ export class AdminRbacService {
       { name: "plans.delete", description: "Eliminar planes", module: "plans" },
       { name: "settings.read", description: "Ver configuración", module: "settings" },
       { name: "settings.write", description: "Editar configuración", module: "settings" },
+      { name: "config.umbrales", description: "Ver/editar umbrales de pago", module: "settings" },
       { name: "backing.read", description: "Ver logos respaldo", module: "backing" },
       { name: "backing.write", description: "Crear/editar logos respaldo", module: "backing" },
       { name: "backing.delete", description: "Eliminar logos respaldo", module: "backing" },

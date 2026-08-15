@@ -58,7 +58,13 @@ export class OrdersService {
          WHERE ab.checkout_id = ANY($1)`, [orderIds],
       ) : Promise.resolve([]),
       orderIds.length ? this.dataSource.query(
-        `SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)`, [orderIds],
+        `SELECT id AS remaining_order_id FROM orders WHERE id = ANY($1) AND payment_stage = 'saldo'
+         UNION
+         SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)
+         UNION
+         SELECT remaining_order_id FROM lot_participants WHERE remaining_order_id = ANY($1)
+         UNION
+         SELECT remaining_order_id FROM request_offers WHERE remaining_order_id = ANY($1)`, [orderIds],
       ) : Promise.resolve([]),
     ]);
     const bidMap: Record<string, any> = {};
@@ -141,7 +147,13 @@ export class OrdersService {
          WHERE ab.checkout_id = ANY($1)`, [orderIds],
       ) : Promise.resolve([]),
       orderIds.length ? this.dataSource.query(
-        `SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)`, [orderIds],
+        `SELECT id AS remaining_order_id FROM orders WHERE id = ANY($1) AND payment_stage = 'saldo'
+         UNION
+         SELECT remaining_order_id FROM auctions WHERE remaining_order_id = ANY($1)
+         UNION
+         SELECT remaining_order_id FROM lot_participants WHERE remaining_order_id = ANY($1)
+         UNION
+         SELECT remaining_order_id FROM request_offers WHERE remaining_order_id = ANY($1)`, [orderIds],
       ) : Promise.resolve([]),
     ]);
     const bidMap: Record<string, any> = {};

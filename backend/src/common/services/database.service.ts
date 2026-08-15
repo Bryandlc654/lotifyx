@@ -131,6 +131,17 @@ export class DatabaseService implements OnModuleInit {
          updated_at TIMESTAMPTZ DEFAULT NOW()
        )`,
       `CREATE INDEX IF NOT EXISTS idx_product_verifications_product ON product_verifications (product_id)`,
+      `CREATE TABLE IF NOT EXISTS app_config (
+         key VARCHAR(100) PRIMARY KEY,
+         value TEXT NOT NULL,
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `INSERT INTO app_config (key, value) VALUES ('garantia_subasta_inversa_pct', '5'), ('garantia_demanda_agregada_pct', '5') ON CONFLICT (key) DO NOTHING`,
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_stage VARCHAR(20)`,
+      `ALTER TABLE lot_participants ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
+      `ALTER TABLE lot_participants ADD COLUMN IF NOT EXISTS garantia_pct INT`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS garantia_pct INT`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

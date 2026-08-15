@@ -128,36 +128,45 @@ export class CheckoutService implements OnModuleInit {
         `SELECT 1 FROM auctions WHERE remaining_order_id = $1 LIMIT 1`,
         [id],
       );
+      const [isSaldoStage] = await queryRunner.query(
+        `SELECT 1 FROM orders WHERE id = $1 AND payment_stage = 'saldo' LIMIT 1`,
+        [id],
+      );
 
+      // Las órdenes de puja y las de saldo de subasta conservan su comportamiento previo.
+      // Las órdenes de saldo de lote/solicitud de compra no descuentan stock (ya reservado
+      // al pagar la garantía) pero sí acreditan fondos al vendedor.
       if (!bidLink || isRemainingOrder) {
-        await queryRunner.query(
-          `UPDATE products p
-           SET stock = GREATEST(p.stock - oi.qty, 0)
-           FROM order_items oi
-           WHERE oi.order_id = $1 AND oi.product_id = p.id AND p.stock > 0`,
-          [id],
-        );
+        if (!isRemainingOrder) {
+          if (!isSaldoStage) {
+            await queryRunner.query(
+              `UPDATE products p
+               SET stock = GREATEST(p.stock - oi.qty, 0)
+               FROM order_items oi
+               WHERE oi.order_id = $1 AND oi.product_id = p.id AND p.stock > 0`,
+              [id],
+            );
+          }
 
-        await queryRunner.query(
-          `UPDATE funds SET pending_balance = pending_balance + (
-             SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1
-           )
-           WHERE user_id = (
-             SELECT p.user_id FROM order_items oi
+          await queryRunner.query(
+            `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+             SELECT p.user_id, 0, 0, 0 FROM order_items oi
              INNER JOIN products p ON p.id = oi.product_id
-             WHERE oi.order_id = $1 LIMIT 1
-           )`,
-          [id],
-        );
+             WHERE oi.order_id = $1
+             ON CONFLICT (user_id) DO NOTHING`,
+            [id],
+          );
 
-        await queryRunner.query(
-          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
-           SELECT p.user_id, 0, 0, 0 FROM order_items oi
-           INNER JOIN products p ON p.id = oi.product_id
-           WHERE oi.order_id = $1
-           ON CONFLICT (user_id) DO NOTHING`,
-          [id],
-        );
+          await queryRunner.query(
+            `UPDATE funds SET pending_balance = pending_balance + (SELECT total_amount FROM orders WHERE id = $1)
+             WHERE user_id = (
+               SELECT p.user_id FROM order_items oi
+               INNER JOIN products p ON p.id = oi.product_id
+               WHERE oi.order_id = $1 LIMIT 1
+             )`,
+            [id],
+          );
+        }
       }
 
       await queryRunner.commitTransaction();
