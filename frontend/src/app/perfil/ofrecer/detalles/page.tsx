@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
-import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct } from "@/lib/api";
+import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile } from "@/lib/api";
 import { getLotByProduct, saveLotPricing, RcgTier } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -54,9 +54,26 @@ function DetallesContent() {
     devoluciones: "",
     garantia: "",
     politicas_imagenes: "",
+    estado: "nuevo",
+    ubicacion: "",
   });
   const [tiers, setTiers] = useState<RcgTier[]>([]);
   const [metaVenta, setMetaVenta] = useState("");
+  const [nivelCoincidencia, setNivelCoincidencia] = useState("estricta");
+
+  // III.4 Verificación de stock y ficha técnica
+  const [categoryRequires, setCategoryRequires] = useState(false);
+  const [verificationEnabled, setVerificationEnabled] = useState(false);
+  const [verifChanged, setVerifChanged] = useState(true);
+  const [verifStatus, setVerifStatus] = useState("none");
+  const [verifObservaciones, setVerifObservaciones] = useState("");
+  const [verifFotos, setVerifFotos] = useState<string[]>([]);
+  const [verifVideo, setVerifVideo] = useState("");
+  const [verifNumeroSerie, setVerifNumeroSerie] = useState("");
+  const [verifDocs, setVerifDocs] = useState<string[]>([]);
+  const [verifCapUnidades, setVerifCapUnidades] = useState("");
+  const [verifCapPlazo, setVerifCapPlazo] = useState("");
+  const [verifDeclaracion, setVerifDeclaracion] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
@@ -80,9 +97,20 @@ function DetallesContent() {
       })
       .catch(() => { toast.error("Error al cargar campos"); return {} as Record<string, string>; });
 
+    getCategories()
+      .then((cats) => {
+        const flat: any[] = [];
+        const flatten = (items: any[]) => { for (const c of items) { flat.push(c); if (c.children?.length) flatten(c.children); } };
+        flatten(cats);
+        const cat = flat.find(c => c.id === categoryId);
+        setCategoryRequires(!!cat?.require_verification);
+        if (!!cat?.require_verification && !editingId) setVerificationEnabled(true);
+      })
+      .catch(() => {});
+
     if (editingId) {
-      Promise.all([loadFields, getMyProduct(editingId)])
-        .then(([_, p]) => {
+      Promise.all([loadFields, getMyProduct(editingId), getVerification(editingId).catch(() => ({ verification: null }))])
+        .then(([_, p, verRes]: any) => {
           const specForm: Record<string, string> = {};
           Object.entries(p.specifications || {}).forEach(([k, v]) => { specForm[k] = String(v ?? ""); });
           const specStock = specForm["Stock"] ?? specForm["stock"] ?? "";
@@ -92,6 +120,7 @@ function DetallesContent() {
             specForm[stockKey] = stockVal;
           }
           setForm(specForm);
+          setNivelCoincidencia(p.nivel_coincidencia || "estricta");
           setConditions({
             metodo_pago: p.metodo_pago || "",
             stock: stockVal,
@@ -113,7 +142,23 @@ function DetallesContent() {
             devoluciones: p.devoluciones || "",
             garantia: p.garantia || "",
             politicas_imagenes: p.politicas_imagenes || "",
+            estado: p.estado || "nuevo",
+            ubicacion: p.ubicacion || "",
           });
+          const ver = verRes?.verification;
+          if (ver) {
+            setVerifFotos(ver.payload?.fotografias || []);
+            setVerifVideo(ver.payload?.video || "");
+            setVerifNumeroSerie(ver.payload?.numero_serie || "");
+            setVerifDocs(ver.payload?.documentos || []);
+            const cap = ver.payload?.capacidad_produccion;
+            if (cap) { setVerifCapUnidades(String(cap.unidades_mes ?? "")); setVerifCapPlazo(cap.plazo || ""); }
+            setVerifDeclaracion(!!ver.payload?.declaracion_ficha);
+            setVerifStatus(ver.estado || "none");
+            setVerifObservaciones(ver.observaciones || "");
+            setVerificationEnabled(true);
+            setVerifChanged(false);
+          }
           if (p.metodo_pago === "venta_por_lote") {
             getLotByProduct(editingId)
               .then(lot => {
@@ -203,6 +248,75 @@ function DetallesContent() {
           <input ref={inputRef} type="file" accept="image/*" onChange={handleFile}
             className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
         )}
+      </div>
+    );
+  }
+
+  function VideoUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const url = await uploadVideo(file);
+        onChange(url);
+      } catch { toast.error("Error al subir video"); }
+      finally { setUploading(false); if (inputRef.current) inputRef.current.value = ""; }
+    }
+
+    return (
+      <div>
+        {value && (
+          <div className="flex items-center gap-3 mb-2">
+            <video src={getImageUrl(value)} className="w-40 h-28 object-cover rounded-lg border border-gray-200" controls />
+            <button type="button" onClick={() => onChange("")} className="text-xs text-red-500 font-medium hover:text-red-700">Quitar</button>
+          </div>
+        )}
+        {uploading ? (
+          <div className="w-40 h-28 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <input ref={inputRef} type="file" accept="video/*" onChange={handleFile}
+            className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+        )}
+      </div>
+    );
+  }
+
+  function DocUpload({ urls, onChange }: { urls: string[]; onChange: (urls: string[]) => void }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      setUploading(true);
+      try {
+        const newUrls: string[] = [];
+        for (const f of Array.from(files)) newUrls.push(await uploadFile(f));
+        onChange([...urls, ...newUrls]);
+      } catch { toast.error("Error al subir documentos"); }
+      finally { setUploading(false); if (inputRef.current) inputRef.current.value = ""; }
+    }
+
+    return (
+      <div>
+        {urls.length > 0 && (
+          <ul className="mb-2 space-y-1">
+            {urls.map((url, i) => (
+              <li key={i} className="flex items-center gap-2 text-sm text-purple-700">
+                <a href={getImageUrl(url)} target="_blank" rel="noreferrer" className="underline truncate max-w-[200px]">Documento {i + 1}</a>
+                <button type="button" onClick={() => onChange(urls.filter((_, j) => j !== i))} className="text-xs text-red-500 font-medium">Quitar</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input ref={inputRef} type="file" accept=".pdf,.doc,.docx,.txt" multiple onChange={handleFiles}
+          className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
       </div>
     );
   }
@@ -334,6 +448,9 @@ function DetallesContent() {
         cantidad_total: isLot
           ? (lotStock > 0 ? lotStock : undefined)
           : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
+        nivel_coincidencia: nivelCoincidencia,
+        estado: conditions.estado || "nuevo",
+        ubicacion: conditions.ubicacion || undefined,
       };
       let savedId = editingId;
       if (isEditing) {
@@ -362,6 +479,27 @@ function DetallesContent() {
           }
         } catch {
           toast.error("Producto guardado, pero no se pudieron guardar los rangos");
+        }
+      }
+      if (savedId && (conditions.metodo_pago === "subasta" || conditions.metodo_pago === "venta_por_lote")
+          && verificationEnabled && verifChanged) {
+        try {
+          const v = await submitVerification(savedId, {
+            fotografias: verifFotos,
+            video: verifVideo || undefined,
+            numero_serie: verifNumeroSerie || undefined,
+            documentos: verifDocs,
+            capacidad_produccion: isLot && verifCapUnidades
+              ? { unidades_mes: Number(verifCapUnidades) || 0, plazo: verifCapPlazo || undefined }
+              : undefined,
+            declaracion_ficha: verifDeclaracion,
+          });
+          setVerifStatus(v.estado);
+          setVerifObservaciones(v.observaciones || "");
+          setVerifChanged(false);
+          toast.success("Evidencia enviada para verificación");
+        } catch (e: any) {
+          toast.error(e.message || "Error al enviar la verificación");
         }
       }
       router.push("/perfil/mis-productos");
@@ -442,6 +580,27 @@ function DetallesContent() {
                       <option value="subasta">Subasta</option>
                       <option value="venta_por_lote">Venta por lote</option>
                     </select>
+                  </div>
+
+                  {/* Nivel de coincidencia permitido (III.3) */}
+                  <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                    <label className="form-label pt-2">Coincidencia de producto</label>
+                    <div className="space-y-2">
+                      {[
+                        { value: "estricta", title: "Estricta", desc: "100%: todas las especificaciones iguales" },
+                        { value: "flexible", title: "Flexible", desc: "Coinciden los atributos principales; se permite variar 1 atributo secundario" },
+                        { value: "amplia", title: "Amplia", desc: "Coincidencia esencial por modelo o categoría; variantes libres" },
+                      ].map(opt => (
+                        <label key={opt.value} className={`flex items-start gap-3 border rounded-xl p-3 cursor-pointer transition-colors ${nivelCoincidencia === opt.value ? "border-purple-500 bg-purple-50" : "border-gray-200 hover:border-gray-300"}`}>
+                          <input type="radio" name="nivel_coincidencia" value={opt.value} checked={nivelCoincidencia === opt.value}
+                            onChange={() => setNivelCoincidencia(opt.value)} className="mt-1 accent-purple-600" />
+                          <span>
+                            <span className="block text-sm font-bold text-slate-800">{opt.title}</span>
+                            <span className="block text-xs text-slate-500">{opt.desc}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Venta directa divisible: CMC = cantidad mínima por pedido */}
@@ -611,6 +770,111 @@ function DetallesContent() {
                         </button>
                       </div>
                     </>
+                  )}
+
+                  {(conditions.metodo_pago === "subasta" || conditions.metodo_pago === "venta_por_lote") && (
+                    <div className="border-t border-gray-100 pt-5 mt-2">
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <div>
+                          <label className="text-sm font-bold text-gray-800 block mb-1">Verificación de stock y ficha técnica</label>
+                          <p className="text-xs text-gray-400">
+                            {categoryRequires
+                              ? "Esta categoría requiere que LOTIFYX verifique la evidencia de posesión o capacidad de suministro antes de activar la subasta o compra grupal."
+                              : "Opcional: envía evidencia (fotos, video, documentos, número de serie, ubicación) para que LOTIFYX la verifique."}
+                          </p>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                          <input type="checkbox" checked={verificationEnabled} disabled={categoryRequires}
+                            onChange={e => { setVerificationEnabled(e.target.checked); setVerifChanged(true); }}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                          <span className="text-sm text-gray-700">Enviar verificación</span>
+                        </label>
+                      </div>
+
+                      {verifStatus !== "none" && (
+                        <div className="mb-4 flex items-center gap-2 flex-wrap">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            verifStatus === "approved" ? "bg-green-100 text-green-700" :
+                            verifStatus === "rechazada" ? "bg-red-100 text-red-700" :
+                            verifStatus === "pendiente" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
+                          }`}>
+                            {verifStatus === "approved" ? "Verificación aprobada por LOTIFYX" :
+                             verifStatus === "rechazada" ? "Verificación rechazada" :
+                             verifStatus === "pendiente" ? "Verificación en revisión" : "Sin verificación"}
+                          </span>
+                          {verifObservaciones && <span className="text-xs text-gray-500">Observación: {verifObservaciones}</span>}
+                        </div>
+                      )}
+
+                      {verificationEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                          <div className="md:col-span-2">
+                            <label className="form-label">Fotografías de la evidencia del stock o del bien</label>
+                            <GalleryUpload urls={verifFotos} onChange={(u) => { setVerifFotos(u); setVerifChanged(true); }} />
+                          </div>
+                          <div>
+                            <label className="form-label">Video de evidencia</label>
+                            <VideoUpload value={verifVideo} onChange={(v) => { setVerifVideo(v); setVerifChanged(true); }} />
+                          </div>
+                          <div>
+                            <label className="form-label">Número de serie</label>
+                            <input type="text" value={verifNumeroSerie} onChange={e => { setVerifNumeroSerie(e.target.value); setVerifChanged(true); }}
+                              className="w-full form-input-custom focus:ring-purple-500" placeholder="Opcional" />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="form-label">Documentos (factura, guía, certificado de origen)</label>
+                            <DocUpload urls={verifDocs} onChange={(u) => { setVerifDocs(u); setVerifChanged(true); }} />
+                          </div>
+                          {isLot && (
+                            <>
+                              <div>
+                                <label className="form-label">Capacidad de producción (unidades/mes)</label>
+                                <input type="number" min="0" value={verifCapUnidades}
+                                  onChange={e => { setVerifCapUnidades(e.target.value); setVerifChanged(true); }}
+                                  className="w-full form-input-custom focus:ring-purple-500" placeholder="0" />
+                              </div>
+                              <div>
+                                <label className="form-label">Plazo de suministro</label>
+                                <input type="text" value={verifCapPlazo}
+                                  onChange={e => { setVerifCapPlazo(e.target.value); setVerifChanged(true); }}
+                                  className="w-full form-input-custom focus:ring-purple-500" placeholder="Ej: 15 días" />
+                              </div>
+                            </>
+                          )}
+                          <div className="md:col-span-2">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input type="checkbox" checked={verifDeclaracion}
+                                onChange={e => { setVerifDeclaracion(e.target.checked); setVerifChanged(true); }}
+                                className="mt-1 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                              <span className="text-sm text-gray-600">
+                                Declaro que la <strong>ficha técnica</strong> (especificaciones declaradas) es correcta y corresponde con la evidencia aportada.
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="form-label pt-0">Condición del producto</label>
+                          <select value={conditions.estado} onChange={e => setConditions({ ...conditions, estado: e.target.value })}
+                            className="w-full form-input-custom focus:ring-purple-500">
+                            <option value="nuevo">Nuevo</option>
+                            <option value="usado">Usado</option>
+                            <option value="reacondicionado">Reacondicionado</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="form-label pt-0">Ubicación del bien</label>
+                          <input type="text" value={conditions.ubicacion} onChange={e => setConditions({ ...conditions, ubicacion: e.target.value })}
+                            className="w-full form-input-custom focus:ring-purple-500" placeholder="Ciudad, país" />
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-gray-400 mt-3">
+                        La verificación de LOTIFYX no sustituye la obligación del vendedor de entregar el bien ofrecido ni implica garantía absoluta de LOTIFYX.
+                      </p>
+                    </div>
                   )}
 
                   <div className="grid grid-cols-[180px_1fr] gap-4 items-start">

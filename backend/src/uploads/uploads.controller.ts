@@ -16,8 +16,10 @@ const FILE_DEST = "./uploads/files";
 
 const ALLOWED_IMAGES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_FILES = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+const ALLOWED_VIDEO = ["video/mp4", "video/webm", "video/quicktime"];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
 function imageFilter(_req: any, file: Express.Multer.File, cb: (err: Error | null, ok: boolean) => void) {
   if (!ALLOWED_IMAGES.includes(file.mimetype)) cb(new BadRequestException("Formato de imagen no válido (JPG, PNG, WebP, GIF)"), false);
@@ -26,6 +28,11 @@ function imageFilter(_req: any, file: Express.Multer.File, cb: (err: Error | nul
 
 function fileFilter(_req: any, file: Express.Multer.File, cb: (err: Error | null, ok: boolean) => void) {
   if (!ALLOWED_FILES.includes(file.mimetype)) cb(new BadRequestException("Formato de archivo no válido (PDF, DOC, DOCX, TXT)"), false);
+  else cb(null, true);
+}
+
+function videoFilter(_req: any, file: Express.Multer.File, cb: (err: Error | null, ok: boolean) => void) {
+  if (!ALLOWED_VIDEO.includes(file.mimetype)) cb(new BadRequestException("Formato de video no válido (MP4, WebM, MOV)"), false);
   else cb(null, true);
 }
 
@@ -52,6 +59,19 @@ export class UploadsController {
   )
   @HttpCode(HttpStatus.CREATED)
   uploadImage(@UploadedFile() file: Express.Multer.File) {
+    return { url: file.filename };
+  }
+
+  @Post("video")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: new R2Storage({ folder: "videos" }),
+      fileFilter: videoFilter,
+      limits: { fileSize: MAX_VIDEO_SIZE },
+    }),
+  )
+  @HttpCode(HttpStatus.CREATED)
+  uploadVideo(@UploadedFile() file: Express.Multer.File) {
     return { url: file.filename };
   }
 

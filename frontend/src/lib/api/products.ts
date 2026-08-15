@@ -11,7 +11,7 @@ export async function createCategory(dto: { name: string; slug: string; icon?: F
   return multipartAuth(`${API_URL}/categories`, "POST", dto);
 }
 
-export async function updateCategory(id: string, dto: { name: string; slug: string; icon?: File; parent_id?: string; status?: string }): Promise<import("./common").Category> {
+export async function updateCategory(id: string, dto: { name: string; slug: string; icon?: File; parent_id?: string; status?: string; require_verification?: boolean }): Promise<import("./common").Category> {
   return multipartAuth(`${API_URL}/categories/${id}`, "PUT", dto);
 }
 

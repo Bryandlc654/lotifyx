@@ -30,6 +30,10 @@ export class Category {
   @Column({ length: 50, default: "active" })
   status: string;
 
+  /** III.4: exige verificación de stock y ficha técnica para subastas / compra grupal de esta categoría */
+  @Column({ type: "boolean", default: false })
+  require_verification: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 }

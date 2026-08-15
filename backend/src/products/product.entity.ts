@@ -19,6 +19,26 @@ export class Product {
   @Column({ length: 255 })
   title: string;
 
+  /** Nivel de coincidencia permitido por el vendedor: estricta | flexible | amplia */
+  @Column({ length: 20, default: "estricta" })
+  nivel_coincidencia: string;
+
+  /** III.4 Verificación de stock y ficha técnica */
+  @Column({ type: "boolean", default: false })
+  verification_required: boolean;
+
+  /** none | pendiente | approved | rejected */
+  @Column({ length: 20, default: "none" })
+  verification_status: string;
+
+  /** Ubicación del bien (ciudad/país) */
+  @Column({ length: 150, nullable: true })
+  ubicacion: string;
+
+  /** Condición del bien: nuevo | usado | reacondicionado */
+  @Column({ length: 20, default: "nuevo" })
+  estado: string;
+
   @Column({ type: "json", default: "{}" })
   specifications: Record<string, any>;
 

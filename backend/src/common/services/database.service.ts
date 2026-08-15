@@ -109,6 +109,28 @@ export class DatabaseService implements OnModuleInit {
        )`,
       `CREATE INDEX IF NOT EXISTS idx_request_offers_request ON request_offers (request_id)`,
       `CREATE INDEX IF NOT EXISTS idx_request_offers_seller ON request_offers (seller_id)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS nivel_coincidencia VARCHAR(20) DEFAULT 'estricta'`,
+      `ALTER TABLE category_fields ADD COLUMN IF NOT EXISTS grupo VARCHAR(50) DEFAULT 'principal'`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS es_variante BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS coincidencia VARCHAR(20)`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS aceptacion_variante BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE categories ADD COLUMN IF NOT EXISTS require_verification BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS verification_required BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'none'`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS ubicacion VARCHAR(150)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'nuevo'`,
+      `CREATE TABLE IF NOT EXISTS product_verifications (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+         payload JSONB DEFAULT '{}',
+         estado VARCHAR(20) DEFAULT 'pendiente',
+         revisado_por UUID,
+         revisado_at TIMESTAMPTZ,
+         observaciones TEXT,
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_product_verifications_product ON product_verifications (product_id)`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

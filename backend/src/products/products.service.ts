@@ -136,6 +136,15 @@ export class ProductsService {
     if (dto.stock === undefined || dto.stock === null) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
     }
+    // III.4: si la categoría exige verificación y el método es subasta/compra grupal, se marca como requerida
+    if ((dto as any).metodo_pago === "subasta" || (dto as any).metodo_pago === "venta_por_lote") {
+      try {
+        const [cat] = await this.dataSource.query(
+          `SELECT require_verification FROM categories WHERE id = $1`, [dto.category_id],
+        );
+        if (cat?.require_verification) (dto as any).verification_required = true;
+      } catch {}
+    }
     // Clean empty decimal/date fields for auction/lot
     for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
@@ -276,6 +285,22 @@ export class ProductsService {
     );
     if (seller && seller.status === "disabled") {
       throw new BadRequestException("El vendedor está deshabilitado. No se puede activar el producto.");
+    }
+    // III.4: bloqueo si la categoría/método exige verificación de stock y ficha técnica y aún no está aprobada
+    if (p.metodo_pago === "subasta" || p.metodo_pago === "venta_por_lote") {
+      let catRequires = false;
+      try {
+        const [cat] = await this.dataSource.query(
+          `SELECT require_verification FROM categories WHERE id = $1`, [p.category_id],
+        );
+        catRequires = !!cat?.require_verification;
+      } catch {}
+      const required = p.verification_required === true || catRequires;
+      if (required && p.verification_status !== "approved") {
+        throw new BadRequestException(
+          "Este producto requiere verificación de stock y ficha técnica por LOTIFYX antes de activar la subasta o compra grupal.",
+        );
+      }
     }
     p.status = "active";
     const saved = await this.repo.save(p);

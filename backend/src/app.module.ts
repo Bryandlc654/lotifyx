@@ -40,6 +40,7 @@ import { ReviewsModule } from "./reviews/reviews.module";
 import { AuctionsModule } from "./auctions/auctions.module";
 import { LotsModule } from "./lots/lots.module";
 import { RequestsModule } from "./requests/requests.module";
+import { VerificationsModule } from "./verifications/verifications.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
@@ -145,6 +146,7 @@ import { ValidateDocumentController } from "./validate-document.controller";
     AuctionsModule,
     LotsModule,
     RequestsModule,
+    VerificationsModule,
   ],
 
   controllers: [DebugController, ValidateRucController, ValidateDocumentController],

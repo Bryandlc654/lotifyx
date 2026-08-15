@@ -20,7 +20,7 @@ export default function CategoriesPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [modal, setModal] = useState<{ open: boolean; category?: Category }>({ open: false });
-  const [form, setForm] = useState({ name: "", slug: "", iconFile: null as File | null, parent_id: "", status: "active" });
+  const [form, setForm] = useState({ name: "", slug: "", iconFile: null as File | null, parent_id: "", status: "active", require_verification: false });
   const [previewIcon, setPreviewIcon] = useState("");
 
   useEffect(() => { load(); }, []);
@@ -44,13 +44,13 @@ export default function CategoriesPage() {
   }
 
   function openCreate(parentId?: string) {
-    setForm({ name: "", slug: "", iconFile: null, parent_id: parentId || "", status: "active" });
+    setForm({ name: "", slug: "", iconFile: null, parent_id: parentId || "", status: "active", require_verification: false });
     setPreviewIcon("");
     setModal({ open: true });
   }
 
   function openEdit(cat: Category) {
-    setForm({ name: cat.name, slug: cat.slug, iconFile: null, parent_id: cat.parent_id || "", status: cat.status });
+    setForm({ name: cat.name, slug: cat.slug, iconFile: null, parent_id: cat.parent_id || "", status: cat.status, require_verification: !!cat.require_verification });
     setPreviewIcon(cat.icon || "");
     setModal({ open: true, category: cat });
   }
@@ -65,6 +65,7 @@ export default function CategoriesPage() {
           icon: form.iconFile || undefined,
           parent_id: form.parent_id || undefined,
           status: form.status,
+          require_verification: form.require_verification,
         });
         toast.success("Categoría actualizada");
       } else {
@@ -119,6 +120,12 @@ export default function CategoriesPage() {
           <span className={`hidden sm:inline px-2 py-0.5 rounded-full text-[10px] font-medium ${
             cat.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
           }`}>{cat.status}</span>
+
+          {cat.require_verification && (
+            <span className="hidden sm:inline px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700" title="Exige verificación de stock y ficha técnica">
+              Verif.
+            </span>
+          )}
 
           <button onClick={() => openEdit(cat)} className="p-1.5 rounded text-gray-400 hover:text-primary-500 hover:bg-primary-50"><Pencil className="h-4 w-4" /></button>
           <button onClick={() => openCreate(cat.id)} className="p-1.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50" title="Subcategoría"><Plus className="h-4 w-4" /></button>
@@ -221,6 +228,16 @@ export default function CategoriesPage() {
                   </select>
                 </div>
               </div>
+
+              <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" checked={form.require_verification}
+                  onChange={e => setForm({...form, require_verification: e.target.checked})}
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <span>
+                  <span className="block text-sm font-medium text-gray-700">Exigir verificación de stock y ficha técnica</span>
+                  <span className="block text-xs text-gray-400">Los productos de subasta o compra grupal de esta categoría deberán pasar verificación de LOTIFYX antes de activarse.</span>
+                </span>
+              </label>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">

@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
@@ -236,6 +236,14 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             {product.metodo_pago === "subasta" && auction ? (
               <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
                 <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {product.verification_status === "approved" && (
+                  <div className="mb-4">
+                    <span title="La verificación de LOTIFYX no sustituye la obligación del vendedor de entregar el bien ofrecido ni implica garantía absoluta de LOTIFYX."
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 border border-green-200 text-green-700 text-[12px] font-semibold rounded-full cursor-help">
+                      <BadgeCheck className="h-3.5 w-3.5" /> Evidencia verificada por LOTIFYX
+                    </span>
+                  </div>
+                )}
                 {sidebarSpecs.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {sidebarSpecs.map(([k, v]) => {
@@ -250,7 +258,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   </div>
                 )}
                 <div className="flex justify-between items-center text-[13px] text-gray-500 font-medium mb-6">
-                  <p>Estado: <span className="text-gray-700">Nuevo</span></p>
+                  <p>Estado: <span className="text-gray-700">{product.estado ? product.estado[0].toUpperCase() + product.estado.slice(1) : "Nuevo"}</span></p>
                   <p>LOT: <span className="text-gray-700 font-bold uppercase">{product.sku || product.id.slice(0, 8)}</span></p>
                 </div>
 
@@ -375,6 +383,14 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             ) : product.metodo_pago === "venta_por_lote" && lot ? (
               <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
                 <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {product.verification_status === "approved" && (
+                  <div className="mb-4">
+                    <span title="La verificación de LOTIFYX no sustituye la obligación del vendedor de entregar el bien ofrecido ni implica garantía absoluta de LOTIFYX."
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 border border-green-200 text-green-700 text-[12px] font-semibold rounded-full cursor-help">
+                      <BadgeCheck className="h-3.5 w-3.5" /> Evidencia verificada por LOTIFYX
+                    </span>
+                  </div>
+                )}
                 {sidebarSpecs.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {sidebarSpecs.map(([k, v]) => {
@@ -389,7 +405,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   </div>
                 )}
                 <div className="flex justify-between items-center text-[13px] text-gray-500 font-medium mb-6">
-                  <p>Estado: <span className="text-gray-700">Nuevo</span></p>
+                  <p>Estado: <span className="text-gray-700">{product.estado ? product.estado[0].toUpperCase() + product.estado.slice(1) : "Nuevo"}</span></p>
                   <p>LOT: <span className="text-gray-700 font-bold uppercase">{product.sku || product.id.slice(0, 8)}</span></p>
                 </div>
 
@@ -563,6 +579,11 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 <h1 className="text-2xl font-bold text-[#344054]">
                   {product.title}
                 </h1>
+                {product.nivel_coincidencia && product.nivel_coincidencia !== "estricta" && (
+                  <span className="inline-flex mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">
+                    Coincidencia de producto: {product.nivel_coincidencia === "flexible" ? "Flexible" : "Amplia"}
+                  </span>
+                )}
 
                 {sidebarSpecs.length > 0 && (
                   <div className="mt-4 space-y-2">

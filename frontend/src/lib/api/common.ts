@@ -76,11 +76,13 @@ export interface Category {
   id: string; name: string; slug: string; icon: string;
   parent_id: string; parent?: Category; children?: Category[];
   status: string; created_at: string;
+  require_verification?: boolean;
 }
 
 export interface CategoryField {
   id: string; category_id: string; name: string; label: string; type: string;
   required: boolean; options: string[] | null; order_index: number;
+  grupo?: string;
 }
 
 export interface Product {
@@ -90,6 +92,11 @@ export interface Product {
   category_id: string;
   title: string;
   specifications: Record<string, any>;
+  nivel_coincidencia?: string;
+  verification_required?: boolean;
+  verification_status?: string;
+  ubicacion?: string;
+  estado?: string;
   stock?: number;
   views?: number;
   saves_count?: number;
@@ -118,6 +125,25 @@ export interface Product {
   lot_cantidad_total?: number;
   lot_cantidad_reservada?: number;
   lot_participantes_minimos?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductVerification {
+  id: string;
+  product_id: string;
+  payload: {
+    fotografias: string[];
+    video?: string;
+    numero_serie?: string;
+    documentos: string[];
+    capacidad_produccion?: { unidades_mes: number; plazo?: string } | null;
+    declaracion_ficha: boolean;
+  };
+  estado: string;
+  revisado_por?: string | null;
+  revisado_at?: string | null;
+  observaciones?: string | null;
   created_at: string;
   updated_at: string;
 }
