@@ -4,14 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getActiveProducts, getCategories, getImageUrl, Product, Category } from "@/lib/api";
-import { Grid3X3, List, ChevronDown, ChevronRight, Tag, Loader2, Search, X } from "lucide-react";
+import { getActiveProducts, getCategories, getRequests, getImageUrl, Product, Category, BuyerRequest } from "@/lib/api";
+import { Grid3X3, List, ChevronDown, ChevronRight, Tag, Loader2, Search, X, PackageSearch, Plus, Clock } from "lucide-react";
 import { CategoriesCarousel } from "@/components/home/categories-carousel";
+
+function priceLabel(r: BuyerRequest) {
+  const min = r.precio_minimo != null ? Number(r.precio_minimo) : null;
+  const max = r.precio_maximo != null ? Number(r.precio_maximo) : null;
+  if (min != null && max != null) return `S/ ${min.toFixed(2)} - S/ ${max.toFixed(2)}`;
+  if (min != null) return `Desde S/ ${min.toFixed(2)}`;
+  if (max != null) return `Hasta S/ ${max.toFixed(2)}`;
+  return "A convenir";
+}
+
+function requestDeadline(r: BuyerRequest) {
+  if (!r.fecha_limite) return null;
+  const d = new Date(r.fecha_limite);
+  const now = Date.now();
+  if (d.getTime() < now) return "Vencida";
+  const days = Math.ceil((d.getTime() - now) / 86400000);
+  return days <= 1 ? "Vence pronto" : `Vence en ${days} días`;
+}
 
 export default function CategoriasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [requests, setRequests] = useState<BuyerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("relevancia");
@@ -34,13 +53,16 @@ export default function CategoriasPage() {
     const url = new URL(window.location.href);
     const q = url.searchParams.get("q") || "";
     const catId = selectedSubcategory || selectedCategory || undefined;
+    const reqCatId = selectedCategory || undefined;
     Promise.all([
       getActiveProducts(catId, q || undefined),
       getCategories(),
+      getRequests({ category_id: reqCatId, q: q || undefined, limit: 6 }),
     ])
-      .then(([prods, cats]) => {
+      .then(([prods, cats, reqs]) => {
         setProducts(prods);
         setCategories(cats);
+        setRequests(reqs.items || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -232,6 +254,54 @@ export default function CategoriasPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Solicitudes de compra */}
+              {requests.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2">
+                      <PackageSearch className="h-4 w-4 text-[#8234FE]" /> Solicitudes de compra
+                    </h3>
+                    <Link href="/solicitudes" className="text-sm font-semibold text-[#8234FE] hover:underline">
+                      Ver todas
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {requests.map(r => {
+                      const catName = categories.find(c => c.id === r.category_id)?.name || "General";
+                      const dl = requestDeadline(r);
+                      return (
+                        <Link
+                          key={r.id}
+                          href={`/solicitudes/${r.id}`}
+                          className="bg-white rounded-xl border border-slate-100 hover:shadow-md hover:border-primary-200 transition-all p-4 flex flex-col group"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-50 text-[#8234FE] border border-primary-100">
+                              {catName}
+                            </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600">
+                              Solicitud activa
+                            </span>
+                          </div>
+                          <h4 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1 group-hover:text-[#8234FE]">{r.title}</h4>
+                          <p className="text-xs text-gray-500 line-clamp-2 mb-3 flex-1">
+                            {r.description || "El comprador no agregó una descripción."}
+                          </p>
+                          <div className="text-[13px] font-bold text-[#8234FE] mb-2">{priceLabel(r)}</div>
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 border-t border-gray-100 pt-2">
+                            <span className="inline-flex items-center gap-1"><Plus className="w-3 h-3" /> {r.cantidad} unid.</span>
+                            <span>{r.offers_count ?? 0} ofertas</span>
+                            {dl && (
+                              <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {dl}</span>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {loading ? (
                 <div className="flex justify-center py-16">
