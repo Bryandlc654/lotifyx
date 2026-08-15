@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, OnModuleInit } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, LessThan } from "typeorm";
 import { DataSource } from "typeorm";
@@ -499,11 +499,15 @@ export class LotsService implements OnModuleInit {
       descripcion?: string;
     }>,
     meta_venta?: number | null,
+    actorId?: string,
   ) {
     const lot = await this.repo.findOne({ where: { id: lotSaleId } });
     if (!lot) throw new NotFoundException("Venta por lote no encontrada");
     if (lot.estado !== "abierto" && lot.estado !== "pendiente") {
       throw new BadRequestException("El lote ya cerró; no se pueden editar sus rangos");
+    }
+    if (actorId && lot.vendedor_id !== actorId) {
+      throw new ForbiddenException("No puedes modificar los rangos de este lote");
     }
 
     const validTipos = ["precio", "descuento", "flete", "unidades_extra", "destaque", "otro", "cashback"];
@@ -646,7 +650,10 @@ export class LotsService implements OnModuleInit {
   }
 
   private serialize(row: any): any {
-    const reserved = Number(row.cantidad_reservada_calc ?? row.cantidad_reservada ?? 0);
+    const reserved = Math.max(
+      Number(row.cantidad_reservada_calc ?? 0),
+      Number(row.cantidad_reservada ?? 0),
+    );
     const productStock = Number(row.product_stock || 0);
     let total = Number(row.cantidad_total || 1);
     if (productStock > 0) total = Math.min(total, productStock);

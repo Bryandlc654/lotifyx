@@ -44,6 +44,6 @@ export class LotsController {
   @Put(":id/pricing")
   @HttpCode(HttpStatus.OK)
   savePricing(@Req() req, @Param("id") id: string, @Body() body: any) {
-    return this.service.savePricing(id, body.tiers, body.meta_venta);
+    return this.service.savePricing(id, body.tiers, body.meta_venta, req.user.id);
   }
 }
