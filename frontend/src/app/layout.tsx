@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "sonner";
 import { SessionProvider } from "@/components/layout/session-provider";
 import { UserProvider } from "@/lib/user-context";
@@ -24,6 +25,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <head>
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-1SDVKJ8Z43" strategy="afterInteractive" />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-1SDVKJ8Z43');
+          `}
+        </Script>
+      </head>
       <body className={inter.className}>
         <SessionProvider>
           <UserProvider>

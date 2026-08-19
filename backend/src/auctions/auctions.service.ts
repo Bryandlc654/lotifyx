@@ -8,6 +8,8 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { MessagesGateway } from "../messages/messages.gateway";
 import { MailService } from "../mail/mail.service";
+import { CollusionService } from "../collusion/collusion.service";
+import { ConfigService } from "../config/config.service";
 
 @Injectable()
 export class AuctionsService implements OnModuleInit {
@@ -66,6 +68,8 @@ export class AuctionsService implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly gateway: MessagesGateway,
     private readonly mail: MailService,
+    private readonly collusion: CollusionService,
+    private readonly config: ConfigService,
   ) {}
 
   /** Cierra la subasta on-demand si ya expiró pero sigue activa */
@@ -149,7 +153,7 @@ export class AuctionsService implements OnModuleInit {
     }));
   }
 
-  async placeBid(auctionId: string, postorId: string, monto: number) {
+  async placeBid(auctionId: string, postorId: string, monto: number, ctx?: { ip?: string; userAgent?: string }) {
     let auction = await this.repo.findOne({ where: { id: auctionId } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
 
@@ -163,6 +167,74 @@ export class AuctionsService implements OnModuleInit {
     if (auction.estado !== "activo") throw new BadRequestException("La subasta no está activa");
     if (auction.vendedor_id === postorId) throw new ForbiddenException("No puedes pujar en tu propia subasta");
     if (new Date() > new Date(auction.fecha_fin)) throw new BadRequestException("La subasta ya terminó");
+
+    // Prohibición: múltiples cuentas para alterar la subasta
+    const [bidder] = await this.dataSource.query(
+      `SELECT u.id, u.is_verified, u.status, u.phone, p.document_number
+       FROM users u
+       LEFT JOIN user_profiles p ON p.user_id = u.id
+       WHERE u.id = $1`,
+      [postorId],
+    );
+    if (!bidder) throw new NotFoundException("Usuario no encontrado");
+    if (!bidder.is_verified) {
+      throw new ForbiddenException("Verifica tu correo antes de pujar");
+    }
+    if (bidder.status !== "active") {
+      throw new ForbiddenException("Tu cuenta debe estar activa para pujar");
+    }
+    if (!bidder.document_number) {
+      throw new ForbiddenException("Completa tu identidad (documento) en tu perfil antes de pujar");
+    }
+
+    // Bloqueo por comportamiento sospechoso (colusión)
+    await this.collusion.assertNotBlocked(postorId);
+
+    // Bloqueo por sanción de incumplimiento de pago
+    await this.collusion.assertNotSanctioned(postorId);
+
+    // Anti-flood: límite de pujas pendientes de pago por usuario
+    const maxPujas = await this.config.getNum("max_pujas_pendientes");
+    const [pujasCount] = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS n FROM auction_bids
+       WHERE postor_id = $1 AND estado = 'pendiente'`,
+      [postorId],
+    );
+    if (Number(pujasCount?.n || 0) >= maxPujas) {
+      throw new BadRequestException(
+        `Tienes demasiadas pujas sin pagar. Paga o espera para continuar pujando (máximo ${maxPujas} pujas pendientes).`,
+      );
+    }
+
+    const [owner] = await this.dataSource.query(
+      `SELECT u.phone, p.document_number FROM users u
+       LEFT JOIN user_profiles p ON p.user_id = u.id
+       WHERE u.id = $1`,
+      [auction.vendedor_id],
+    );
+    if (
+      owner &&
+      ((bidder.document_number && owner.document_number === bidder.document_number) ||
+        (bidder.phone && owner.phone === bidder.phone))
+    ) {
+      throw new ForbiddenException("No puedes pujar en tu propia subasta");
+    }
+
+    const [multi] = await this.dataSource.query(
+      `SELECT 1 FROM auction_bids ab
+       JOIN users u ON u.id = ab.postor_id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
+       WHERE ab.auction_id = $1 AND ab.postor_id != $2
+         AND ((p.document_number IS NOT NULL AND p.document_number = $3)
+              OR (u.phone IS NOT NULL AND u.phone = $4))
+       LIMIT 1`,
+      [auctionId, postorId, bidder.document_number, bidder.phone],
+    );
+    if (multi) {
+      throw new ForbiddenException(
+        "Ya hay una puja de otra cuenta con tu misma identidad. No está permitido usar varias cuentas en una subasta.",
+      );
+    }
 
     // Check against confirmed bids only
     const highestConfirmed = await this.bidsRepo.findOne({
@@ -183,6 +255,18 @@ export class AuctionsService implements OnModuleInit {
 
     auction.precio_actual = monto;
     await this.repo.save(auction);
+
+    // Registro de señal para detección de colusión (IP + monto)
+    this.collusion
+      .recordSignal({
+        eventType: "subasta",
+        eventId: auctionId,
+        userId: postorId,
+        amount: monto,
+        ip: ctx?.ip,
+        userAgent: ctx?.userAgent,
+      })
+      .catch(() => {});
 
     // Do NOT emit WebSocket - bid is pending payment
     return bid;
@@ -388,5 +472,106 @@ export class AuctionsService implements OnModuleInit {
     });
 
     return auction;
+  }
+
+  /** Reconexión automática: si el ganador no pagó el saldo, se adjudica al siguiente postor confirmado.
+   *  El plazo de espera es configurable (reconexion_dias). */
+  @Cron(CronExpression.EVERY_HOUR)
+  async relocateUnpaidWinners() {
+    try {
+      const reconexionDias = await this.config.getNum("reconexion_dias");
+      const candidates = await this.dataSource.query(
+        `SELECT a.id, a.product_id, a.vendedor_id, a.ganador_id, a.remaining_order_id, a.intentos_relocacion,
+                o.created_at AS remaining_created
+         FROM auctions a
+         JOIN orders o ON o.id = a.remaining_order_id
+         WHERE a.estado = 'cerrado' AND a.ganador_id IS NOT NULL AND a.remaining_order_id IS NOT NULL
+           AND o.status = 'cancelled'
+           AND o.created_at < NOW() - ($1::int * INTERVAL '1 day')
+         ORDER BY o.created_at DESC`,
+        [reconexionDias],
+      );
+      for (const a of candidates) {
+        await this.relocateWinner(a.id, a.intentos_relocacion);
+      }
+      if (candidates.length > 0) {
+        console.log(`[Auction] ${candidates.length} subasta(s) con ganador que no pagó, buscando reconexión`);
+      }
+    } catch (e: any) {
+      console.error("[Auction] Error en reconexión de ganador:", e.message);
+    }
+  }
+
+  private async relocateWinner(auctionId: string, intentos: number) {
+    const [auction] = await this.dataSource.query(
+      `SELECT id, product_id, vendedor_id, ganador_id FROM auctions WHERE id = $1`,
+      [auctionId],
+    );
+    if (!auction) return;
+    if (Number(intentos || 0) >= 3) {
+      // Sin más postores: liberar la subasta (vendedor puede reabrir)
+      await this.dataSource.query(
+        `UPDATE auctions SET ganador_id = NULL, remaining_order_id = NULL WHERE id = $1`,
+        [auctionId],
+      );
+      console.log(`[Auction] ${auctionId.slice(0,8)} sin postores alternativos tras 3 intentos`);
+      return;
+    }
+
+    // Siguiente mejor postor confirmado (que no sea el ganador actual)
+    const [next] = await this.dataSource.query(
+      `SELECT ab.id, ab.postor_id, ab.monto, ab.checkout_id, o.amount AS guarantee_paid
+       FROM auction_bids ab
+       LEFT JOIN orders o ON o.id = ab.checkout_id
+       WHERE ab.auction_id = $1 AND ab.estado = 'confirmada' AND ab.postor_id != $2
+       ORDER BY ab.monto DESC
+       LIMIT 1`,
+      [auctionId, auction.ganador_id],
+    );
+    if (!next) {
+      await this.dataSource.query(
+        `UPDATE auctions SET ganador_id = NULL, remaining_order_id = NULL WHERE id = $1`,
+        [auctionId],
+      );
+      console.log(`[Auction] ${auctionId.slice(0,8)} sin postores alternativos`);
+      return;
+    }
+
+    // Re-adjudicar al siguiente postor
+    const remaining = Math.max(0, Number(next.monto) - Number(next.guarantee_paid || 0));
+    const [remainingOrder] = await this.dataSource.query(
+      `INSERT INTO orders (user_id, total_amount, status, created_at, updated_at)
+       VALUES ($1, $2, 'pending_payment', NOW(), NOW())
+       RETURNING id`,
+      [next.postor_id, remaining],
+    );
+    await this.dataSource.query(
+      `INSERT INTO order_items (order_id, product_id, price, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [remainingOrder.id, auction.product_id, remaining],
+    );
+    await this.dataSource.query(
+      `UPDATE auctions
+       SET ganador_id = $1, remaining_order_id = $2, intentos_relocacion = intentos_relocacion + 1
+       WHERE id = $3`,
+      [next.postor_id, remainingOrder.id, auctionId],
+    );
+
+    // Marcar al ganador que no pagó como perdida (para registrarlo en historial de incumplimiento)
+    await this.dataSource.query(
+      `UPDATE auction_bids SET estado = 'perdida' WHERE auction_id = $1 AND postor_id = $2 AND estado = 'confirmada'`,
+      [auctionId, auction.ganador_id],
+    );
+
+    try {
+      const [u] = await this.dataSource.query(`SELECT email, first_name FROM users WHERE id = $1`, [next.postor_id]);
+      if (u?.email) {
+        const [pTitle] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [auction.product_id]);
+        this.mail.sendAuctionWon(u.email, u.first_name || "Ganador", pTitle?.title || "Producto", Number(next.monto), remaining, remainingOrder.id);
+      }
+    } catch (e: any) {
+      console.error("[Auction] Error notificando nuevo ganador:", e.message);
+    }
+    console.log(`[Auction] ${auctionId.slice(0,8)} re-adjudicada al siguiente postor ${next.postor_id.slice(0,8)}`);
   }
 }

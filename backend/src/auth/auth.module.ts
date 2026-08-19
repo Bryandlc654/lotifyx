@@ -19,12 +19,16 @@ import { RolePermission } from "./entities/role-permission.entity";
 import { CleanupService } from "../common/services/cleanup.service";
 import { PermissionsGuard } from "./guards/permissions.guard";
 import { PermissionsService } from "./services/permissions.service";
+import { AuditModule } from "../audit/audit.module";
+import { ConfigModule } from "../config/config.module";
 
 @Global()
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Role, UserProfile, RefreshToken, UserVerification, Permission, RolePermission]),
     PassportModule,
+    AuditModule,
+    ConfigModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, ProfilesService, BankAccountsService, PlansService, JwtStrategy, GoogleStrategy, RolesGuard, PermissionsGuard, PermissionsService, CleanupService],

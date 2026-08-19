@@ -34,6 +34,31 @@ export class User {
   @Column({ nullable: true })
   provider: string;
 
+  @Index()
+  @Column({ type: "varchar", length: 255, nullable: true })
+  google_id: string | null;
+
+  @Column({ type: "boolean", default: false })
+  collusion_flagged: boolean;
+
+  @Column({ type: "text", nullable: true })
+  collusion_note: string | null;
+
+  @Column({ type: "int", default: 0 })
+  incumplimientos_count: number;
+
+  @Column({ type: "boolean", default: false })
+  sancionado: boolean;
+
+  @Column({ type: "timestamp", nullable: true })
+  sancion_hasta: Date | null;
+
+  @Column({ type: "int", default: 0 })
+  login_attempts: number;
+
+  @Column({ type: "timestamp", nullable: true })
+  locked_until: Date | null;
+
   @Column({ default: false })
   is_verified: boolean;
 

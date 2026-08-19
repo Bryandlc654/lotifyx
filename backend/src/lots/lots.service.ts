@@ -12,7 +12,7 @@ import { ConfigService } from "../config/config.service";
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
   l.participantes_minimos, l.cmc, l.cantidad_total, l.cantidad_reservada,
-  l.meta_venta, l.destacado,
+  l.meta_venta, l.destacado, l.divisible,
   l.fecha_cierre, l.estado, l.created_at, l.updated_at,
   COALESCE((SELECT SUM(lp.cantidad) FROM lot_participants lp
             WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado'), 0) AS cantidad_reservada_calc,
@@ -188,8 +188,14 @@ export class LotsService implements OnModuleInit {
     const qty = Math.floor(Number(cantidad));
     if (!qty || qty < 1) throw new BadRequestException("Ingresa una cantidad válida");
 
+    // Lote indivisible: cada participante compromete 1 unidad
+    const effectiveQty = lot.divisible === false ? 1 : qty;
+    if (lot.divisible === false && qty > 1) {
+      throw new BadRequestException("Este lote es indivisible: cada participante solo puede comprometer 1 unidad");
+    }
+
     const cmc = Math.max(1, lot.cmc || 1);
-    if (qty < cmc) {
+    if (effectiveQty < cmc) {
       throw new BadRequestException(`Debes comprometer al menos ${cmc} unidad(es) (CMC)`);
     }
 
@@ -201,7 +207,7 @@ export class LotsService implements OnModuleInit {
     const productStock = Number(prodRow?.stock || 0);
     const lotTotal = Math.max(1, lot.cantidad_total || 1);
     const cantidadTotal = productStock > 0 ? Math.min(lotTotal, productStock) : lotTotal;
-    if (qty > cantidadTotal) {
+    if (effectiveQty > cantidadTotal) {
       throw new BadRequestException(`La cantidad máxima disponible es ${cantidadTotal} unidad(es)`);
     }
 
@@ -212,7 +218,7 @@ export class LotsService implements OnModuleInit {
     });
 
     const currentQty = existing && existing.estado === "reservado" ? Number(existing.cantidad) || 0 : 0;
-    const totalReserved = reserved - currentQty + qty;
+    const totalReserved = reserved - currentQty + effectiveQty;
     if (totalReserved > cantidadTotal) {
       const disponible = cantidadTotal - (reserved - currentQty);
       throw new BadRequestException(
@@ -226,13 +232,13 @@ export class LotsService implements OnModuleInit {
       if (existing.estado !== "reservado") {
         throw new BadRequestException("Ya participaste en este lote");
       }
-      existing.cantidad = qty;
+      existing.cantidad = effectiveQty;
       await this.participantsRepo.save(existing);
     } else {
       await this.participantsRepo.save(this.participantsRepo.create({
         lot_sale_id: lotSaleId,
         comprador_id: compradorId,
-        cantidad: qty,
+        cantidad: effectiveQty,
         estado: "reservado",
       }));
     }
@@ -708,6 +714,7 @@ export class LotsService implements OnModuleInit {
       cantidad_disponible: Math.max(0, total - reserved),
       meta_venta: metaVenta,
       destacado: row.destacado === true || row.destacado === "t",
+      divisible: row.divisible !== false && row.divisible !== "f",
       rcg_tiers: tiers,
       tier_actual: cierreTier,
       expectativa_superada: reserved >= metaVenta,

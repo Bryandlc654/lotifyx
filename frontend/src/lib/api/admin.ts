@@ -654,3 +654,59 @@ export async function deleteBackingLogo(id: string): Promise<void> {
   const res = await authFetch(`${API_URL}/backing/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Error al eliminar logo");
 }
+
+// ─── Panel admin: solicitudes / ofertas ───────────────────
+export async function getAdminRequests(params?: { estado?: string; q?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.estado) qs.set("estado", params.estado);
+  if (params?.q) qs.set("q", params.q);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const res = await authFetch(`${API_URL}/admin/requests?${qs.toString()}`);
+  if (!res.ok) throw new Error("Error al cargar solicitudes");
+  return res.json();
+}
+
+export async function getAdminRequestOffers(requestId: string) {
+  const res = await authFetch(`${API_URL}/admin/requests/${requestId}/offers`);
+  if (!res.ok) throw new Error("Error al cargar ofertas");
+  return res.json();
+}
+
+// ─── Panel admin: colusión ────────────────────────────────
+export async function getCollusionFlags(status?: string) {
+  const qs = status ? `?status=${status}` : "";
+  const res = await authFetch(`${API_URL}/admin/collusion${qs}`);
+  if (!res.ok) throw new Error("Error al cargar alertas de colusión");
+  return res.json();
+}
+
+export async function resolveCollusionFlag(id: string) {
+  const res = await authFetch(`${API_URL}/admin/collusion/${id}/resolve`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al resolver alerta");
+  return res.json();
+}
+
+export async function getFlaggedUsers() {
+  const res = await authFetch(`${API_URL}/admin/collusion/users`);
+  if (!res.ok) throw new Error("Error al cargar cuentas sospechosas");
+  return res.json();
+}
+
+export async function clearUserCollusionFlag(userId: string) {
+  const res = await authFetch(`${API_URL}/admin/collusion/users/${userId}/clear`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al desmarcar cuenta");
+  return res.json();
+}
+
+export async function getSanctionedUsers() {
+  const res = await authFetch(`${API_URL}/admin/collusion/sancionados`);
+  if (!res.ok) throw new Error("Error al cargar sancionados");
+  return res.json();
+}
+
+export async function clearSanction(userId: string) {
+  const res = await authFetch(`${API_URL}/admin/collusion/sancionados/${userId}/clear`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al quitar sanción");
+  return res.json();
+}

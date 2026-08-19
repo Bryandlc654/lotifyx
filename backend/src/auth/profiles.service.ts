@@ -46,6 +46,12 @@ export class ProfilesService {
     if (dto.last_name !== undefined) profileFields.last_name = dto.last_name;
     if (dto.profile_alias !== undefined) profileFields.profile_alias = dto.profile_alias;
     if (dto.avatar_url !== undefined) profileFields.avatar_url = dto.avatar_url;
+    // Información comercial del vendedor
+    if (dto.razon_social !== undefined) profileFields.razon_social = dto.razon_social;
+    if (dto.address !== undefined) profileFields.address = dto.address;
+    if (dto.ubigeo !== undefined) profileFields.ubigeo = dto.ubigeo;
+    if (dto.document_type !== undefined) profileFields.document_type = dto.document_type;
+    if (dto.document_number !== undefined) profileFields.document_number = dto.document_number;
     if (Object.keys(profileFields).length > 0) {
       await this.profileRepository.update({ user_id: userId }, profileFields);
     }

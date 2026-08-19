@@ -11,6 +11,7 @@ export interface CartItem {
   regularPrice?: number;
   qty?: number;
   minQty?: number;
+  variant_id?: string;
 }
 
 interface CartContextType {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyReviews, isAuthenticated, removeTokens, getProfile, getImageUrl } from "@/lib/api";
+import { getMyReviews, getSellerReviews, isAuthenticated, removeTokens, getProfile, getImageUrl } from "@/lib/api";
 import type { Review } from "@/lib/api";
 import { Star, ChevronRight, MessageSquareText, Package } from "lucide-react";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -18,12 +18,17 @@ export default function MisResenasPage() {
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
     getProfile()
-      .then((data) => setUserRole(((data as any).user as any)?.role?.name || ""))
+      .then((data) => {
+        const role = ((data as any).user as any)?.role?.name || "";
+        setUserRole(role);
+        // Vendedor: historial reputacional (reseñas recibidas); Comprador: reseñas emitidas
+        const loadFn = role === "vendedor" ? getSellerReviews : getMyReviews;
+        loadFn()
+          .then(setReviews)
+          .catch(() => {})
+          .finally(() => setLoading(false));
+      })
       .catch(() => { removeTokens(); router.push("/"); });
-    getMyReviews()
-      .then(setReviews)
-      .catch(() => {})
-      .finally(() => setLoading(false));
   }, [router]);
 
   return (
@@ -43,7 +48,7 @@ export default function MisResenasPage() {
 
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Mis Reseñas</h1>
-            <p className="text-gray-500 text-sm mt-1">{reviews.length} reseña{reviews.length !== 1 ? "s" : ""}</p>
+            <p className="text-gray-500 text-sm mt-1">{reviews.length} reseña{reviews.length !== 1 ? "s" : ""}{userRole === "vendedor" ? " recibidas" : ""}</p>
           </div>
 
           {loading ? (
@@ -54,10 +59,14 @@ export default function MisResenasPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
               <MessageSquareText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-bold text-gray-700 mb-2">No tienes reseñas aún</h3>
-              <p className="text-sm text-gray-500 mb-6">Cuando compres un producto y sea entregado, podrás dejar tu reseña.</p>
-              <button onClick={() => router.push("/perfil/mis-compras")}
+              <p className="text-sm text-gray-500 mb-6">
+                {userRole === "vendedor"
+                  ? "Cuando tus clientes reciban sus productos y califiquen, sus reseñas aparecerán aquí."
+                  : "Cuando compres un producto y sea entregado, podrás dejar tu reseña."}
+              </p>
+              <button onClick={() => router.push(userRole === "vendedor" ? "/perfil/mis-ventas" : "/perfil/mis-compras")}
                 className="inline-block text-white font-semibold py-2 px-6 rounded-xl transition-opacity hover:opacity-90" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>
-                Ver mis compras
+                {userRole === "vendedor" ? "Ver mis ventas" : "Ver mis compras"}
               </button>
             </div>
           ) : (
@@ -79,6 +88,9 @@ export default function MisResenasPage() {
                         ))}
                       </div>
                       {review.comment && <p className="text-sm text-gray-600 mb-2">{review.comment}</p>}
+                      {userRole === "vendedor" && (review.user_first_name || review.user_last_name) && (
+                        <p className="text-xs text-gray-400 mb-2">De {review.user_first_name} {review.user_last_name}</p>
+                      )}
                       {review.images?.length > 0 && (
                         <div className="flex gap-2 mt-2">
                           {review.images.map((url, i) => (

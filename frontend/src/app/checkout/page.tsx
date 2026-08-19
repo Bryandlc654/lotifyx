@@ -85,7 +85,7 @@ export default function CheckoutPage() {
         if (!res.ok) throw new Error((await res.json()).message || "Error");
       }
       else if (auctionMode && pendingBidId) await submitCheckout({ items: [], origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, bid_id: pendingBidId });
-      else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1 })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile });
+      else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1, variant_id: i.variant_id })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile });
       setShowSuccess(true);
     } catch (err: any) { toast.error(err.message || "Error al enviar depósito"); }
     finally { setSubmitting(false); }

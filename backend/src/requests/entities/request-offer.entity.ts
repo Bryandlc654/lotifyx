@@ -47,6 +47,13 @@ export class RequestOffer {
   @Column({ type: "int", nullable: true })
   garantia_pct: number | null;
 
+  /** Garantía de oferta reservada de fondos del vendedor al ofertar (compromiso real) */
+  @Column({ type: "decimal", precision: 12, scale: 2, default: 0 })
+  garantia_oferta: number;
+
+  @Column({ default: false })
+  garantia_oferta_reservada: boolean;
+
   /** true si la oferta no coincide estrictamente con la solicitud */
   @Column({ default: false })
   es_variante: boolean;

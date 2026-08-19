@@ -101,6 +101,9 @@ export interface Product {
   views?: number;
   saves_count?: number;
   metodo_pago: string;
+  es_servicio?: boolean;
+  tipo_inmobiliario?: string | null;
+  images?: string[];
   precio_base?: number;
   precio_inicial?: number;
   incremento_minimo?: number;
@@ -127,6 +130,23 @@ export interface Product {
   lot_participantes_minimos?: number;
   created_at: string;
   updated_at: string;
+  seller?: {
+    id: string;
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+    is_verified?: boolean;
+    products_count?: number;
+    average_rating?: number;
+    total_reviews?: number;
+  } | null;
+  variants?: Array<{
+    id: string;
+    name: string;
+    attributes: Record<string, any>;
+    price?: number | null;
+    stock: number;
+  }>;
 }
 
 export interface ProductVerification {

@@ -3,6 +3,16 @@ import { API_URL, authFetch } from "./client";
 export interface Umbrales {
   garantia_subasta_inversa_pct: number;
   garantia_demanda_agregada_pct: number;
+  limite_pago_dias: number;
+  max_incumplimientos: number;
+  sancion_dias: number;
+  garantia_oferta_pct: number;
+  max_ofertas_pendientes: number;
+  max_pujas_pendientes: number;
+  reconexion_dias: number;
+  session_timeout_minutos: number;
+  max_login_intentos: number;
+  bloqueo_login_minutos: number;
 }
 
 export async function getUmbrales(): Promise<Umbrales | null> {

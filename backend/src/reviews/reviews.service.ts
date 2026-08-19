@@ -89,6 +89,30 @@ export class ReviewsService {
     );
   }
 
+  /** Reputación pública del vendedor: rating acumulado de reseñas de todos sus productos. */
+  async getSellerReputation(sellerId: string) {
+    const [row] = await this.dataSource.query(
+      `SELECT
+         COUNT(r.id)::int AS total_reviews,
+         COALESCE(ROUND(AVG(r.rating)::numeric, 2), 0)::numeric AS average_rating,
+         COUNT(r.id) FILTER (WHERE r.rating = 5)::int AS five_star,
+         COUNT(r.id) FILTER (WHERE r.rating >= 4)::int AS positive,
+         COUNT(r.id) FILTER (WHERE r.rating <= 2)::int AS negative
+       FROM reviews r
+       INNER JOIN products p ON p.id = r.product_id AND p.user_id = $1
+       WHERE r.is_active = true`,
+      [sellerId],
+    );
+    return {
+      seller_id: sellerId,
+      average_rating: Number(row?.average_rating || 0),
+      total_reviews: Number(row?.total_reviews || 0),
+      five_star: Number(row?.five_star || 0),
+      positive: Number(row?.positive || 0),
+      negative: Number(row?.negative || 0),
+    };
+  }
+
   async getAdminReviews(page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
     const [{ count }] = await this.dataSource.query(`SELECT COUNT(*)::int FROM reviews`);

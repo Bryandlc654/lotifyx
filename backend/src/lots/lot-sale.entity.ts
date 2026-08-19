@@ -40,6 +40,10 @@ export class LotSale {
   @Column({ type: "boolean", default: false })
   destacado: boolean;
 
+  /** true = divisible (un participante puede tomar varias unidades); false = indivisible (1 unidad por participante) */
+  @Column({ type: "boolean", default: true })
+  divisible: boolean;
+
   @Column({ type: "timestamp", nullable: true })
   fecha_cierre: Date;
 

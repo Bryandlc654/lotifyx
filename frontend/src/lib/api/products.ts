@@ -137,6 +137,47 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error("Error al eliminar producto");
 }
 
+export async function toggleProductPause(id: string): Promise<{ message: string; status: string }> {
+  const res = await authFetch(`${API_URL}/products/${id}/pause`, { method: "PATCH" });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al pausar producto" }))).message);
+  return res.json();
+}
+
+// ─── Variantes ────────────────────────────────────────────
+export interface ProductVariant {
+  id: string;
+  product_id: string;
+  name: string;
+  attributes: Record<string, any>;
+  price?: number | null;
+  stock: number;
+  created_at: string;
+}
+
+export async function getProductVariants(productId: string): Promise<ProductVariant[]> {
+  const res = await authFetch(`${API_URL}/products/${productId}/variants`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createProductVariant(productId: string, dto: { name: string; attributes?: Record<string, any>; price?: number; stock?: number }): Promise<ProductVariant> {
+  const res = await authFetch(`${API_URL}/products/${productId}/variants`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function updateProductVariant(variantId: string, dto: Partial<{ name: string; attributes: Record<string, any>; price: number; stock: number }>): Promise<ProductVariant> {
+  const res = await authFetch(`${API_URL}/products/variants/${variantId}`, { method: "PUT", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function deleteProductVariant(variantId: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/products/variants/${variantId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar variante");
+  return res.json();
+}
+
 export async function getActiveProducts(categoryId?: string, search?: string, limit?: number): Promise<import("./common").Product[]> {
   const params = new URLSearchParams();
   if (categoryId) params.set("category_id", categoryId);

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, getImageUrl, getAuctionByProduct, reopenAuction, Product } from "@/lib/api";
-import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet, RefreshCw } from "lucide-react";
+import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, toggleProductPause, getImageUrl, getAuctionByProduct, reopenAuction, Product } from "@/lib/api";
+import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet, RefreshCw, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -173,6 +173,20 @@ export default function MisProductosPage() {
                           <button onClick={() => router.push(`/perfil/ofrecer/detalles?categoria=${p.category_id}&nombre=${encodeURIComponent(p.title)}&id=${p.id}`)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors" title="Editar">
                             <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={async () => {
+                            try {
+                              await toggleProductPause(p.id);
+                              toast.success(p.status === "paused" ? "Publicación reanudada" : "Publicación pausada");
+                              const data = await getMyProducts();
+                              setProducts(data || []);
+                            } catch (e: any) {
+                              toast.error(e.message || "Error al cambiar estado");
+                            }
+                          }}
+                            className={`p-1.5 rounded-lg transition-colors ${p.status === "paused" ? "text-green-600 hover:bg-green-50" : "text-amber-500 hover:bg-amber-50"}`}
+                            title={p.status === "paused" ? "Reanudar publicación" : "Pausar publicación"}>
+                            {p.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                           </button>
                           <button onClick={() => setDeleteTarget(p)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Eliminar">

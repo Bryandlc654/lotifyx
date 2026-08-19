@@ -21,13 +21,18 @@ export class VerificationsService {
   /** Envío / reenvío de evidencia por parte del vendedor */
   async submit(productId: string, sellerId: string, dto: any) {
     const [p] = await this.dataSource.query(
-      `SELECT id, user_id, metodo_pago, estado, ubicacion, title FROM products WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT p.id, p.user_id, p.metodo_pago, p.estado, p.ubicacion, p.title, p.tipo_inmobiliario,
+              c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.id = $1 AND p.deleted_at IS NULL`,
       [productId],
     );
     if (!p) throw new NotFoundException("Producto no encontrado");
     if (p.user_id !== sellerId) throw new ForbiddenException("Solo el vendedor del producto puede enviar la verificación");
-    if (!VERIFICABLE_METHODS.includes(p.metodo_pago)) {
-      throw new BadRequestException("La verificación aplica solo a subastas y compra grupal (venta por lote)");
+    const esInmobiliario = !!p.tipo_inmobiliario || /inmob/i.test(p.category_name || "");
+    if (!VERIFICABLE_METHODS.includes(p.metodo_pago) && !esInmobiliario) {
+      throw new BadRequestException("La verificación aplica a subastas, compra grupal (venta por lote) o publicaciones inmobiliarias.");
     }
 
     const payload = dto?.payload || {};
@@ -44,8 +49,20 @@ export class VerificationsService {
     if (!p.ubicacion) {
       throw new BadRequestException("Indica la ubicación del bien");
     }
-    if (p.metodo_pago === "venta_por_lote" && (!capacidad.unidades_mes || Number(capacidad.unidades_mes) <= 0)) {
+    if (p.metodo_pago === "venta_por_lote" && !esInmobiliario && (!capacidad.unidades_mes || Number(capacidad.unidades_mes) <= 0)) {
       throw new BadRequestException("Para compra grupal indica tu capacidad de producción o suministro (unidades por mes)");
+    }
+    // VI. Verificación reforzada inmobiliaria: partida registral, cargas/gravámenes y facultades del anunciante
+    if (esInmobiliario) {
+      if (!payload.partida_registral || !String(payload.partida_registral).trim()) {
+        throw new BadRequestException("Inmobiliario: indica la partida registral del inmueble");
+      }
+      if (!payload.declaracion_cargas || payload.declaracion_cargas !== true) {
+        throw new BadRequestException("Inmobiliario: declara que no existen cargas o gravámenes ocultos sobre el inmueble");
+      }
+      if (!payload.titular_anunciante || !String(payload.titular_anunciante).trim()) {
+        throw new BadRequestException("Inmobiliario: declara la titularidad o mandato del anunciante sobre el inmueble");
+      }
     }
     if (payload.declaracion_ficha !== true) {
       throw new BadRequestException("Debes declarar que la ficha técnica es correcta y corresponde con la evidencia");
@@ -56,8 +73,17 @@ export class VerificationsService {
       video: payload.video ? String(payload.video) : "",
       numero_serie: payload.numero_serie ? String(payload.numero_serie) : "",
       documentos,
-      capacidad_produccion: p.metodo_pago === "venta_por_lote"
+      capacidad_produccion: p.metodo_pago === "venta_por_lote" && !esInmobiliario
         ? { unidades_mes: Number(capacidad.unidades_mes) || 0, plazo: capacidad.plazo ? String(capacidad.plazo) : "" }
+        : null,
+      // VI. Inmobiliario reforzado
+      inmobiliario: esInmobiliario
+        ? {
+            partida_registral: String(payload.partida_registral || ""),
+            titular_anunciante: String(payload.titular_anunciante || ""),
+            declaracion_cargas: true,
+            tipo: p.tipo_inmobiliario || "",
+          }
         : null,
       declaracion_ficha: true,
     };

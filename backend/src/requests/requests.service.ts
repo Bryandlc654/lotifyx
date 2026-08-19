@@ -6,6 +6,7 @@ import { BuyerRequest } from "./entities/buyer-request.entity";
 import { RequestOffer } from "./entities/request-offer.entity";
 import { MatchingService } from "./matching.service";
 import { ConfigService } from "../config/config.service";
+import { CollusionService } from "../collusion/collusion.service";
 
 @Injectable()
 export class RequestsService {
@@ -15,6 +16,7 @@ export class RequestsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly matching: MatchingService,
     private readonly config: ConfigService,
+    private readonly collusion: CollusionService,
   ) {}
 
   private num(v: any): number | null {
@@ -138,8 +140,26 @@ export class RequestsService {
     if (req.estado !== "abierta") throw new BadRequestException("La solicitud ya no está abierta");
     req.estado = "cancelada";
     await this.requestsRepo.save(req);
+    const pending = await this.offersRepo.find({ where: { request_id: id, estado: "pendiente" } });
     await this.offersRepo.update({ request_id: id, estado: "pendiente" }, { estado: "rechazada" });
+    for (const o of pending) await this.releaseOfferGuarantee(o.id, o.seller_id, o.garantia_oferta);
     return { message: "Solicitud cancelada" };
+  }
+
+  /** Libera la garantía de oferta reservada de una oferta (al rechazarla o cancelarla). */
+  private async releaseOfferGuarantee(offerId: string, sellerId: string, garantiaOferta: number) {
+    try {
+      if (!Number(garantiaOferta) || Number(garantiaOferta) <= 0) return;
+      await this.dataSource.query(
+        `UPDATE funds
+         SET available_balance = available_balance + $2, pending_balance = GREATEST(pending_balance - $2, 0)
+         WHERE user_id = $1`,
+        [sellerId, Number(garantiaOferta)],
+      );
+      await this.offersRepo.update(offerId, { garantia_oferta_reservada: false, garantia_oferta: 0 });
+    } catch (e: any) {
+      console.error("[Requests] Error liberando garantía de oferta:", e.message);
+    }
   }
 
   // ─── Coincidencia de producto ────────────────────────────
@@ -171,11 +191,17 @@ export class RequestsService {
 
   // ─── Ofertas de los vendedores ──────────────────────────
 
-  async makeOffer(userId: string, requestId: string, dto: any) {
+  async makeOffer(userId: string, requestId: string, dto: any, ctx?: { ip?: string; userAgent?: string }) {
     const req = await this.requestsRepo.findOne({ where: { id: requestId } });
     if (!req) throw new NotFoundException("Solicitud no encontrada");
     if (req.estado !== "abierta") throw new BadRequestException("La solicitud ya no acepta ofertas");
     if (req.user_id === userId) throw new ForbiddenException("No puedes ofertar en tu propia solicitud");
+
+    // Bloqueo por comportamiento sospechoso (colusión)
+    await this.collusion.assertNotBlocked(userId);
+
+    // Bloqueo por sanción de incumplimiento de pago
+    await this.collusion.assertNotSanctioned(userId);
 
     const product = await this.dataSource.query(
       `SELECT id, title, category_id, specifications, nivel_coincidencia, status FROM products WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, [dto?.product_id, userId],
@@ -216,6 +242,38 @@ export class RequestsService {
     });
     if (existing) throw new BadRequestException("Ya tienes una oferta pendiente en esta solicitud");
 
+    // Anti-flood: límite de ofertas pendientes activas por vendedor
+    const maxOfertas = await this.config.getNum("max_ofertas_pendientes");
+    const [ofertasCount] = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS n FROM request_offers WHERE seller_id = $1 AND estado = 'pendiente'`,
+      [userId],
+    );
+    if (Number(ofertasCount?.n || 0) >= maxOfertas) {
+      throw new BadRequestException(
+        `Tienes demasiadas ofertas pendientes. Espera a que se resuelvan para ofertar de nuevo (máximo ${maxOfertas}).`,
+      );
+    }
+
+    // Garantía de oferta: compromiso real al ofertar (se reserva de fondos disponibles)
+    const garantiaOfertaPct = await this.config.getNum("garantia_oferta_pct");
+    const montoOferta = precio * cantidad + envio;
+    const garantiaOferta = Number((montoOferta * garantiaOfertaPct / 100).toFixed(2));
+    const [fund] = await this.dataSource.query(
+      `SELECT COALESCE(available_balance, 0) AS available FROM funds WHERE user_id = $1`,
+      [userId],
+    );
+    if (Number(fund?.available || 0) < garantiaOferta) {
+      throw new BadRequestException(
+        `Necesitas S/ ${garantiaOferta.toFixed(2)} disponibles en tu billetera como garantía de oferta (${garantiaOfertaPct}% del monto).`,
+      );
+    }
+    await this.dataSource.query(
+      `UPDATE funds
+       SET available_balance = available_balance - $2, pending_balance = pending_balance + $2
+       WHERE user_id = $1`,
+      [userId, garantiaOferta],
+    );
+
     let garantiaPct: number | null = null;
     if (dto?.garantia_pct !== undefined && dto?.garantia_pct !== null && dto?.garantia_pct !== "") {
       const minPct = await this.config.getPct("garantia_subasta_inversa_pct");
@@ -237,8 +295,23 @@ export class RequestsService {
       es_variante: requiereVariante,
       coincidencia: match.nivel,
       garantia_pct: garantiaPct,
+      garantia_oferta: garantiaOferta,
+      garantia_oferta_reservada: true,
     });
     await this.offersRepo.save(offer);
+
+    // Registro de señal para detección de colusión (IP + monto)
+    this.collusion
+      .recordSignal({
+        eventType: "solicitud",
+        eventId: requestId,
+        userId,
+        amount: precio * cantidad + envio,
+        ip: ctx?.ip,
+        userAgent: ctx?.userAgent,
+      })
+      .catch(() => {});
+
     return offer;
   }
 
@@ -326,10 +399,40 @@ export class RequestsService {
         `UPDATE request_offers SET estado = 'aceptada', order_id = $2, remaining_order_id = $4, garantia_pct = $5, aceptacion_variante = $3 WHERE id = $1`,
         [offerId, order.id, offer.es_variante, remainingOrderId, pct],
       );
-      await qr.query(
-        `UPDATE request_offers SET estado = 'rechazada' WHERE request_id = $1 AND id != $2 AND estado = 'pendiente'`,
+      // Liberar la garantía de oferta del ganador (ya se compromete pagando la garantía de compromiso)
+      if (Number(offer.garantia_oferta) > 0) {
+        await qr.query(
+          `UPDATE funds
+           SET available_balance = available_balance + $2, pending_balance = GREATEST(pending_balance - $2, 0)
+           WHERE user_id = $1`,
+          [offer.seller_id, Number(offer.garantia_oferta)],
+        );
+        await qr.query(
+          `UPDATE request_offers SET garantia_oferta_reservada = false, garantia_oferta = 0 WHERE id = $1`,
+          [offerId],
+        );
+      }
+      // Liberar garantías de oferta de las demás ofertas pendientes (rechazadas)
+      const rechazadas = await qr.query(
+        `SELECT id, seller_id, garantia_oferta FROM request_offers
+         WHERE request_id = $1 AND id != $2 AND estado = 'pendiente' AND garantia_oferta_reservada = true`,
         [requestId, offerId],
       );
+      await qr.query(
+        `UPDATE request_offers SET estado = 'rechazada', garantia_oferta_reservada = false, garantia_oferta = 0
+         WHERE request_id = $1 AND id != $2 AND estado = 'pendiente'`,
+        [requestId, offerId],
+      );
+      for (const ro of rechazadas) {
+        if (Number(ro.garantia_oferta) > 0) {
+          await qr.query(
+            `UPDATE funds
+             SET available_balance = available_balance + $2, pending_balance = GREATEST(pending_balance - $2, 0)
+             WHERE user_id = $1`,
+            [ro.seller_id, Number(ro.garantia_oferta)],
+          );
+        }
+      }
       await qr.query(`UPDATE buyer_requests SET estado = 'aceptada' WHERE id = $1`, [requestId]);
       await qr.commitTransaction();
       return {
@@ -365,6 +468,63 @@ export class RequestsService {
     );
   }
 
+  // ─── Panel admin de solicitudes y ofertas ────────────────
+
+  async findAllAdmin(status?: string, q?: string, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+    const clauses: string[] = [];
+    const params: any[] = [];
+    if (status) {
+      params.push(status);
+      clauses.push(`r.estado = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      clauses.push(`(r.title ILIKE $${params.length} OR r.description ILIKE $${params.length})`);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    const [{ count }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS count FROM buyer_requests r ${where}`,
+      params,
+    );
+    params.push(limit, offset);
+    const rows = await this.dataSource.query(
+      `SELECT r.*,
+         (SELECT COUNT(*)::int FROM request_offers ro WHERE ro.request_id = r.id) AS offers_count,
+         (SELECT COUNT(*)::int FROM request_offers ro WHERE ro.request_id = r.id AND ro.estado = 'aceptada') AS accepted_count,
+         json_build_object('id', u.id, 'email', u.email,
+           'first_name', up.first_name, 'last_name', up.last_name, 'phone', u.phone) AS buyer
+       FROM buyer_requests r
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN user_profiles up ON up.user_id = r.user_id
+       ${where}
+       ORDER BY r.created_at DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+    return { items: rows, total: Number(count), page, limit };
+  }
+
+  async findOffersAdmin(requestId: string) {
+    const rows = await this.dataSource.query(
+      `SELECT ro.*,
+         json_build_object('id', u.id, 'email', u.email,
+           'first_name', up.first_name, 'last_name', up.last_name, 'phone', u.phone) AS seller,
+         json_build_object('id', p.id, 'title', p.title, 'nivel_coincidencia', p.nivel_coincidencia) AS product,
+         json_build_object('id', r.id, 'title', r.title, 'category_id', r.category_id) AS request
+       FROM request_offers ro
+       LEFT JOIN users u ON u.id = ro.seller_id
+       LEFT JOIN user_profiles up ON up.user_id = ro.seller_id
+       LEFT JOIN products p ON p.id = ro.product_id
+       LEFT JOIN buyer_requests r ON r.id = ro.request_id
+       WHERE ro.request_id = $1
+       ORDER BY ro.created_at ASC`,
+      [requestId],
+    );
+    return rows;
+  }
+
   // ─── Mantenimiento ──────────────────────────────────────
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -377,9 +537,25 @@ export class RequestsService {
       );
       if (res.length) {
         const ids = res.map((r: any) => r.id);
-        await this.dataSource.query(
-          `UPDATE request_offers SET estado = 'rechazada' WHERE request_id = ANY($1) AND estado = 'pendiente'`, [ids],
+        const pendientes = await this.dataSource.query(
+          `SELECT id, seller_id, garantia_oferta FROM request_offers
+           WHERE request_id = ANY($1) AND estado = 'pendiente' AND garantia_oferta_reservada = true`,
+          [ids],
         );
+        await this.dataSource.query(
+          `UPDATE request_offers SET estado = 'rechazada', garantia_oferta_reservada = false, garantia_oferta = 0
+           WHERE request_id = ANY($1) AND estado = 'pendiente'`, [ids],
+        );
+        for (const o of pendientes) {
+          if (Number(o.garantia_oferta) > 0) {
+            await this.dataSource.query(
+              `UPDATE funds
+               SET available_balance = available_balance + $2, pending_balance = GREATEST(pending_balance - $2, 0)
+               WHERE user_id = $1`,
+              [o.seller_id, Number(o.garantia_oferta)],
+            );
+          }
+        }
         console.log(`[Requests] ${res.length} solicitud(es) expirada(s)`);
       }
     } catch (e) {

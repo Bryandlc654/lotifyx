@@ -47,6 +47,7 @@ export interface LotSale {
   cantidad_disponible: number;
   meta_venta: number;
   destacado: boolean;
+  divisible: boolean;
   rcg_tiers: RcgTier[];
   tier_actual?: RcgTier | null;
   expectativa_superada: boolean;

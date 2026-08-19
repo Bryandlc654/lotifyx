@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Param, Body, Req, Res,
+  Controller, Get, Post, Put, Delete, Patch, Param, Body, Req, Res,
   UseGuards, HttpCode, HttpStatus, Query,
   UseInterceptors, UploadedFile, BadRequestException,
 } from "@nestjs/common";
@@ -176,5 +176,40 @@ export class ProductsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param("id") id: string) {
     return this.service.remove(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(":id/pause")
+  @HttpCode(HttpStatus.OK)
+  togglePause(@Param("id") id: string) {
+    return this.service.togglePause(id);
+  }
+
+  // ─── Variantes ─────────────────────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/variants")
+  getVariants(@Param("id") id: string) {
+    return this.service.getVariants(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/variants")
+  @HttpCode(HttpStatus.CREATED)
+  addVariant(@Param("id") id: string, @Body() dto: any, @Req() req) {
+    return this.service.addVariant(id, req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put("variants/:variantId")
+  @HttpCode(HttpStatus.OK)
+  updateVariant(@Param("variantId") variantId: string, @Body() dto: any, @Req() req) {
+    return this.service.updateVariant(variantId, req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("variants/:variantId")
+  @HttpCode(HttpStatus.OK)
+  deleteVariant(@Param("variantId") variantId: string, @Req() req) {
+    return this.service.deleteVariant(variantId, req.user.id);
   }
 }

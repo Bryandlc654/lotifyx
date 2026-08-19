@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getProfile, isAuthenticated, removeTokens, logoutUser } from "@/lib/api";
-import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, Layers, ShoppingCart, FileText, AlertTriangle, Play, Calendar, Newspaper, Banknote, Gavel, BadgeCheck, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, Image, LogOut, ChevronLeft, Menu, X, Star, Settings, MessageSquare, Users, FolderTree, PanelTop, ShieldCheck, CreditCard, Shield, UserCog, HelpCircle, Mail, Tags, List, Package, Layers, ShoppingCart, FileText, AlertTriangle, Play, Calendar, Newspaper, Banknote, Gavel, BadgeCheck, SlidersHorizontal, ShieldAlert, PackageSearch } from "lucide-react";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -24,6 +24,8 @@ const modules = [
   { href: "/admin/auctions", label: "Subastas", icon: Gavel, permission: "auctions" },
   { href: "/admin/verificaciones", label: "Verificaciones", icon: BadgeCheck, permission: "verifications" },
   { href: "/admin/umbrales", label: "Umbrales", icon: SlidersHorizontal, permission: "config" },
+  { href: "/admin/solicitudes", label: "Solicitudes", icon: PackageSearch, permission: "orders" },
+  { href: "/admin/colusion", label: "Colusión", icon: ShieldAlert, permission: "orders" },
   { href: "/admin/sales", label: "Ventas", icon: ShoppingCart, permission: "orders" },
   { href: "/admin/reclamos", label: "Reclamos", icon: AlertTriangle, permission: "orders" },
   { href: "/admin/retiros", label: "Retiros", icon: Banknote, permission: "orders" },

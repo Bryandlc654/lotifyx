@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
-import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile } from "@/lib/api";
+import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile, getProductVariants, createProductVariant, updateProductVariant, deleteProductVariant, ProductVariant } from "@/lib/api";
 import { getLotByProduct, saveLotPricing, RcgTier } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -15,6 +15,110 @@ function toDatetimeLocal(value: any): string {
   if (isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function VariantManager({ productId }: { productId: string }) {
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const [editing, setEditing] = useState<ProductVariant | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    try {
+      const data = await getProductVariants(productId);
+      setVariants(data || []);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [productId]);
+
+  async function save() {
+    if (!name.trim()) { toast.error("Ingresa el nombre de la variante (ej. Talla M - Azul)"); return; }
+    try {
+      if (editing) {
+        await updateProductVariant(editing.id, {
+          name: name.trim(),
+          price: price !== "" ? Number(price) : undefined,
+          stock: stock !== "" ? Number(stock) : undefined,
+        });
+        toast.success("Variante actualizada");
+      } else {
+        await createProductVariant(productId, {
+          name: name.trim(),
+          price: price !== "" ? Number(price) : undefined,
+          stock: stock !== "" ? Number(stock) : 0,
+        });
+        toast.success("Variante creada");
+      }
+      setName(""); setPrice(""); setStock(""); setEditing(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message || "Error al guardar variante");
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("¿Eliminar esta variante?")) return;
+    try {
+      await deleteProductVariant(id);
+      toast.success("Variante eliminada");
+      load();
+    } catch { toast.error("Error al eliminar variante"); }
+  }
+
+  return (
+    <div className="mt-6 border-t border-slate-100 pt-6">
+      <h3 className="text-lg font-bold text-slate-800 mb-1">Variantes</h3>
+      <p className="text-xs text-slate-400 mb-4">Agrega variantes (talla, color, etc.) con stock y precio independientes.</p>
+
+      {loading ? (
+        <p className="text-sm text-slate-400 py-2">Cargando...</p>
+      ) : variants.length > 0 ? (
+        <div className="space-y-2 mb-4">
+          {variants.map(v => (
+            <div key={v.id} className="flex items-center justify-between bg-white border border-slate-100 rounded-lg px-3 py-2">
+              <div>
+                <p className="text-sm font-medium text-slate-800">{v.name}</p>
+                <p className="text-xs text-slate-400">
+                  {v.price != null ? `S/ ${Number(v.price).toFixed(2)} · ` : ""}
+                  {Number(v.stock)} disponibles
+                </p>
+              </div>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => { setEditing(v); setName(v.name); setPrice(v.price != null ? String(v.price) : ""); setStock(String(v.stock)); }}
+                  className="px-2 py-1 text-xs font-semibold text-purple-600 hover:bg-purple-50 rounded transition-colors">Editar</button>
+                <button type="button" onClick={() => remove(v.id)}
+                  className="px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 rounded transition-colors">Eliminar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400 mb-4">Sin variantes. Este producto se vende como una sola unidad.</p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_100px_auto] gap-2 items-end">
+        <div>
+          <label className="form-label">Nombre (ej. Talla M - Azul)</label>
+          <input value={name} onChange={e => setName(e.target.value)} className="form-input-custom w-full" placeholder="Talla M - Azul" />
+        </div>
+        <div>
+          <label className="form-label">Precio (S/)</label>
+          <input type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} className="form-input-custom w-full" placeholder="0.00" />
+        </div>
+        <div>
+          <label className="form-label">Stock</label>
+          <input type="number" min="0" step="1" value={stock} onChange={e => setStock(e.target.value)} className="form-input-custom w-full" placeholder="0" />
+        </div>
+        <button type="button" onClick={save}
+          className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold px-4 py-3 rounded-xl shadow-md hover:opacity-90 transition-opacity">
+          {editing ? "Actualizar" : "Agregar"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function DetallesContent() {
@@ -56,10 +160,16 @@ function DetallesContent() {
     politicas_imagenes: "",
     estado: "nuevo",
     ubicacion: "",
+    divisible: true,
   });
   const [tiers, setTiers] = useState<RcgTier[]>([]);
   const [metaVenta, setMetaVenta] = useState("");
   const [nivelCoincidencia, setNivelCoincidencia] = useState("estricta");
+  const [esServicio, setEsServicio] = useState(false);
+  const [tipoInmobiliario, setTipoInmobiliario] = useState("");
+  const [productImages, setProductImages] = useState<string[]>([]);
+  const [imagesUploading, setImagesUploading] = useState(false);
+  const esInmobiliario = /inmob/i.test(categoryName || "");
 
   // III.4 Verificación de stock y ficha técnica
   const [categoryRequires, setCategoryRequires] = useState(false);
@@ -121,6 +231,9 @@ function DetallesContent() {
           }
           setForm(specForm);
           setNivelCoincidencia(p.nivel_coincidencia || "estricta");
+          setEsServicio(!!p.es_servicio);
+          setTipoInmobiliario(p.tipo_inmobiliario || "");
+          setProductImages(Array.isArray(p.images) ? p.images : []);
           setConditions({
             metodo_pago: p.metodo_pago || "",
             stock: stockVal,
@@ -144,6 +257,7 @@ function DetallesContent() {
             politicas_imagenes: p.politicas_imagenes || "",
             estado: p.estado || "nuevo",
             ubicacion: p.ubicacion || "",
+            divisible: true,
           });
           const ver = verRes?.verification;
           if (ver) {
@@ -165,6 +279,7 @@ function DetallesContent() {
                 if (lot) {
                   setTiers((lot.rcg_tiers || []).map(t => ({ ...t })));
                   if (lot.meta_venta != null) setMetaVenta(String(lot.meta_venta));
+                  setConditions(prev => ({ ...prev, divisible: lot.divisible !== false }));
                 }
               })
               .catch(() => {});
@@ -448,9 +563,13 @@ function DetallesContent() {
         cantidad_total: isLot
           ? (lotStock > 0 ? lotStock : undefined)
           : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
+        divisible: isLot ? conditions.divisible : undefined,
         nivel_coincidencia: nivelCoincidencia,
         estado: conditions.estado || "nuevo",
         ubicacion: conditions.ubicacion || undefined,
+        es_servicio: !!esServicio,
+        tipo_inmobiliario: esInmobiliario && tipoInmobiliario ? tipoInmobiliario : null,
+        images: productImages,
       };
       let savedId = editingId;
       if (isEditing) {
@@ -664,6 +783,23 @@ function DetallesContent() {
                         </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Divisibilidad del lote</label>
+                        <div>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => setConditions({ ...conditions, divisible: true })}
+                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              <span className="block text-sm font-semibold text-gray-800">Divisible</span>
+                              <span className="block text-[11px] text-gray-500">Cada participante puede tomar varias unidades</span>
+                            </button>
+                            <button type="button" onClick={() => setConditions({ ...conditions, divisible: false })}
+                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${!conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              <span className="block text-sm font-semibold text-gray-800">Indivisible</span>
+                              <span className="block text-[11px] text-gray-500">Cada participante compromete 1 unidad</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Mínimo de unidades para cerrar</label>
                         <input type="number" value={conditions.participantes_minimos} onChange={e => setConditions({ ...conditions, participantes_minimos: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1" />
@@ -854,6 +990,72 @@ function DetallesContent() {
                         </div>
                       )}
 
+                      {/* Tipo de publicación */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div className="md:col-span-2">
+                          <label className="form-label pt-0">Tipo de publicación</label>
+                          <div className="flex gap-3">
+                            <button type="button" onClick={() => setEsServicio(false)}
+                              className={`flex-1 rounded-xl border px-4 py-3 text-left transition-colors ${!esServicio ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              <span className="block text-sm font-semibold text-gray-800">Producto físico</span>
+                              <span className="block text-xs text-gray-500">Con stock y envío</span>
+                            </button>
+                            <button type="button" onClick={() => setEsServicio(true)}
+                              className={`flex-1 rounded-xl border px-4 py-3 text-left transition-colors ${esServicio ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              <span className="block text-sm font-semibold text-gray-800">Servicio</span>
+                              <span className="block text-xs text-gray-500">Sin stock físico ni envío</span>
+                            </button>
+                          </div>
+                          {esInmobiliario && (
+                            <div className="mt-3">
+                              <label className="form-label">Tipo de operación inmobiliaria</label>
+                              <select value={tipoInmobiliario} onChange={e => setTipoInmobiliario(e.target.value)}
+                                className="w-full form-input-custom focus:ring-purple-500">
+                                <option value="">Selecciona el tipo</option>
+                                <option value="alquiler">Alquiler</option>
+                                <option value="venta">Venta</option>
+                              </select>
+                              <p className="text-xs text-gray-400 mt-1">La venta inmobiliaria requiere aprobación y verificación reforzada por LOTIFYX.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Galería de imágenes */}
+                      <div className="mt-4">
+                        <label className="form-label pt-0">Galería de imágenes</label>
+                        <p className="text-xs text-gray-400 mb-2">Sube varias imágenes de tu producto o servicio.</p>
+                        <div className="flex flex-wrap gap-2">
+                          {productImages.map((url, i) => (
+                            <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200">
+                              <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+                              <button type="button" onClick={() => setProductImages(productImages.filter((_, j) => j !== i))}
+                                className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">X</button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={async () => {
+                            const input = document.createElement("input");
+                            input.type = "file"; input.accept = "image/*"; input.multiple = true;
+                            input.onchange = async (e: any) => {
+                              const files = e.target.files;
+                              if (!files?.length) return;
+                              setImagesUploading(true);
+                              try {
+                                for (const f of files) {
+                                  const url = await uploadImage(f);
+                                  setProductImages(prev => [...prev, url]);
+                                }
+                              } catch { toast.error("Error al subir imagen"); }
+                              finally { setImagesUploading(false); }
+                            };
+                            input.click();
+                          }}
+                            className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-3xl text-gray-300 hover:border-purple-400 hover:text-purple-400 transition-colors">
+                            {imagesUploading ? <span className="w-5 h-5 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" /> : "+"}
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div>
                           <label className="form-label pt-0">Condición del producto</label>
@@ -930,6 +1132,9 @@ function DetallesContent() {
                   </div>
                 </div>
               )}
+
+              {/* Variantes (solo edición) */}
+              {isEditing && <VariantManager productId={editingId} />}
 
               {/* Actions */}
               <div className="flex flex-wrap gap-4 pt-4">

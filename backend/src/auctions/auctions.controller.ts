@@ -26,7 +26,9 @@ export class AuctionsController {
   @Post(":id/bid")
   @HttpCode(HttpStatus.CREATED)
   placeBid(@Req() req, @Param("id") id: string, @Body("monto") monto: number) {
-    return this.service.placeBid(id, req.user.id, monto);
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip;
+    const userAgent = (req.headers["user-agent"] as string) || "";
+    return this.service.placeBid(id, req.user.id, monto, { ip, userAgent });
   }
 
   @UseGuards(JwtAuthGuard)

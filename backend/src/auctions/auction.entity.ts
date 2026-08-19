@@ -42,6 +42,9 @@ export class Auction {
   @Column({ type: "uuid", nullable: true })
   remaining_order_id: string | null;
 
+  @Column({ type: "int", default: 0 })
+  intentos_relocacion: number;
+
   @CreateDateColumn()
   created_at: Date;
 

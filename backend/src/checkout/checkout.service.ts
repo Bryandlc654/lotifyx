@@ -1,8 +1,11 @@
 import { Injectable, OnModuleInit, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { AuditService } from "../audit/audit.service";
 import { MailService } from "../mail/mail.service";
+import { ConfigService } from "../config/config.service";
+import { CollusionService } from "../collusion/collusion.service";
 
 @Injectable()
 export class CheckoutService implements OnModuleInit {
@@ -10,6 +13,8 @@ export class CheckoutService implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly config: ConfigService,
+    private readonly collusion: CollusionService,
   ) {}
 
   async onModuleInit() {
@@ -38,7 +43,7 @@ export class CheckoutService implements OnModuleInit {
   async createOrder(data: {
     userId: string;
     total: number;
-    items: { id: string; price: number; qty?: number }[];
+    items: { id: string; price: number; qty?: number; variant_id?: string }[];
     originAccountId: string;
     operationNumber: string;
     amount: number;
@@ -83,11 +88,11 @@ export class CheckoutService implements OnModuleInit {
       );
 
       if (data.items.length > 0) {
-        const values = data.items.map((_, i) => `($1, $${2 + i * 3}, $${3 + i * 3}, $${4 + i * 3}, NOW())`).join(", ");
+        const values = data.items.map((_, i) => `($1, $${2 + i * 4}, $${3 + i * 4}, $${4 + i * 4}, $${5 + i * 4}, NOW())`).join(", ");
         const params = [order.id];
-        for (const item of data.items) { params.push(item.id, item.price, Math.max(1, Math.floor(Number(item.qty) || 1))); }
+        for (const item of data.items) { params.push(item.id, item.price, Math.max(1, Math.floor(Number(item.qty) || 1)), item.variant_id || null); }
         await queryRunner.query(
-          `INSERT INTO order_items (order_id, product_id, price, qty, created_at) VALUES ${values}`,
+          `INSERT INTO order_items (order_id, product_id, price, qty, variant_id, created_at) VALUES ${values}`,
           params,
         );
       }
@@ -144,6 +149,14 @@ export class CheckoutService implements OnModuleInit {
                SET stock = GREATEST(p.stock - oi.qty, 0)
                FROM order_items oi
                WHERE oi.order_id = $1 AND oi.product_id = p.id AND p.stock > 0`,
+              [id],
+            );
+            // Descuento de stock por variante (control independiente por variante)
+            await queryRunner.query(
+              `UPDATE product_variants pv
+               SET stock = GREATEST(pv.stock - oi.qty, 0)
+               FROM order_items oi
+               WHERE oi.order_id = $1 AND oi.variant_id IS NOT NULL AND oi.variant_id = pv.id AND pv.stock > 0`,
               [id],
             );
           }
@@ -298,5 +311,50 @@ export class CheckoutService implements OnModuleInit {
 
     this.audit.log({ userId, action: "order_tracking_updated", entity: "order", entityId: orderId, details: { status: data.status } });
     return { message: "Tracking actualizado" };
+  }
+
+  /** Cancela órdenes pendientes de pago vencidas (oferta/puja sin intención real de contratar).
+   *  El límite de días y la sanción por incumplimiento son configurables desde el panel admin (Umbrales). */
+  @Cron(CronExpression.EVERY_HOUR)
+  async cancelExpiredPendingOrders() {
+    try {
+      const days = await this.config.getNum("limite_pago_dias");
+      const result = await this.dataSource.query(
+        `UPDATE orders
+         SET status = 'cancelled', updated_at = NOW()
+         WHERE status = 'pending_payment'
+           AND created_at < NOW() - ($1::int * INTERVAL '1 day')
+         RETURNING id, user_id`,
+        [days],
+      );
+      if (result.length > 0) {
+        const userIds: string[] = [...new Set((result as any[]).map((o: any) => o.user_id))];
+        for (const o of result) {
+          this.audit.log({
+            userId: o.user_id,
+            action: "order_cancelled_expired",
+            entity: "order",
+            entityId: o.id,
+            details: { motivo: `No pagado en ${days} días` },
+          });
+        }
+        // Penalización por incumplimiento (configurable): incrementa contador y sanciona si supera el umbral
+        for (const uid of userIds) {
+          const res = await this.collusion.registerIncumplimiento(uid);
+          if (res.sancionado) {
+            this.audit.log({
+              userId: uid,
+              action: "user_sancionado",
+              entity: "user",
+              entityId: uid,
+              details: { motivo: `${res.incumplimientos} incumplimientos de pago`, dias: res.sancion_dias },
+            });
+          }
+        }
+        console.log(`[Checkout] ${result.length} orden(es) pendiente(s) cancelada(s) por vencer el pago (${days} días)`);
+      }
+    } catch (e: any) {
+      console.error("[Checkout] Error cancelando órdenes vencidas:", e.message);
+    }
   }
 }

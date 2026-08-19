@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck, Star } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
@@ -58,6 +58,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [joinQty, setJoinQty] = useState(1);
   const [joining, setJoining] = useState(false);
   const [buyQty, setBuyQty] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [activeImg, setActiveImg] = useState(0);
   const cart = useCart();
 
@@ -179,6 +180,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   }) || (priceRegular ? priceEntries.find(([k]) => k !== priceRegular[0]) : null);
 
   const allImages: string[] = [];
+  // Galería estándar del producto
+  if (Array.isArray(product?.images)) {
+    for (const u of product.images) { if (u) allImages.push(u); }
+  }
   imageEntries.forEach(([, v]) => {
     const s = String(v ?? "");
     if (s.startsWith("[")) {
@@ -236,6 +241,35 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             {product.metodo_pago === "subasta" && auction ? (
               <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
                 <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {product.seller && (
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8234FE] to-[#26BEFE] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {product.seller.avatar_url ? (
+                        <img src={getImageUrl(product.seller.avatar_url)} alt="" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        (product.seller.first_name?.[0] || "V")
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        Vendido por {product.seller.first_name} {product.seller.last_name}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {product.seller.is_verified && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700">
+                            <BadgeCheck className="h-3.5 w-3.5" /> Vendedor verificado
+                          </span>
+                        )}
+                        {(product.seller?.total_reviews ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            {Number(product.seller?.average_rating).toFixed(1)} ({product.seller?.total_reviews})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {product.verification_status === "approved" && (
                   <div className="mb-4">
                     <span title="La verificación de LOTIFYX no sustituye la obligación del vendedor de entregar el bien ofrecido ni implica garantía absoluta de LOTIFYX."
@@ -383,6 +417,35 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             ) : product.metodo_pago === "venta_por_lote" && lot ? (
               <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 p-8">
                 <h1 className="text-[#2d3748] text-[28px] font-extrabold leading-tight mb-4">{product.title}</h1>
+                {product.seller && (
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8234FE] to-[#26BEFE] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {product.seller.avatar_url ? (
+                        <img src={getImageUrl(product.seller.avatar_url)} alt="" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        (product.seller.first_name?.[0] || "V")
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        Vendido por {product.seller.first_name} {product.seller.last_name}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {product.seller.is_verified && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700">
+                            <BadgeCheck className="h-3.5 w-3.5" /> Vendedor verificado
+                          </span>
+                        )}
+                        {(product.seller?.total_reviews ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            {Number(product.seller?.average_rating).toFixed(1)} ({product.seller?.total_reviews})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {product.verification_status === "approved" && (
                   <div className="mb-4">
                     <span title="La verificación de LOTIFYX no sustituye la obligación del vendedor de entregar el bien ofrecido ni implica garantía absoluta de LOTIFYX."
@@ -437,6 +500,12 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">CMC por comprador</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">{minJoinQty} unidad{minJoinQty !== 1 ? "es" : ""} mínimo</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4">
+                      <span className="text-gray-500 text-[15px]">Divisibilidad</span>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${lot.divisible !== false ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-600"}`}>
+                        {lot.divisible !== false ? "Divisible" : "Indivisible"}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Participantes</span>
@@ -579,6 +648,41 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 <h1 className="text-2xl font-bold text-[#344054]">
                   {product.title}
                 </h1>
+                {product.es_servicio && (
+                  <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-bold border border-indigo-100">
+                    Servicio
+                  </span>
+                )}
+                {product.tipo_inmobiliario && (
+                  <span className={`inline-flex mt-1 ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${product.tipo_inmobiliario === "alquiler" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-purple-50 text-purple-600 border-purple-100"}`}>
+                    {product.tipo_inmobiliario === "alquiler" ? "Alquiler" : "Venta inmobiliaria"}
+                  </span>
+                )}
+                {product.seller && product.metodo_pago === "plataforma" && (
+                  <div className="flex items-center gap-2.5 mt-2">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#8234FE] to-[#26BEFE] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {product.seller.avatar_url ? (
+                        <img src={getImageUrl(product.seller.avatar_url)} alt="" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        (product.seller.first_name?.[0] || "V")
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      Vendido por <span className="font-semibold text-gray-900">{product.seller.first_name} {product.seller.last_name}</span>
+                    </p>
+                    {product.seller.is_verified && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700">
+                        <BadgeCheck className="h-3.5 w-3.5" /> Vendedor verificado
+                      </span>
+                    )}
+                    {(product.seller?.total_reviews ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        {Number(product.seller?.average_rating).toFixed(1)} ({product.seller?.total_reviews})
+                      </span>
+                    )}
+                  </div>
+                )}
                 {product.nivel_coincidencia && product.nivel_coincidencia !== "estricta" && (
                   <span className="inline-flex mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">
                     Coincidencia de producto: {product.nivel_coincidencia === "flexible" ? "Flexible" : "Amplia"}
@@ -637,16 +741,39 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   </div>
                 )}
 
+                {product.metodo_pago === "plataforma" && product.variants && product.variants.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-xs font-medium text-gray-600 mb-1.5 block">Variante</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {product.variants.map(v => {
+                        const isSel = selectedVariant?.id === v.id;
+                        return (
+                          <button key={v.id} onClick={() => setSelectedVariant(v)}
+                            className={`rounded-lg border px-3 py-2 text-left transition-colors ${isSel ? "border-purple-600 bg-purple-50" : "border-gray-300 hover:border-purple-400"}`}>
+                            <span className="block text-sm font-medium text-gray-800">{v.name}</span>
+                            <span className={`block text-xs ${Number(v.stock) > 0 ? "text-green-700" : "text-red-600"}`}>
+                              {Number(v.stock) > 0 ? `${v.stock} disponibles` : "Agotado"}
+                            </span>
+                            {v.price != null && (
+                              <span className="block text-xs text-purple-600 font-semibold mt-0.5">S/ {Number(v.price).toFixed(2)}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {product.metodo_pago === "plataforma" && product.stock != null && product.stock > 0 && (
                   <div className="mb-4">
                     <label className="text-xs font-medium text-gray-600 mb-1.5 block">Cantidad</label>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setBuyQty(q => Math.max(minBuyQty, q - 1))}
                         className="w-9 h-9 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 font-bold text-lg flex items-center justify-center">−</button>
-                      <input type="number" min={minBuyQty} max={product.stock} value={buyQty}
-                        onChange={e => setBuyQty(Math.min(Math.max(minBuyQty, parseInt(e.target.value) || minBuyQty), product.stock ?? minBuyQty))}
+                      <input type="number" min={minBuyQty} max={selectedVariant?.stock ?? product.stock} value={buyQty}
+                        onChange={e => setBuyQty(Math.min(Math.max(minBuyQty, parseInt(e.target.value) || minBuyQty), selectedVariant?.stock ?? product.stock ?? minBuyQty))}
                         className="w-16 text-center rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
-                      <button onClick={() => setBuyQty(q => Math.min(product.stock ?? minBuyQty, q + 1))}
+                      <button onClick={() => setBuyQty(q => Math.min(selectedVariant?.stock ?? product.stock ?? minBuyQty, q + 1))}
                         className="w-9 h-9 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 font-bold text-lg flex items-center justify-center">+</button>
                       {minBuyQty > 1 && (
                         <span className="text-[11px] text-purple-600 bg-purple-50 rounded-full px-2 py-1 font-medium">CMC: mínimo {minBuyQty}</span>
@@ -676,6 +803,13 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   {isOwn && (
                     <p className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-4 py-3 flex-1 text-center">Es tu propio producto</p>
                   )}
+                  {product.tipo_inmobiliario && (
+                    <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        <strong>Aviso importante:</strong> La garantía, separo o pago realizado en esta publicación <strong>no equivale a la transferencia de propiedad</strong> ni reemplaza la minuta, escritura, contrato de arrendamiento, evaluación crediticia, due diligence ni los trámites notariales y registrales correspondientes.
+                      </p>
+                    </div>
+                  )}
                   {product.envio_delivery && !isOwn && (
                     <button disabled={product.stock != null && product.stock <= 0}
                       onClick={() => {
@@ -691,10 +825,11 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                           title: product.title,
                           sku: product.sku,
                           image: mainImage,
-                          price: Number((priceCurrent || priceEntries[0])?.[1] || 0),
+                          price: selectedVariant?.price != null ? Number(selectedVariant.price) : Number((priceCurrent || priceEntries[0])?.[1] || 0),
                           regularPrice: priceRegular ? Number(priceRegular[1]) : undefined,
                           qty: buyQty,
                           minQty: minBuyQty,
+                          variant_id: selectedVariant?.id || undefined,
                         });
                         setShowCartSuccess(true);
                       }}

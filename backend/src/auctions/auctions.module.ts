@@ -6,9 +6,11 @@ import { AuctionsService } from "./auctions.service";
 import { AuctionsController } from "./auctions.controller";
 import { AuctionsSyncController } from "./sync.controller";
 import { MessagesModule } from "../messages/messages.module";
+import { CollusionModule } from "../collusion/collusion.module";
+import { ConfigModule } from "../config/config.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Auction, AuctionBid]), MessagesModule],
+  imports: [TypeOrmModule.forFeature([Auction, AuctionBid]), MessagesModule, CollusionModule, ConfigModule],
   controllers: [AuctionsController, AuctionsSyncController],
   providers: [AuctionsService],
   exports: [AuctionsService],

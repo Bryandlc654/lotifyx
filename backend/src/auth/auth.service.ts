@@ -17,6 +17,8 @@ import { RefreshToken } from "./entities/refresh-token.entity";
 import { UserVerification } from "./entities/user-verification.entity";
 import { Role } from "./entities/role.entity";
 import { MailService } from "../mail/mail.service";
+import { AuditService } from "../audit/audit.service";
+import { ConfigService } from "../config/config.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
@@ -35,7 +37,9 @@ export class AuthService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     private readonly jwtService: JwtService,
-    private readonly mailService: MailService
+    private readonly mailService: MailService,
+    private readonly audit: AuditService,
+    private readonly config: ConfigService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────
@@ -46,6 +50,11 @@ export class AuthService {
 
   private generateRefreshTokenValue(): string {
     return crypto.randomBytes(48).toString("hex");
+  }
+
+  /** Minutos de validez del JWT (configurable por admin en la config). */
+  private async sessionTimeoutMinutos(): Promise<number> {
+    return this.config.getNum("session_timeout_minutos");
   }
 
   private async generateTokens(user: User) {
@@ -61,12 +70,17 @@ export class AuthService {
       }
     }
 
-    const accessToken = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      role: roleName,
-      isAdmin,
-    });
+    const accessToken = this.jwtService.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        role: roleName,
+        isAdmin,
+      },
+      {
+        expiresIn: `${await this.sessionTimeoutMinutos()}m`,
+      },
+    );
 
     const refreshValue = this.generateRefreshTokenValue();
 
@@ -87,20 +101,42 @@ export class AuthService {
     name: string;
     picture: string | null;
   }) {
-    let user = await this.userRepository.findOne({
-      where: { email: profile.email },
-      relations: ["profile"],
-    });
+    const email = (profile.email || "").trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException(
+        "Google no devolvió un correo asociado a esta cuenta. Usa otro método de inicio de sesión o autoriza el acceso al correo.",
+      );
+    }
+
+    let user = profile.googleId
+      ? await this.userRepository.findOne({
+          where: { google_id: profile.googleId },
+          relations: ["profile"],
+        })
+      : null;
 
     if (!user) {
-      const nameParts = profile.name.split(" ");
+      user = await this.userRepository.findOne({
+        where: { email },
+        relations: ["profile"],
+      });
+      // Vincula la identidad de Google a una cuenta local existente
+      if (user && profile.googleId && !user.google_id) {
+        user.google_id = profile.googleId;
+        await this.userRepository.save(user);
+      }
+    }
+
+    if (!user) {
+      const nameParts = profile.name?.split(" ") || [];
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
 
       user = this.userRepository.create({
-        email: profile.email,
+        email,
         password_hash: "",
         provider: "google",
+        google_id: profile.googleId || null,
         is_verified: true,
         status: "active",
         referral_code: this.generateReferralCode(),
@@ -152,6 +188,26 @@ export class AuthService {
     };
     if (!(DOC_FORMATS[tipoDoc] || /^\d{8}$/).test(dto.dni || "")) {
       throw new BadRequestException("El número de documento no es válido");
+    }
+
+    // Prohibición: una sola cuenta por persona — DNI y teléfono únicos
+    const existingDni = await this.profileRepository.findOne({
+      where: { document_number: dto.dni },
+    });
+    if (existingDni) {
+      throw new ConflictException(
+        "El documento de identidad ya está registrado en otra cuenta. No está permitido crear varias cuentas.",
+      );
+    }
+    if (dto.telefono) {
+      const existingPhone = await this.userRepository.findOne({
+        where: { phone: dto.telefono },
+      });
+      if (existingPhone) {
+        throw new ConflictException(
+          "El teléfono ya está registrado en otra cuenta. No está permitido crear varias cuentas.",
+        );
+      }
     }
 
     // Validar DNI/RUC con API Peru
@@ -298,7 +354,7 @@ export class AuthService {
     } catch (error) {
       if (error instanceof ConflictException) throw error;
       if (error.code === "23505") {
-        throw new ConflictException("Uno de los datos ya está registrado (correo, RUC o DNI)");
+        throw new ConflictException("Uno de los datos ya está registrado (correo, RUC o teléfono)");
       }
       throw new InternalServerErrorException("Error al registrar el usuario");
     }
@@ -379,7 +435,32 @@ export class AuthService {
       relations: ["profile"],
     });
 
+    let lockRow: any = null;
+
+    // Bloqueo por intentos fallidos (configurable por admin)
+    if (user) {
+      [lockRow] = await this.userRepository.query(
+        `SELECT login_attempts, locked_until FROM users WHERE id = $1`,
+        [user.id],
+      );
+      if (lockRow?.locked_until && new Date(lockRow.locked_until) > new Date()) {
+        const hasta = new Date(lockRow.locked_until).toISOString().slice(0, 16).replace("T", " ");
+        throw new UnauthorizedException(
+          `Demasiados intentos fallidos. Tu cuenta está bloqueada hasta ${hasta}. Intenta más tarde.`,
+        );
+      }
+      // Si el bloqueo venció, resetear contador
+      if (lockRow?.locked_until && new Date(lockRow.locked_until) <= new Date()) {
+        await this.userRepository.query(
+          `UPDATE users SET login_attempts = 0, locked_until = NULL WHERE id = $1`,
+          [user.id],
+        );
+        lockRow = { login_attempts: 0, locked_until: null };
+      }
+    }
+
     if (!user) {
+      this.audit.log({ action: "login_failed", entity: "auth", details: { credential: dto.credential, motivo: "usuario_inexistente" } });
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
@@ -389,20 +470,47 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      const maxIntentos = await this.config.getNum("max_login_intentos");
+      const bloqueoMin = await this.config.getNum("bloqueo_login_minutos");
+      const newAttempts = Number(lockRow?.login_attempts || 0) + 1;
+      if (newAttempts >= maxIntentos) {
+        await this.userRepository.query(
+          `UPDATE users SET login_attempts = $2, locked_until = NOW() + ($3::int * INTERVAL '1 minute') WHERE id = $1`,
+          [user.id, newAttempts, bloqueoMin],
+        );
+        this.audit.log({ userId: user.id, action: "login_failed", entity: "auth", details: { motivo: `bloqueado tras ${newAttempts} intentos` } });
+        throw new UnauthorizedException(
+          `Demasiados intentos fallidos. Tu cuenta quedó bloqueada por ${bloqueoMin} minutos.`,
+        );
+      }
+      await this.userRepository.query(
+        `UPDATE users SET login_attempts = $2 WHERE id = $1`,
+        [user.id, newAttempts],
+      );
+      this.audit.log({ userId: user.id, action: "login_failed", entity: "auth", details: { intento: newAttempts } });
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
     if (!user.is_verified) {
+      this.audit.log({ userId: user.id, action: "login_failed", entity: "auth", details: { motivo: "no_verificado" } });
       throw new UnauthorizedException(
         "Cuenta no verificada. Revisa tu correo para verificar tu cuenta."
       );
     }
 
     if (user.status !== "active") {
+      this.audit.log({ userId: user.id, action: "login_failed", entity: "auth", details: { motivo: "cuenta_deshabilitada" } });
       throw new UnauthorizedException(
         "Tu cuenta no está habilitada. Contacta al administrador."
       );
     }
+
+    // Login exitoso: resetear contador y auditar
+    await this.userRepository.query(
+      `UPDATE users SET login_attempts = 0, locked_until = NULL WHERE id = $1`,
+      [user.id],
+    );
+    this.audit.log({ userId: user.id, userName: user.email, action: "login_success", entity: "auth", details: { method: "password" } });
 
     const { password_hash: _, ...result } = user;
     const tokens = await this.generateTokens(user);
@@ -477,9 +585,13 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     const [id] = refreshToken.split(".");
+    let userId: string | null = null;
     if (id) {
+      const stored = await this.refreshTokenRepository.findOne({ where: { id } });
+      userId = stored?.user_id || null;
       await this.refreshTokenRepository.update(id, { is_revoked: true });
     }
+    this.audit.log({ userId: userId || undefined, action: "logout", entity: "auth" });
     return { message: "Sesión cerrada exitosamente" };
   }
 

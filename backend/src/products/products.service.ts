@@ -124,7 +124,50 @@ export class ProductsService {
   async findOnePublic(id: string) {
     const p = await this.repo.findOne({ where: { id, status: "active", deleted_at: IsNull() } });
     if (!p) throw new NotFoundException("Producto no encontrado");
-    return p;
+    // Datos públicos del vendedor (nombre + verificación) para mostrarlo en el detalle del producto
+    let seller: any = null;
+    try {
+      const [row] = await this.dataSource.query(
+        `SELECT u.id, u.is_verified, up.first_name, up.last_name, up.avatar_url,
+                (SELECT COUNT(*)::int FROM products pr
+                 WHERE pr.user_id = u.id AND pr.status = 'active' AND pr.deleted_at IS NULL) AS products_count,
+                (SELECT COUNT(r.id)::int FROM reviews r
+                 INNER JOIN products p2 ON p2.id = r.product_id AND p2.user_id = u.id
+                 WHERE r.is_active = true) AS total_reviews,
+                (SELECT COALESCE(ROUND(AVG(r2.rating)::numeric, 2), 0)::numeric FROM reviews r2
+                 INNER JOIN products p3 ON p3.id = r2.product_id AND p3.user_id = u.id
+                 WHERE r2.is_active = true) AS average_rating
+         FROM users u
+         LEFT JOIN user_profiles up ON up.user_id = u.id
+         WHERE u.id = $1`,
+        [p.user_id],
+      );
+      if (row) {
+        seller = {
+          id: row.id,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          avatar_url: row.avatar_url,
+          is_verified: !!row.is_verified,
+          products_count: Number(row.products_count || 0),
+          average_rating: Number(row.average_rating || 0),
+          total_reviews: Number(row.total_reviews || 0),
+        };
+      }
+    } catch (e: any) {
+      console.error("[Products] Error cargando vendedor:", e.message);
+    }
+    // Variantes de la publicación
+    let variants: any[] = [];
+    try {
+      variants = await this.dataSource.query(
+        `SELECT id, name, attributes, price, stock FROM product_variants WHERE product_id = $1 ORDER BY created_at ASC`,
+        [p.id],
+      );
+    } catch (e: any) {
+      console.error("[Products] Error cargando variantes:", e.message);
+    }
+    return { ...p, seller, variants };
   }
 
   async create(dto: Partial<Product>) {
@@ -167,13 +210,14 @@ export class ProductsService {
       }
       if ((dto as any).metodo_pago === "venta_por_lote" && (dto as any).precio_lote) {
         await this.dataSource.query(
-          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cmc, cantidad_total, fecha_cierre, estado)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente')
+          `INSERT INTO lot_sales (product_id, vendedor_id, precio_lote, precio_individual, participantes_minimos, cmc, cantidad_total, divisible, fecha_cierre, estado)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_lote, (dto as any).precio_individual || 0,
            (dto as any).participantes_minimos || 1,
            (dto as any).cmc || 1,
            (dto as any).cantidad_total || 1,
+           (dto as any).divisible !== false,
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : null]
         );
       }
@@ -227,7 +271,7 @@ export class ProductsService {
 
     // Actualizar lote si se modificaron campos de venta por lote
     if ((dto as any).metodo_pago === "venta_por_lote" &&
-        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos || (dto as any).cmc || (dto as any).cantidad_total)) {
+        ((dto as any).cierre_estimado || (dto as any).precio_lote || (dto as any).precio_individual || (dto as any).participantes_minimos || (dto as any).cmc || (dto as any).cantidad_total || (dto as any).divisible !== undefined)) {
       try {
         const updates: string[] = [];
         const params: any[] = [id];
@@ -255,6 +299,10 @@ export class ProductsService {
           updates.push(`cantidad_total = $${params.length + 1}`);
           params.push((dto as any).cantidad_total);
         }
+        if ((dto as any).divisible !== undefined) {
+          updates.push(`divisible = $${params.length + 1}`);
+          params.push(!!(dto as any).divisible);
+        }
         if (updates.length > 0) {
           await this.dataSource.query(
             `UPDATE lot_sales SET ${updates.join(", ")} WHERE product_id = $1`,
@@ -277,6 +325,39 @@ export class ProductsService {
     return { message: "Producto eliminado" };
   }
 
+  /** Pausa o reanuda una publicación (el vendedor controla su disponibilidad). */
+  async togglePause(id: string) {
+    const p = await this.findOne(id);
+    const isPaused = p.status === "paused";
+    const newStatus = isPaused ? "active" : "paused";
+    await this.dataSource.query(
+      `UPDATE products SET status = $2, updated_at = NOW() WHERE id = $1`,
+      [id, newStatus],
+    );
+    // Pausar/reanudar también la subasta o el lote asociado
+    if (newStatus === "paused") {
+      await this.dataSource.query(
+        `UPDATE auctions SET estado = 'pausada' WHERE product_id = $1 AND estado = 'activo'`,
+        [id],
+      );
+      await this.dataSource.query(
+        `UPDATE lot_sales SET estado = 'pausado' WHERE product_id = $1 AND estado = 'abierto'`,
+        [id],
+      );
+    } else {
+      await this.dataSource.query(
+        `UPDATE auctions SET estado = 'activo' WHERE product_id = $1 AND estado = 'pausada'`,
+        [id],
+      );
+      await this.dataSource.query(
+        `UPDATE lot_sales SET estado = 'abierto' WHERE product_id = $1 AND estado = 'pausado'`,
+        [id],
+      );
+    }
+    this.audit.log({ userId: p.user_id, action: isPaused ? "product_unpaused" : "product_paused", entity: "product", entityId: id });
+    return { message: isPaused ? "Publicación reanudada" : "Publicación pausada", status: newStatus };
+  }
+
   async approve(id: string) {
     const p = await this.findOne(id);
     const [seller] = await this.dataSource.query(
@@ -285,6 +366,21 @@ export class ProductsService {
     );
     if (seller && seller.status === "disabled") {
       throw new BadRequestException("El vendedor está deshabilitado. No se puede activar el producto.");
+    }
+    // VI. Inmobiliario: diferenciado y aprobado por LOTIFYX
+    const esInmobiliario = await this.esInmobiliario(p.category_id);
+    if (esInmobiliario) {
+      if (!p.tipo_inmobiliario || !["alquiler", "venta"].includes(p.tipo_inmobiliario)) {
+        throw new BadRequestException(
+          "Para publicaciones inmobiliarias debes indicar el tipo: Alquiler o Venta.",
+        );
+      }
+      // Verificación reforzada: identidad/facultades, partida registral y cargas/gravámenes
+      if (p.verification_status !== "approved") {
+        throw new BadRequestException(
+          "La publicación inmobiliaria requiere verificación reforzada por LOTIFYX (partida registral y cargas/gravámenes) antes de activarse.",
+        );
+      }
     }
     // III.4: bloqueo si la categoría/método exige verificación de stock y ficha técnica y aún no está aprobada
     if (p.metodo_pago === "subasta" || p.metodo_pago === "venta_por_lote") {
@@ -376,5 +472,90 @@ export class ProductsService {
       [userId, productId],
     );
     return { saved: rows.length > 0 };
+  }
+
+  // ─── Variantes por publicación ───────────────────────────
+
+  async getVariants(productId: string) {
+    return this.dataSource.query(
+      `SELECT * FROM product_variants WHERE product_id = $1 ORDER BY created_at ASC`,
+      [productId],
+    );
+  }
+
+  async addVariant(productId: string, userId: string, dto: { name: string; attributes?: Record<string, any>; price?: number; stock?: number }) {
+    await this.assertOwner(productId, userId);
+    const name = String(dto?.name || "").trim();
+    if (!name) throw new BadRequestException("El nombre de la variante es obligatorio");
+    const [row] = await this.dataSource.query(
+      `INSERT INTO product_variants (product_id, name, attributes, price, stock)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [productId, name, dto?.attributes || {}, dto?.price ?? null, Math.max(0, Math.floor(Number(dto?.stock) || 0))],
+    );
+    await this.recalcTotalStock(productId);
+    return row;
+  }
+
+  async updateVariant(variantId: string, userId: string, dto: { name?: string; attributes?: Record<string, any>; price?: number; stock?: number }) {
+    const v = await this.getVariantForUser(variantId, userId);
+    const sets: string[] = [];
+    const params: any[] = [variantId];
+    if (dto?.name !== undefined) { params.push(String(dto.name)); sets.push(`name = $${params.length}`); }
+    if (dto?.attributes !== undefined) { params.push(dto.attributes); sets.push(`attributes = $${params.length}`); }
+    if (dto?.price !== undefined) { params.push(dto.price ?? null); sets.push(`price = $${params.length}`); }
+    if (dto?.stock !== undefined) { params.push(Math.max(0, Math.floor(Number(dto.stock) || 0))); sets.push(`stock = $${params.length}`); }
+    if (sets.length > 0) {
+      await this.dataSource.query(`UPDATE product_variants SET ${sets.join(", ")} WHERE id = $1`, params);
+    }
+    const [updated] = await this.dataSource.query(`SELECT * FROM product_variants WHERE id = $1`, [variantId]);
+    await this.recalcTotalStock(v.product_id);
+    return updated;
+  }
+
+  async deleteVariant(variantId: string, userId: string) {
+    const v = await this.getVariantForUser(variantId, userId);
+    await this.dataSource.query(`DELETE FROM product_variants WHERE id = $1`, [variantId]);
+    await this.recalcTotalStock(v.product_id);
+    return { message: "Variante eliminada" };
+  }
+
+  private async assertOwner(productId: string, userId: string) {
+    const p = await this.findOne(productId);
+    if (p.user_id !== userId) throw new NotFoundException("Producto no encontrado");
+    return p;
+  }
+
+  private async getVariantForUser(variantId: string, userId: string) {
+    const [v] = await this.dataSource.query(
+      `SELECT * FROM product_variants WHERE id = $1`,
+      [variantId],
+    );
+    if (!v) throw new NotFoundException("Variante no encontrada");
+    await this.assertOwner(v.product_id, userId);
+    return v;
+  }
+
+  /** Recalcula el stock total del producto como la suma del stock de sus variantes (si tiene variantes). */
+  private async recalcTotalStock(productId: string) {
+    const [agg] = await this.dataSource.query(
+      `SELECT COALESCE(SUM(stock), 0)::int AS total, COUNT(*)::int AS n FROM product_variants WHERE product_id = $1`,
+      [productId],
+    );
+    if (Number(agg?.n || 0) > 0) {
+      await this.dataSource.query(`UPDATE products SET stock = $2 WHERE id = $1`, [productId, Number(agg.total || 0)]);
+    }
+  }
+
+  /** Detecta si la categoría es inmobiliaria (por nombre). */
+  private async esInmobiliario(categoryId: string): Promise<boolean> {
+    try {
+      const [cat] = await this.dataSource.query(
+        `SELECT name FROM categories WHERE id = $1`,
+        [categoryId],
+      );
+      return !!cat && /inmob/i.test(cat.name || "");
+    } catch {
+      return false;
+    }
   }
 }

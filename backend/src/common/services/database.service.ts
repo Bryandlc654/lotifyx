@@ -142,6 +142,82 @@ export class DatabaseService implements OnModuleInit {
       `ALTER TABLE lot_participants ADD COLUMN IF NOT EXISTS garantia_pct INT`,
       `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS remaining_order_id UUID`,
       `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS garantia_pct INT`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)`,
+      `CREATE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id)`,
+      // Prohibición: una sola cuenta por persona (anti cuentas múltiples en subastas/votaciones)
+      `UPDATE users SET phone = NULL WHERE id IN (
+         SELECT id FROM (
+           SELECT id, ROW_NUMBER() OVER (PARTITION BY phone ORDER BY created_at ASC) AS rn
+           FROM users WHERE phone IS NOT NULL AND phone <> ''
+         ) t WHERE rn > 1
+       )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_users_phone ON users (phone) WHERE phone IS NOT NULL AND phone <> ''`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_document_number ON user_profiles (document_number) WHERE document_number IS NOT NULL AND document_number <> ''`,
+      // Detección de colusión: señales por evento y alertas generadas
+      `CREATE TABLE IF NOT EXISTS event_signals (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         event_type VARCHAR(30) NOT NULL,
+         event_id UUID NOT NULL,
+         user_id UUID NOT NULL,
+         ip VARCHAR(64),
+         user_agent VARCHAR(512),
+         amount NUMERIC(12,2),
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_event_signals_event ON event_signals (event_type, event_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_event_signals_user ON event_signals (user_id)`,
+      `CREATE TABLE IF NOT EXISTS collusion_flags (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         event_type VARCHAR(30) NOT NULL,
+         event_id UUID,
+         rule VARCHAR(40) NOT NULL,
+         severity VARCHAR(10) NOT NULL DEFAULT 'media',
+         user_ids UUID[] NOT NULL DEFAULT '{}',
+         detail JSONB DEFAULT '{}',
+         status VARCHAR(20) NOT NULL DEFAULT 'abierto',
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_collusion_flags_status ON collusion_flags (status, created_at)`,
+      `CREATE TABLE IF NOT EXISTS product_variants (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+         name VARCHAR(255) NOT NULL,
+         attributes JSONB DEFAULT '{}',
+         price NUMERIC(10,2),
+         stock INT DEFAULT 0,
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants (product_id)`,
+      `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id UUID`,
+      `CREATE INDEX IF NOT EXISTS idx_order_items_variant ON order_items (variant_id)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS es_servicio BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS tipo_inmobiliario VARCHAR(20)`,
+      `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS divisible BOOLEAN DEFAULT TRUE`,
+      `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         token TEXT NOT NULL,
+         used BOOLEAN DEFAULT FALSE,
+         expires_at TIMESTAMPTZ NOT NULL,
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens (token)`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS login_attempts INT DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`,
+      `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS ubigeo VARCHAR(20)`,
+      `INSERT INTO app_config (key, value) VALUES ('session_timeout_minutos', '120'), ('max_login_intentos', '5'), ('bloqueo_login_minutos', '15') ON CONFLICT (key) DO NOTHING`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS collusion_flagged BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS collusion_note TEXT`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS incumplimientos_count INT DEFAULT 0`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS sancionado BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS sancion_hasta TIMESTAMPTZ`,
+      `INSERT INTO app_config (key, value) VALUES ('max_incumplimientos', '2'), ('sancion_dias', '7') ON CONFLICT (key) DO NOTHING`,
+      // Garantía de oferta en RFQ + límites anti-flood + reconexión de ganador
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS garantia_oferta NUMERIC(12,2) DEFAULT 0`,
+      `ALTER TABLE request_offers ADD COLUMN IF NOT EXISTS garantia_oferta_reservada BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS intentos_relocacion INT DEFAULT 0`,
+      `INSERT INTO app_config (key, value) VALUES ('garantia_oferta_pct', '1'), ('max_ofertas_pendientes', '10'), ('max_pujas_pendientes', '5'), ('reconexion_dias', '3') ON CONFLICT (key) DO NOTHING`,
     ];
     for (const sql of migrations) {
       try { await this.dataSource.query(sql); } catch {}

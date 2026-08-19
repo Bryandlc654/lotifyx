@@ -6,13 +6,13 @@ import { Header } from "@/components/layout/header";
 import { getProfile, isAuthenticated, updateProfile, getAccessToken } from "@/lib/api";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { MessageCircle, Wallet, Eye, EyeOff } from "lucide-react";
+import { MessageCircle, Wallet, Eye, EyeOff, Store } from "lucide-react";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
 export default function PerfilPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", alias: "", password: "", avatar_url: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone: "", alias: "", password: "", avatar_url: "", razon_social: "", address: "", ubigeo: "" });
   const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -35,6 +35,9 @@ export default function PerfilPage() {
           alias: u.profile?.profile_alias || "",
           password: "",
           avatar_url: u.profile?.avatar_url || "",
+          razon_social: u.profile?.razon_social || "",
+          address: u.profile?.address || "",
+          ubigeo: u.profile?.ubigeo || "",
         });
       })
       .catch((e) => {
@@ -61,6 +64,11 @@ export default function PerfilPage() {
         profile_alias: form.alias.trim(),
       };
       if (form.password) dto.password = form.password;
+      if (userRole === "vendedor") {
+        dto.razon_social = form.razon_social.trim();
+        dto.address = form.address.trim();
+        dto.ubigeo = form.ubigeo.trim();
+      }
 
       const res = await updateProfile(dto);
       const u = res.user || res;
@@ -72,6 +80,9 @@ export default function PerfilPage() {
         alias: u.profile?.profile_alias || "",
         password: "",
         avatar_url: u.profile?.avatar_url || "",
+        razon_social: u.profile?.razon_social || "",
+        address: u.profile?.address || "",
+        ubigeo: u.profile?.ubigeo || "",
       });
       toast.success("Perfil actualizado");
     } catch (err: any) {
@@ -188,6 +199,32 @@ export default function PerfilPage() {
                     </div>
                   </div>
                 </div>
+
+                {userRole === "vendedor" && (
+                  <div className="mt-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Store className="h-5 w-5 text-purple-600" />
+                      <h2 className="text-lg font-bold text-slate-700">Información comercial</h2>
+                    </div>
+                    <div className="space-y-5">
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-sm font-semibold text-slate-600" htmlFor="razon_social">Razón social</label>
+                        <input value={form.razon_social} onChange={e => setForm({...form, razon_social: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-slate-300" placeholder="Nombre de tu empresa o negocio" />
+                      </div>
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-sm font-semibold text-slate-600" htmlFor="address">Dirección</label>
+                        <input value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-slate-300" placeholder="Dirección de tu negocio" />
+                      </div>
+                      <div className="flex flex-col space-y-2">
+                        <label className="text-sm font-semibold text-slate-600" htmlFor="ubigeo">Ubigeo</label>
+                        <input value={form.ubigeo} onChange={e => setForm({...form, ubigeo: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-slate-300" placeholder="Código de ubicación (ej. 150101)" />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <footer className="flex flex-row space-x-4 pt-6">

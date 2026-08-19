@@ -35,6 +35,11 @@ export class ReviewsController {
     return this.reviews.getProductReviews(productId);
   }
 
+  @Get("seller/reputation/:sellerId")
+  getSellerReputation(@Param("sellerId") sellerId: string) {
+    return this.reviews.getSellerReputation(sellerId);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("seller")
   getBySeller(@Req() req) {

@@ -42,6 +42,18 @@ export class Product {
   @Column({ type: "json", default: "{}" })
   specifications: Record<string, any>;
 
+  /** true si es un servicio (sin stock físico / sin envío) */
+  @Column({ type: "boolean", default: false })
+  es_servicio: boolean;
+
+  /** Inmobiliario: null (no inmobiliario) | alquiler | venta */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  tipo_inmobiliario: string | null;
+
+  /** Galería estándar de imágenes de la publicación (URLs) */
+  @Column({ type: "jsonb", default: "[]" })
+  images: string[];
+
   @Column({ length: 50, default: "plataforma" })
   metodo_pago: string;
 

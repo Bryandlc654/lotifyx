@@ -73,7 +73,9 @@ export class RequestsController {
   @Post(":id/offers")
   @HttpCode(HttpStatus.CREATED)
   makeOffer(@Req() req, @Param("id") id: string, @Body() dto: any) {
-    return this.service.makeOffer(req.user.id, id, dto);
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip;
+    const userAgent = (req.headers["user-agent"] as string) || "";
+    return this.service.makeOffer(req.user.id, id, dto, { ip, userAgent });
   }
 
   @UseGuards(JwtAuthGuard)
