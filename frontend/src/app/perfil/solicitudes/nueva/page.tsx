@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/api";
 import type { Category, CategoryField } from "@/lib/api";
 
-export default function NuevaSolicitudPage() {
+function NuevaSolicitudContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editingId = searchParams.get("id");
@@ -274,5 +274,17 @@ export default function NuevaSolicitudPage() {
         .form-input-custom:focus { outline: 2px solid #a855f7; border-color: transparent; }
       `}</style>
     </>
+  );
+}
+
+export default function NuevaSolicitudPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+      </div>
+    }>
+      <NuevaSolicitudContent />
+    </Suspense>
   );
 }
