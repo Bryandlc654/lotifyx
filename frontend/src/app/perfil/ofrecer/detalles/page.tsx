@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
 import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile, getProductVariants, createProductVariant, updateProductVariant, deleteProductVariant, ProductVariant } from "@/lib/api";
-import { getLotByProduct, saveLotPricing, RcgTier } from "@/lib/api";
+import { getLotByProduct, getAuctionByProduct, saveLotPricing, RcgTier } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -161,6 +161,7 @@ function DetallesContent() {
     estado: "nuevo",
     ubicacion: "",
     divisible: true,
+    tipo_subasta: "inglesa",
   });
   const [tiers, setTiers] = useState<RcgTier[]>([]);
   const [metaVenta, setMetaVenta] = useState("");
@@ -258,6 +259,7 @@ function DetallesContent() {
             estado: p.estado || "nuevo",
             ubicacion: p.ubicacion || "",
             divisible: true,
+            tipo_subasta: "inglesa",
           });
           const ver = verRes?.verification;
           if (ver) {
@@ -272,6 +274,15 @@ function DetallesContent() {
             setVerifObservaciones(ver.observaciones || "");
             setVerificationEnabled(true);
             setVerifChanged(false);
+          }
+          if (p.metodo_pago === "subasta") {
+            getAuctionByProduct(editingId)
+              .then(auction => {
+                if (auction?.tipo_subasta) {
+                  setConditions(prev => ({ ...prev, tipo_subasta: auction.tipo_subasta }));
+                }
+              })
+              .catch(() => {});
           }
           if (p.metodo_pago === "venta_por_lote") {
             getLotByProduct(editingId)
@@ -536,6 +547,17 @@ function DetallesContent() {
   async function handleSubmit() {
     setSaving(true);
     try {
+      // Validación de precio: no puede ser cero ni negativo
+      if (conditions.metodo_pago === "subasta") {
+        const inicial = Number(conditions.precio_base);
+        if (!Number.isFinite(inicial) || inicial <= 0) { toast.error("El precio inicial de la subasta debe ser mayor a cero"); return; }
+      } else if (conditions.metodo_pago === "venta_por_lote") {
+        const lot = isLot && lotTotal > 0 ? lotTotal : Number(conditions.precio_lote);
+        if (!Number.isFinite(lot) || lot <= 0) { toast.error("El precio del lote debe ser mayor a cero"); return; }
+      } else {
+        const base = Number(conditions.precio_base);
+        if (!Number.isFinite(base) || base <= 0) { toast.error("El precio del producto debe ser mayor a cero"); return; }
+      }
       const titleKey = Object.keys(form).find(k => /t[ií]tulo|title|nombre/i.test(k));
       const title = titleKey ? form[titleKey] : categoryName;
       const payload: any = {
@@ -548,6 +570,7 @@ function DetallesContent() {
         precio_base: conditions.precio_base ? parseFloat(conditions.precio_base) : undefined,
         precio_inicial: conditions.metodo_pago === "subasta" && conditions.precio_base
           ? parseFloat(conditions.precio_base) : undefined,
+        tipo_subasta: conditions.metodo_pago === "subasta" ? conditions.tipo_subasta : undefined,
         cierre_estimado: conditions.cierre_estimado
           ? new Date(conditions.cierre_estimado).toISOString() : undefined,
         incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
@@ -741,6 +764,17 @@ function DetallesContent() {
                         <label className="form-label pt-2">Precio base</label>
                         <input type="number" step="0.01" value={conditions.precio_base} onChange={e => setConditions({ ...conditions, precio_base: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Tipo de subasta</label>
+                        <div>
+                          <select value={conditions.tipo_subasta} onChange={e => setConditions({ ...conditions, tipo_subasta: e.target.value })}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs">
+                            <option value="inglesa">Subasta inglesa (pujas visibles)</option>
+                            <option value="sobre_cerrado">Oferta privada en sobre cerrado</option>
+                          </select>
+                          <p className="text-xs text-gray-400 mt-1">En sobre cerrado las ofertas permanecen ocultas hasta el cierre.</p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Incremento mínimo</label>

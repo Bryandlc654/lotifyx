@@ -92,6 +92,7 @@ export class AuctionsService implements OnModuleInit {
       if (updated) auction = updated;
     }
 
+    const esSobreCerrado = auction.tipo_subasta === "sobre_cerrado";
     const confirmedBidsCount = await this.bidsRepo.count({ where: { auction_id: auction.id, estado: "confirmada" } });
     const highestConfirmed = await this.bidsRepo.findOne({
       where: { auction_id: auction.id, estado: "confirmada" },
@@ -110,6 +111,10 @@ export class AuctionsService implements OnModuleInit {
       remaining_order_id = extras?.remaining_order_id || null;
       remaining_amount = extras?.remaining_amount ? Number(extras.remaining_amount) : null;
     } catch {}
+    // En sobre cerrado las ofertas permanecen ocultas hasta el cierre
+    if (esSobreCerrado) {
+      return { ...auction, remaining_order_id, remaining_amount, bid_count: 0, highest_bid: null, precio_actual: Number(auction.precio_inicial) };
+    }
     return { ...auction, remaining_order_id, remaining_amount, bid_count: confirmedBidsCount, highest_bid: highestConfirmed?.monto || null, precio_actual: Number(precioActual) };
   }
 
@@ -153,7 +158,7 @@ export class AuctionsService implements OnModuleInit {
     }));
   }
 
-  async placeBid(auctionId: string, postorId: string, monto: number, ctx?: { ip?: string; userAgent?: string }) {
+  async placeBid(auctionId: string, postorId: string, monto: number, ctx?: { ip?: string; userAgent?: string }): Promise<any> {
     let auction = await this.repo.findOne({ where: { id: auctionId } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
 
@@ -236,7 +241,32 @@ export class AuctionsService implements OnModuleInit {
       );
     }
 
-    // Check against confirmed bids only
+    const esSobreCerrado = auction.tipo_subasta === "sobre_cerrado";
+
+    if (esSobreCerrado) {
+      // Oferta en sobre cerrado: pujas ocultas. Cada postor puede mejorar su propia oferta,
+      // pero NO ve las de los demás ni exige incremento mínimo sobre ellas.
+      const [miPuja] = await this.dataSource.query(
+        `SELECT monto FROM auction_bids WHERE auction_id = $1 AND postor_id = $2 ORDER BY created_at DESC LIMIT 1`,
+        [auctionId, postorId],
+      );
+      if (monto <= Number(auction.precio_inicial)) {
+        throw new BadRequestException(`Tu oferta debe superar el precio inicial de S/ ${Number(auction.precio_inicial).toFixed(2)}`);
+      }
+      if (miPuja && monto <= Number(miPuja.monto)) {
+        throw new BadRequestException("Tu nueva oferta debe superar tu oferta anterior en sobre cerrado");
+      }
+      // Guardar la oferta
+      await this.bidsRepo.save(this.bidsRepo.create({
+        auction_id: auctionId,
+        postor_id: postorId,
+        monto,
+        estado: "pendiente",
+      }));
+      return { message: "Oferta en sobre cerrado registrada (permanecerá oculta hasta el cierre)" };
+    }
+
+    // Check against confirmed bids only (subasta inglesa)
     const highestConfirmed = await this.bidsRepo.findOne({
       where: { auction_id: auctionId, estado: "confirmada" },
       order: { monto: "DESC" },

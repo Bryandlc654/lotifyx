@@ -34,6 +34,10 @@ export class Auction {
   @Column({ length: 20, default: "pendiente" })
   estado: string;
 
+  /** Tipo de subasta: null | inglesa | sobre_cerrado */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  tipo_subasta: string | null;
+
   @Index()
   @Column({ type: "uuid", nullable: true })
   ganador_id: string | null;

@@ -299,8 +299,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 <div className="border border-gray-200 rounded-2xl overflow-hidden mb-6">
                   <div className="bg-[#f8f6ff] p-4 flex justify-between items-start">
                     <div className="flex flex-col">
-                      <h3 className="text-[#8b5cf6] font-bold text-[16px]">Esta publicación es una subasta</h3>
-                      <p className="text-gray-500 text-[13px]">Realiza tu mejor oferta y gana el producto</p>
+                      <h3 className="text-[#8b5cf6] font-bold text-[16px]">{auction.tipo_subasta === "sobre_cerrado" ? "Oferta privada en sobre cerrado" : "Esta publicación es una subasta"}</h3>
+                      <p className="text-gray-500 text-[13px]">{auction.tipo_subasta === "sobre_cerrado" ? "Envía tu mejor oferta; permanecerá oculta hasta el cierre." : "Realiza tu mejor oferta y gana el producto"}</p>
                     </div>
                     <svg className="w-8 h-8 text-[#8b5cf6] opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                       <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
@@ -313,7 +313,12 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       <span className="text-gray-500 text-[15px]">Precio base</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.precio_inicial).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                     </div>
-                    {auction.bid_count > 0 ? (
+                    {auction.tipo_subasta === "sobre_cerrado" ? (
+                      <div className="flex justify-between items-center p-4">
+                        <span className="text-gray-500 text-[15px]">Ofertas</span>
+                        <span className="text-gray-400 text-[15px]">Ocultas hasta el cierre</span>
+                      </div>
+                    ) : auction.bid_count > 0 ? (
                       <div className="flex justify-between items-start p-4 bg-white">
                         <span className="text-gray-500 text-[15px] pt-1">Puja actual</span>
                         <div className="text-right">
@@ -327,10 +332,12 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                         <span className="text-gray-400 text-[15px]">Sin pujas aún</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center p-4">
-                      <span className="text-gray-500 text-[15px]">Incremento mínimo</span>
-                      <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.incremento_minimo).toFixed(2)}</span>
-                    </div>
+                    {auction.tipo_subasta !== "sobre_cerrado" && (
+                      <div className="flex justify-between items-center p-4">
+                        <span className="text-gray-500 text-[15px]">Incremento mínimo</span>
+                        <span className="text-[#2d3748] font-bold text-[16px]">S/ {Number(auction.incremento_minimo).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Cierre de subasta</span>
                       <span className="text-[#2d3748] font-bold text-[16px]">{new Date(auction.fecha_fin).toLocaleDateString("es-PE", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
@@ -1286,14 +1293,18 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             </div>
 
             <div className="mb-6">
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Tu puja</label>
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">{auction.tipo_subasta === "sobre_cerrado" ? "Tu oferta (sobre cerrado)" : "Tu puja"}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">S/</span>
                 <input type="number" step="0.01" value={bidAmount}
                   onChange={e => setBidAmount(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 pl-8 pr-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Monto mínimo: S/ {(Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo)).toFixed(2)}</p>
+              <p className="text-xs text-gray-400 mt-1.5">
+                {auction.tipo_subasta === "sobre_cerrado"
+                  ? `Oferta mínima: S/ ${Number(auction.precio_inicial).toFixed(2)}. Se mantiene oculta hasta el cierre.`
+                  : `Monto mínimo: S/ ${(Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo)).toFixed(2)}`}
+              </p>
             </div>
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6">
@@ -1309,10 +1320,12 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             </div>
 
             <button onClick={async () => {
-              const minBid = Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo);
+              const minBid = auction.tipo_subasta === "sobre_cerrado"
+                ? Number(auction.precio_inicial)
+                : Number(auction.highest_bid || auction.precio_inicial) + Number(auction.incremento_minimo);
               const amount = parseFloat(bidAmount);
-              if (!amount || amount < minBid) {
-                toast.error(`La puja mínima es S/ ${minBid.toFixed(2)}`);
+              if (!amount || amount <= minBid) {
+                toast.error(auction.tipo_subasta === "sobre_cerrado" ? `Tu oferta debe superar S/ ${minBid.toFixed(2)}` : `La puja mínima es S/ ${minBid.toFixed(2)}`);
                 return;
               }
               setBidding(true);

@@ -175,6 +175,13 @@ export class ProductsService {
     while (await this.repo.findOne({ where: { sku } })) {
       sku = generateSku();
     }
+
+    // Precio no puede ser cero ni negativo (según el método de pago)
+    this.validarPrecio(dto);
+
+    // Detección de publicaciones duplicadas (mismo título, categoría y precio)
+    await this.alertarDuplicado(dto);
+
     const specs = (dto.specifications || {}) as Record<string, string>;
     if (dto.stock === undefined || dto.stock === null) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || "0") || 0;
@@ -201,10 +208,11 @@ export class ProductsService {
     try {
       if ((dto as any).metodo_pago === "subasta" && (dto as any).precio_inicial) {
         await this.dataSource.query(
-          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, $2, $3, $3, $4, NOW(), $5, 'pendiente')
+          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, tipo_subasta, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2, $3, $3, $4, $5, NOW(), $6, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
           [product.id, dto.user_id, (dto as any).precio_inicial, (dto as any).incremento_minimo || 1,
+           (dto as any).tipo_subasta || "inglesa",
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
         );
       }
@@ -230,6 +238,11 @@ export class ProductsService {
 
   async update(id: string, dto: Partial<Product>) {
     const p = await this.findOne(id);
+    // Precio no puede ser cero ni negativo (validación en edición)
+    if ((dto as any).precio_base !== undefined || (dto as any).precio_inicial !== undefined
+        || (dto as any).precio_lote !== undefined || (dto as any).precio_individual !== undefined) {
+      this.validarPrecio({ ...p, ...dto } as any);
+    }
     const specs = (dto.specifications || {}) as Record<string, string>;
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
@@ -556,6 +569,59 @@ export class ProductsService {
       return !!cat && /inmob/i.test(cat.name || "");
     } catch {
       return false;
+    }
+  }
+
+  /** Valida que el precio de un producto sea mayor a cero (según método de pago). */
+  private validarPrecio(dto: Partial<Product>) {
+    const metodo = (dto as any).metodo_pago || "plataforma";
+    if (metodo === "subasta") {
+      const inicial = Number((dto as any).precio_inicial);
+      if (!Number.isFinite(inicial) || inicial <= 0) {
+        throw new BadRequestException("El precio inicial de la subasta debe ser mayor a cero");
+      }
+      return;
+    }
+    if (metodo === "venta_por_lote") {
+      const lot = Number((dto as any).precio_lote);
+      if (!Number.isFinite(lot) || lot <= 0) {
+        throw new BadRequestException("El precio del lote debe ser mayor a cero");
+      }
+      const indiv = Number((dto as any).precio_individual);
+      if ((dto as any).precio_individual !== undefined && (!Number.isFinite(indiv) || indiv <= 0)) {
+        throw new BadRequestException("El precio individual debe ser mayor a cero");
+      }
+      return;
+    }
+    const base = Number((dto as any).precio_base);
+    if (!Number.isFinite(base) || base <= 0) {
+      throw new BadRequestException("El precio del producto debe ser mayor a cero");
+    }
+  }
+
+  /** Detecta publicaciones duplicadas (mismo título, categoría y precio) y alerta al vendedor. */
+  private async alertarDuplicado(dto: Partial<Product>) {
+    try {
+      const title = String(dto.title || "").trim().toLowerCase();
+      if (!title || !dto.category_id) return;
+      const precio = Number(
+        (dto as any).precio_base ?? (dto as any).precio_inicial ?? (dto as any).precio_lote ?? (dto as any).precio_individual,
+      );
+      if (!Number.isFinite(precio)) return;
+      const [dup] = await this.dataSource.query(
+        `SELECT id FROM products
+         WHERE LOWER(title) = $1 AND category_id = $2 AND deleted_at IS NULL
+           AND COALESCE(precio_base, precio_inicial, precio_lote, precio_individual, 0) = $3
+         LIMIT 1`,
+        [title, dto.category_id, precio],
+      );
+      if (dup) {
+        throw new BadRequestException(
+          "Ya existe una publicación con el mismo título, categoría y precio. Revisa si no la estás duplicando.",
+        );
+      }
+    } catch (e: any) {
+      if (e?.status === 400) throw e;
     }
   }
 }

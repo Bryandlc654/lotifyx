@@ -194,6 +194,7 @@ export class DatabaseService implements OnModuleInit {
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'`,
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS tipo_inmobiliario VARCHAR(20)`,
       `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS divisible BOOLEAN DEFAULT TRUE`,
+      `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS tipo_subasta VARCHAR(20)`,
       `CREATE TABLE IF NOT EXISTS password_reset_tokens (
          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
