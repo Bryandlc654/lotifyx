@@ -603,21 +603,21 @@ export class ProductsService {
   private async alertarDuplicado(dto: Partial<Product>) {
     try {
       const title = String(dto.title || "").trim().toLowerCase();
-      if (!title || !dto.category_id) return;
+      if (!title || !dto.category_id || !dto.user_id) return;
       const precio = Number(
         (dto as any).precio_base ?? (dto as any).precio_inicial ?? (dto as any).precio_lote ?? (dto as any).precio_individual,
       );
       if (!Number.isFinite(precio)) return;
       const [dup] = await this.dataSource.query(
         `SELECT id FROM products
-         WHERE LOWER(title) = $1 AND category_id = $2 AND deleted_at IS NULL
-           AND COALESCE(precio_base, precio_inicial, precio_lote, precio_individual, 0) = $3
+         WHERE user_id = $1 AND LOWER(title) = $2 AND category_id = $3 AND deleted_at IS NULL
+           AND COALESCE(precio_base, precio_inicial, precio_lote, precio_individual, 0) = $4
          LIMIT 1`,
-        [title, dto.category_id, precio],
+        [dto.user_id, title, dto.category_id, precio],
       );
       if (dup) {
         throw new BadRequestException(
-          "Ya existe una publicación con el mismo título, categoría y precio. Revisa si no la estás duplicando.",
+          "Ya tienes una publicación con el mismo título, categoría y precio. Revisa si no la estás duplicando.",
         );
       }
     } catch (e: any) {
