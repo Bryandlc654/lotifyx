@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository, InjectDataSource } from "@nestjs/typeorm";
 import { Repository, In, ILike, IsNull, Not, DataSource } from "typeorm";
 import { randomBytes } from "crypto";
@@ -236,8 +236,27 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, dto: Partial<Product>) {
+  /** Verifica si el usuario es administrador/superadmin (consulta la BD). */
+  private async esAdmin(userId?: string): Promise<boolean> {
+    if (!userId) return false;
+    try {
+      const [row] = await this.dataSource.query(
+        `SELECT r.name, r.is_admin FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = $1`,
+        [userId],
+      );
+      return !!row && (row.is_admin === true || row.name === "superadmin");
+    } catch {
+      return false;
+    }
+  }
+
+  async update(id: string, dto: Partial<Product>, userId?: string, isAdminFlag = false) {
     const p = await this.findOne(id);
+    // Propiedad: solo el vendedor dueño (o un administrador/superadmin) puede editar la publicación
+    const adminOk = isAdminFlag || (await this.esAdmin(userId));
+    if (userId && p.user_id !== userId && !adminOk) {
+      throw new ForbiddenException("No puedes editar una publicación que no te pertenece");
+    }
     // Precio no puede ser cero ni negativo (validación en edición)
     if ((dto as any).precio_base !== undefined || (dto as any).precio_inicial !== undefined
         || (dto as any).precio_lote !== undefined || (dto as any).precio_individual !== undefined) {
@@ -327,10 +346,31 @@ export class ProductsService {
       }
     }
 
+    // Agotado automático: si el stock quedó en 0, marcar 'agotado'; si volvió a tener stock y estaba agotado, restaurar
+    try {
+      const stockFinal = Number(saved.stock || 0);
+      if (stockFinal <= 0 && saved.status !== "paused") {
+        if (saved.status !== "agotado") {
+          await this.dataSource.query(`UPDATE products SET status = 'agotado' WHERE id = $1`, [id]);
+          saved.status = "agotado";
+        }
+      } else if (stockFinal > 0 && saved.status === "agotado") {
+        await this.dataSource.query(`UPDATE products SET status = 'active' WHERE id = $1`, [id]);
+        saved.status = "active";
+      }
+    } catch (e: any) {
+      console.error("[ProductsService] Error marcando agotado:", e.message);
+    }
+
     return saved;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string, isAdminFlag = false) {
+    const p = await this.findOne(id);
+    const adminOk = isAdminFlag || (await this.esAdmin(userId));
+    if (userId && p.user_id !== userId && !adminOk) {
+      throw new ForbiddenException("No puedes eliminar una publicación que no te pertenece");
+    }
     await this.dataSource.query(
       `UPDATE products SET deleted_at = NOW() WHERE id = $1`, [id]
     );
@@ -339,8 +379,12 @@ export class ProductsService {
   }
 
   /** Pausa o reanuda una publicación (el vendedor controla su disponibilidad). */
-  async togglePause(id: string) {
+  async togglePause(id: string, userId?: string, isAdminFlag = false) {
     const p = await this.findOne(id);
+    const adminOk = isAdminFlag || (await this.esAdmin(userId));
+    if (userId && p.user_id !== userId && !adminOk) {
+      throw new ForbiddenException("No puedes pausar una publicación que no te pertenece");
+    }
     const isPaused = p.status === "paused";
     const newStatus = isPaused ? "active" : "paused";
     await this.dataSource.query(

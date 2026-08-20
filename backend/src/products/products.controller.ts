@@ -167,22 +167,22 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Put(":id")
   @HttpCode(HttpStatus.OK)
-  update(@Param("id") id: string, @Body() dto: any) {
-    return this.service.update(id, dto);
+  update(@Param("id") id: string, @Body() dto: any, @Req() req) {
+    return this.service.update(id, dto, req.user.id, req.user?.isAdmin || req.user?.role === "superadmin");
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  remove(@Param("id") id: string) {
-    return this.service.remove(id);
+  remove(@Param("id") id: string, @Req() req) {
+    return this.service.remove(id, req.user.id, req.user?.isAdmin || req.user?.role === "superadmin");
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(":id/pause")
   @HttpCode(HttpStatus.OK)
-  togglePause(@Param("id") id: string) {
-    return this.service.togglePause(id);
+  togglePause(@Param("id") id: string, @Req() req) {
+    return this.service.togglePause(id, req.user.id, req.user?.isAdmin || req.user?.role === "superadmin");
   }
 
   // ─── Variantes ─────────────────────────────────────────

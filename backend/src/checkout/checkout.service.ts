@@ -159,6 +159,14 @@ export class CheckoutService implements OnModuleInit {
                WHERE oi.order_id = $1 AND oi.variant_id IS NOT NULL AND oi.variant_id = pv.id AND pv.stock > 0`,
               [id],
             );
+            // Agotado automático: si el stock del producto llegó a 0, marcar como 'agotado'
+            await queryRunner.query(
+              `UPDATE products SET status = 'agotado'
+               WHERE id IN (
+                 SELECT oi.product_id FROM order_items oi WHERE oi.order_id = $1
+               ) AND stock <= 0 AND deleted_at IS NULL`,
+              [id],
+            );
           }
 
           await queryRunner.query(
