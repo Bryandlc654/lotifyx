@@ -20,18 +20,109 @@ export class ProductsService {
     private readonly audit: AuditService,
   ) {}
 
-  async findAllActive(categoryId?: string, search?: string, limit?: number) {
-    const where: any = { status: "active", deleted_at: IsNull() };
+  async findAllActive(categoryId?: string, search?: string, limit?: number, precioMin?: number, precioMax?: number, ubicacion?: string, userId?: string, vendedor?: string, estado?: string) {
+    const qb = this.repo.createQueryBuilder("p")
+      .where("p.status = :status", { status: "active" })
+      .andWhere("p.deleted_at IS NULL");
     if (categoryId) {
       const children = await this.dataSource.query(
         `SELECT id FROM categories WHERE parent_id = $1 AND status = 'active'`,
         [categoryId],
       );
       const ids = [categoryId, ...children.map((c: any) => c.id)];
-      where.category_id = ids.length === 1 ? ids[0] : In(ids);
+      qb.andWhere("p.category_id IN (:...ids)", { ids });
     }
-    if (search) where.title = ILike(`%${search}%`);
-    return this.repo.find({ where, order: { created_at: "DESC" }, take: limit || 200 });
+    // Búsqueda textual sobre el catálogo: título, especificaciones y zona
+    if (search && search.trim()) {
+      qb.andWhere("(p.title ILIKE :s OR p.specifications::text ILIKE :s OR COALESCE(p.distrito, '') ILIKE :s OR COALESCE(p.ubicacion, '') ILIKE :s)",
+        { s: `%${search.trim()}%` });
+    }
+    // Filtro por rango de precio
+    if (precioMin != null && Number.isFinite(precioMin)) {
+      qb.andWhere("p.precio_base >= :precioMin", { precioMin });
+    }
+    if (precioMax != null && Number.isFinite(precioMax)) {
+      qb.andWhere("p.precio_base <= :precioMax", { precioMax });
+    }
+    // Filtro por ubicación/zona (distrito, ciudad o dirección)
+    if (ubicacion && ubicacion.trim()) {
+      qb.andWhere("(COALESCE(p.distrito, '') ILIKE :u OR COALESCE(p.ubicacion, '') ILIKE :u OR COALESCE(p.direccion, '') ILIKE :u)",
+        { u: `%${ubicacion.trim()}%` });
+    }
+    // Filtro por vendedor (exacto por id o textual por nombre/correo)
+    if (userId && userId.trim()) {
+      qb.andWhere("p.user_id = :uid", { uid: userId.trim() });
+    }
+    if (vendedor && vendedor.trim()) {
+      qb.andWhere(
+        `p.user_id IN (
+          SELECT u.id FROM users u
+          LEFT JOIN user_profiles up ON up.user_id = u.id
+          WHERE u.email ILIKE :v
+             OR COALESCE(up.first_name, '') || ' ' || COALESCE(up.last_name, '') ILIKE :v
+        )`,
+        { v: `%${vendedor.trim()}%` },
+      );
+    }
+    // Filtro por condición del producto (nuevo | usado | reacondicionado)
+    if (estado && estado.trim()) {
+      qb.andWhere("LOWER(p.estado) = :estado", { estado: estado.trim().toLowerCase() });
+    }
+    // Priorización: publicaciones de vendedores con mayor reputación primero, luego más recientes
+    qb.orderBy(
+      `COALESCE((SELECT AVG(r.rating) FROM reviews r JOIN products rp ON rp.id = r.product_id WHERE rp.user_id = p.user_id AND r.is_active = true), 0)`,
+      "DESC",
+    ).addOrderBy("p.created_at", "DESC").take(limit || 200);
+    const products = await qb.getMany();
+    return this.attachAuctionAndLotInfo(products);
+  }
+
+  /** Adjunta datos de subasta activa (precio actual, cierre, pujas) y de lote (ahorro vs unitario) para el catálogo. */
+  private async attachAuctionAndLotInfo(products: Product[]): Promise<any[]> {
+    if (!products.length) return products;
+    const ids = products.map(p => p.id);
+    let auctions: any[] = [];
+    let lots: any[] = [];
+    try {
+      auctions = await this.dataSource.query(
+        `SELECT a.product_id, a.precio_actual, a.precio_inicial, a.fecha_fin, a.estado,
+                (SELECT COUNT(*)::int FROM auction_bids b WHERE b.auction_id = a.id) AS pujas
+         FROM auctions a WHERE a.product_id = ANY($1::uuid) AND a.estado = 'activo'`,
+        [ids],
+      );
+      lots = await this.dataSource.query(
+        `SELECT l.product_id, l.precio_lote, l.precio_individual, l.cantidad_total, l.estado
+         FROM lot_sales l WHERE l.product_id = ANY($1::uuid) AND l.estado IN ('abierto','pausado')`,
+        [ids],
+      );
+    } catch (e: any) {
+      console.error("[Products] Error cargando info de subasta/lote:", e?.message);
+    }
+    const auctionByProduct = new Map(auctions.map(a => [a.product_id, a]));
+    const lotByProduct = new Map(lots.map(l => [l.product_id, l]));
+    return products.map(p => {
+      const out: any = { ...p };
+      const a = auctionByProduct.get(p.id);
+      if (a) {
+        out.auction_info = {
+          precio_actual: Number(a.precio_actual ?? a.precio_inicial ?? 0),
+          fecha_fin: a.fecha_fin,
+          pujas: Number(a.pujas || 0),
+        };
+      }
+      const l = lotByProduct.get(p.id);
+      if (l) {
+        const unitarioLote = Number(l.precio_individual ?? 0);
+        const unitarioNormal = Number((p as any).precio_base ?? 0);
+        out.lot_info = {
+          precio_lote: Number(l.precio_lote ?? 0),
+          precio_individual: unitarioLote,
+          cantidad_total: Number(l.cantidad_total ?? 0),
+          ahorro_unitario: unitarioNormal > unitarioLote ? Number((unitarioNormal - unitarioLote).toFixed(2)) : 0,
+        };
+      }
+      return out;
+    });
   }
 
   async findAllAdmin(status?: string, sort?: "ASC" | "DESC", page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, notMetodoPago?: string) {
@@ -179,6 +270,11 @@ export class ProductsService {
     // Precio no puede ser cero ni negativo (según el método de pago)
     this.validarPrecio(dto);
 
+    // Condición obligatoria para productos físicos; no aplica a servicios
+    this.validarCondicion(dto);
+    // VI. Inmobiliario: tipo de operación obligatorio en categorías inmobiliarias
+    await this.validarTipoOperacionInmobiliario(dto);
+
     // Detección de publicaciones duplicadas (mismo título, categoría y precio)
     await this.alertarDuplicado(dto);
 
@@ -262,6 +358,10 @@ export class ProductsService {
         || (dto as any).precio_lote !== undefined || (dto as any).precio_individual !== undefined) {
       this.validarPrecio({ ...p, ...dto } as any);
     }
+    // Condición obligatoria para físicos en edición
+    this.validarCondicion({ ...p, ...dto } as any);
+    // VI. Inmobiliario: tipo de operación obligatorio en categorías inmobiliarias
+    await this.validarTipoOperacionInmobiliario({ ...p, ...dto } as any);
     const specs = (dto.specifications || {}) as Record<string, string>;
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
@@ -413,6 +513,54 @@ export class ProductsService {
     }
     this.audit.log({ userId: p.user_id, action: isPaused ? "product_unpaused" : "product_paused", entity: "product", entityId: id });
     return { message: isPaused ? "Publicación reanudada" : "Publicación pausada", status: newStatus };
+  }
+
+  /** Expresión de interés inmobiliario (sin checkout estándar de transferencia). */
+  async registerInterest(productId: string, userId: string, dto: { tipo_operacion?: string; mensaje?: string; monto_separo?: number | string }) {
+    const [prod] = await this.dataSource.query(
+      `SELECT id, user_id, tipo_inmobiliario FROM products WHERE id = $1 AND deleted_at IS NULL`,
+      [productId],
+    );
+    if (!prod) throw new NotFoundException("Publicación no encontrada");
+    if (prod.user_id === userId) throw new BadRequestException("No puedes expresar interés en tu propia publicación");
+    const esInm = !!prod.tipo_inmobiliario;
+    // La expresión de interés aplica a inmobiliarios (alquiler/venta); no usa el checkout estándar.
+    const tipo = dto?.tipo_operacion || (prod.tipo_inmobiliario || "interes");
+    // Monto que el interesado depositaría como separo/garantía (no equivale a transferencia de propiedad)
+    let montoSeparo: number | null = null;
+    if (dto?.monto_separo !== undefined && dto?.monto_separo !== null && dto?.monto_separo !== "") {
+      const m = Number(dto.monto_separo);
+      if (!Number.isFinite(m) || m <= 0) {
+        throw new BadRequestException("El monto de separo/garantía debe ser mayor a cero");
+      }
+      montoSeparo = m;
+    }
+    await this.dataSource.query(
+      `INSERT INTO inmob_interests (product_id, user_id, tipo_operacion, mensaje, monto_separo)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [productId, userId, tipo, dto?.mensaje ? String(dto.mensaje) : null, montoSeparo],
+    );
+    return {
+      message: esInm
+        ? "Interés registrado. La gestión se realizará fuera del checkout estándar (LOTIFYX contactará a las partes). El separo o garantía no equivale a la transferencia de propiedad ni sustituye actos notariales o registrales."
+        : "Interés registrado",
+    };
+  }
+
+  /** Lista las expresiones de interés de una publicación (solo el vendedor o admin). */
+  async listInterests(productId: string, userId: string, isAdmin = false) {
+    const [prod] = await this.dataSource.query(`SELECT id, user_id FROM products WHERE id = $1 AND deleted_at IS NULL`, [productId]);
+    if (!prod) throw new NotFoundException("Publicación no encontrada");
+    if (prod.user_id !== userId && !isAdmin) throw new ForbiddenException("No tienes acceso a este inmueble");
+    return this.dataSource.query(
+      `SELECT i.*, u.email AS user_email, u.phone AS user_phone, up.first_name, up.last_name
+       FROM inmob_interests i
+       LEFT JOIN users u ON u.id = i.user_id
+       LEFT JOIN user_profiles up ON up.user_id = i.user_id
+       WHERE i.product_id = $1
+       ORDER BY i.created_at DESC`,
+      [productId],
+    );
   }
 
   async approve(id: string) {
@@ -613,6 +761,76 @@ export class ProductsService {
       return !!cat && /inmob/i.test(cat.name || "");
     } catch {
       return false;
+    }
+  }
+
+  /** VI. Inmobiliario: el tipo de operación (alquiler/venta) es obligatorio en categorías inmobiliarias. */
+  private async validarTipoOperacionInmobiliario(dto: Partial<Product>) {
+    if (!dto.category_id) return;
+    try {
+      const [cat] = await this.dataSource.query(
+        `SELECT name FROM categories WHERE id = $1`, [dto.category_id],
+      );
+      if (cat && /inmob/i.test(String(cat.name || ""))) {
+        const tipo = String((dto as any).tipo_inmobiliario || "").trim();
+        if (!["alquiler", "venta"].includes(tipo)) {
+          throw new BadRequestException("Inmobiliario: selecciona el tipo de operación (alquiler o venta)");
+        }
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      // si falla la consulta de categoría, no bloqueamos la publicación
+    }
+  }
+
+  /** Valida que la condición sea obligatoria para productos físicos y no aplique a servicios. */
+  private validarCondicion(dto: Partial<Product>) {
+    if ((dto as any).es_servicio === true) return; // los servicios no usan condición
+    const estado = String((dto as any).estado || "").trim();
+    if (!estado || !["nuevo", "usado", "reacondicionado"].includes(estado)) {
+      throw new BadRequestException("La condición del producto es obligatoria (Nuevo, Usado o Reacondicionado)");
+    }
+    // VI. Inmobiliario: campos obligatorios del formulario
+    if ((dto as any).tipo_inmobiliario) {
+      const metraje = Number((dto as any).metraje);
+      if (!Number.isFinite(metraje) || metraje <= 0) {
+        throw new BadRequestException("Inmobiliario: el metraje (m²) es obligatorio");
+      }
+      const habitaciones = Number((dto as any).habitaciones);
+      if (!Number.isFinite(habitaciones) || habitaciones < 0) {
+        throw new BadRequestException("Inmobiliario: indica el número de habitaciones");
+      }
+      const banos = Number((dto as any).banos);
+      if (!Number.isFinite(banos) || banos < 0) {
+        throw new BadRequestException("Inmobiliario: indica el número de baños");
+      }
+      if (!(dto as any).distrito || !String((dto as any).distrito).trim()) {
+        throw new BadRequestException("Inmobiliario: el distrito es obligatorio");
+      }
+      if (!(dto as any).direccion || !String((dto as any).direccion).trim()) {
+        throw new BadRequestException("Inmobiliario: la dirección es obligatoria");
+      }
+      const fotos = Array.isArray((dto as any).images) ? (dto as any).images.filter(Boolean) : [];
+      if (fotos.length < 5) {
+        throw new BadRequestException("Inmobiliario: adjunta al menos 5 fotografías del inmueble");
+      }
+      // Parámetros propios según mecanismo: alquiler requiere condiciones de contrato
+      if ((dto as any).tipo_inmobiliario === "alquiler") {
+        if (!(dto as any).duracion_contrato || !String((dto as any).duracion_contrato).trim()) {
+          throw new BadRequestException("Alquiler: indica la duración del contrato (ej. 12 meses)");
+        }
+        const garantia = Number((dto as any).garantia_meses);
+        if (!Number.isFinite(garantia) || garantia < 0) {
+          throw new BadRequestException("Alquiler: indica los meses de garantía/depósito");
+        }
+      }
+      // Separo/garantía: opcional, pero si se declara debe ser mayor a cero
+      if ((dto as any).separo_monto !== undefined && (dto as any).separo_monto !== null && (dto as any).separo_monto !== "") {
+        const separo = Number((dto as any).separo_monto);
+        if (!Number.isFinite(separo) || separo <= 0) {
+          throw new BadRequestException("El monto de separo/garantía debe ser mayor a cero");
+        }
+      }
     }
   }
 

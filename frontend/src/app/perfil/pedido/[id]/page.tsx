@@ -556,6 +556,12 @@ export default function PedidoPage() {
                     <span className="text-sm text-gray-500">{isSeller ? "Comprador" : "Vendedor"}</span>
                     <span className="text-sm font-medium text-gray-700">{isSeller ? buyerName : sellerName}</span>
                   </div>
+                  {order.servicio_descripcion && (
+                    <div className="pt-3 mt-1 border-t border-gray-100">
+                      <span className="text-sm text-gray-500 block mb-1">Descripción del trabajo requerido</span>
+                      <p className="text-xs text-gray-700 bg-purple-50 border border-purple-100 rounded-lg p-3 leading-relaxed">{order.servicio_descripcion}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>

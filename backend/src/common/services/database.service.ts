@@ -193,6 +193,41 @@ export class DatabaseService implements OnModuleInit {
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS es_servicio BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'`,
       `ALTER TABLE products ADD COLUMN IF NOT EXISTS tipo_inmobiliario VARCHAR(20)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS latitud DECIMAL(10,7)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS longitud DECIMAL(10,7)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS direccion VARCHAR(255)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS metraje NUMERIC(12,2)`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS habitaciones INT`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS banos INT`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS distrito VARCHAR(120)`,
+      `CREATE TABLE IF NOT EXISTS service_providers (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         user_id UUID NOT NULL UNIQUE,
+         zonas_atencion JSONB DEFAULT '[]',
+         disponibilidad JSONB DEFAULT '{}',
+         created_at TIMESTAMPTZ DEFAULT NOW(),
+         updated_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE TABLE IF NOT EXISTS service_jobs (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         provider_id UUID NOT NULL,
+         product_id UUID,
+         title VARCHAR(255),
+         descripcion TEXT,
+         fotos JSONB DEFAULT '[]',
+         estado VARCHAR(20) DEFAULT 'completado',
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_service_jobs_provider ON service_jobs (provider_id)`,
+      `CREATE TABLE IF NOT EXISTS inmob_interests (
+         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+         product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+         user_id UUID NOT NULL,
+         tipo_operacion VARCHAR(20),
+         mensaje TEXT,
+         created_at TIMESTAMPTZ DEFAULT NOW()
+       )`,
+      `CREATE INDEX IF NOT EXISTS idx_inmob_interests_product ON inmob_interests (product_id)`,
       `ALTER TABLE lot_sales ADD COLUMN IF NOT EXISTS divisible BOOLEAN DEFAULT TRUE`,
       `ALTER TABLE auctions ADD COLUMN IF NOT EXISTS tipo_subasta VARCHAR(20)`,
       `CREATE TABLE IF NOT EXISTS password_reset_tokens (

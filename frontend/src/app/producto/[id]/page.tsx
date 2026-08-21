@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, Product, CategoryField, Review } from "@/lib/api";
+import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, registerInterest, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck, Star } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
@@ -48,6 +48,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
   const [descExpanded, setDescExpanded] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showInterestModal, setShowInterestModal] = useState(false);
+  const [interestMsg, setInterestMsg] = useState("");
+  const [interestMonto, setInterestMonto] = useState("");
+  const [interestSending, setInterestSending] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [auction, setAuction] = useState<any>(null);
   const [showBidModal, setShowBidModal] = useState(false);
@@ -817,6 +821,27 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                       </p>
                     </div>
                   )}
+                  {product.tipo_inmobiliario && !isOwn && (
+                    <div className="mb-4">
+                      {product.separo_monto != null && Number(product.separo_monto) > 0 && (
+                        <div className="mb-3 flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+                          <div>
+                            <p className="text-[11px] font-semibold text-purple-800 uppercase tracking-wide">Separo / garantía requerida</p>
+                            <p className="text-lg font-bold text-gray-900">S/ {Number(product.separo_monto).toFixed(2)}</p>
+                          </div>
+                          <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>
+                        </div>
+                      )}
+                      <button onClick={() => {
+                        if (!getCurrentUserId()) { toast.error("Inicia sesión para expresar interés"); setShowLoginModal(true); return; }
+                        setInterestMsg(""); setInterestMonto("");
+                        setShowInterestModal(true);
+                      }}
+                        className="w-full rounded-xl px-4 py-3.5 text-sm font-semibold shadow-md transition-all bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-white hover:shadow-lg">
+                        Expresar interés en este inmueble
+                      </button>
+                    </div>
+                  )}
                   {product.envio_delivery && !isOwn && (
                     <button disabled={product.stock != null && product.stock <= 0}
                       onClick={() => {
@@ -1348,6 +1373,53 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       )}
 
       <LoginModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
+      {showInterestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowInterestModal(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Expresar interés en este inmueble</h3>
+              <button onClick={() => setShowInterestModal(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Monto que depositarías como separo/garantía (S/)</label>
+                <input type="number" min="0" step="0.01" value={interestMonto} onChange={e => setInterestMonto(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                  placeholder={product.separo_monto != null && Number(product.separo_monto) > 0 ? `Sugerido: S/ ${Number(product.separo_monto).toFixed(2)}` : "Ej. 5000"} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Cuéntanos brevemente tu interés (opcional)</label>
+                <textarea value={interestMsg} onChange={e => setInterestMsg(e.target.value)} rows={3}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                  placeholder="Ej. Me interesa visitar el inmueble esta semana..." />
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  <strong>Aviso importante:</strong> El separo o garantía <strong>no equivale a la transferencia de propiedad</strong> ni sustituye los actos notariales o registrales (minuta, escritura pública, contrato de arrendamiento, due diligence). LOTIFYX contactará a las partes para coordinar el siguiente paso.
+                </p>
+              </div>
+              <button disabled={interestSending} onClick={async () => {
+                if (interestMonto !== "" && Number(interestMonto) <= 0) { toast.error("El monto de separo debe ser mayor a cero"); return; }
+                setInterestSending(true);
+                try {
+                  await registerInterest(product.id, {
+                    tipo_operacion: product.tipo_inmobiliario === "alquiler" ? "alquiler" : "venta",
+                    mensaje: interestMsg.trim() || undefined,
+                    monto_separo: interestMonto !== "" ? Number(interestMonto) : undefined,
+                  });
+                  toast.success("Interés registrado. LOTIFYX contactará a las partes para gestionar fuera del checkout estándar.");
+                  setShowInterestModal(false);
+                } catch (e: any) { toast.error(e.message || "Error"); }
+                finally { setInterestSending(false); }
+              }}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-br from-[#8234FE] to-[#26BEFE] text-white hover:shadow-lg disabled:opacity-50">
+                {interestSending ? "Enviando..." : "Registrar interés"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   );

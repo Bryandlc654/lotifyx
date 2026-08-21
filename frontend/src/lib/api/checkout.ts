@@ -41,6 +41,7 @@ export async function submitCheckout(data: {
   amount: number;
   proof: File;
   bid_id?: string;
+  servicio_descripcion?: string;
 }) {
   const token = getAccessToken();
   const fd = new FormData();
@@ -50,6 +51,7 @@ export async function submitCheckout(data: {
   fd.append("amount", String(data.amount));
   fd.append("proof", data.proof);
   if (data.bid_id) fd.append("bid_id", data.bid_id);
+  if (data.servicio_descripcion) fd.append("servicio_descripcion", data.servicio_descripcion);
 
   let res = await fetch(`${API_URL}/checkout/submit`, {
     method: "POST",

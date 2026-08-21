@@ -162,6 +162,14 @@ function DetallesContent() {
     ubicacion: "",
     divisible: true,
     tipo_subasta: "inglesa",
+    metraje: "",
+    habitaciones: "",
+    banos: "",
+    distrito: "",
+    duracion_contrato: "",
+    garantia_meses: "",
+    mantenimiento_incluido: false,
+    separo_monto: "",
   });
   const [tiers, setTiers] = useState<RcgTier[]>([]);
   const [metaVenta, setMetaVenta] = useState("");
@@ -185,6 +193,19 @@ function DetallesContent() {
   const [verifCapUnidades, setVerifCapUnidades] = useState("");
   const [verifCapPlazo, setVerifCapPlazo] = useState("");
   const [verifDeclaracion, setVerifDeclaracion] = useState(false);
+  // VI. Documentación legal inmobiliaria (PDF) y ubicación geográfica
+  const [docPartida, setDocPartida] = useState("");
+  const [docHRPU, setDocHRPU] = useState("");
+  const [docArbitrios, setDocArbitrios] = useState("");
+  const [docCargas, setDocCargas] = useState("");
+  const [docPoderes, setDocPoderes] = useState("");
+  const [docPermisos, setDocPermisos] = useState<string[]>([]);
+  const [docContrato, setDocContrato] = useState<string[]>([]);
+  const [verifTitular, setVerifTitular] = useState("");
+  const [verifDeclaraCargas, setVerifDeclaraCargas] = useState(false);
+  const [inmDireccion, setInmDireccion] = useState("");
+  const [inmLatitud, setInmLatitud] = useState("");
+  const [inmLongitud, setInmLongitud] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push("/"); return; }
@@ -260,6 +281,14 @@ function DetallesContent() {
             ubicacion: p.ubicacion || "",
             divisible: true,
             tipo_subasta: "inglesa",
+            metraje: p.metraje != null ? String(p.metraje) : "",
+            habitaciones: p.habitaciones != null ? String(p.habitaciones) : "",
+            banos: p.banos != null ? String(p.banos) : "",
+            distrito: p.distrito || "",
+            duracion_contrato: p.duracion_contrato || "",
+            garantia_meses: p.garantia_meses != null ? String(p.garantia_meses) : "",
+            mantenimiento_incluido: !!p.mantenimiento_incluido,
+            separo_monto: p.separo_monto != null ? String(p.separo_monto) : "",
           });
           const ver = verRes?.verification;
           if (ver) {
@@ -270,6 +299,18 @@ function DetallesContent() {
             const cap = ver.payload?.capacidad_produccion;
             if (cap) { setVerifCapUnidades(String(cap.unidades_mes ?? "")); setVerifCapPlazo(cap.plazo || ""); }
             setVerifDeclaracion(!!ver.payload?.declaracion_ficha);
+            const inm = ver.payload?.inmobiliario;
+            if (inm) {
+              setDocPartida(inm.partida_registral || "");
+              setDocHRPU(inm.hr_pu_doc || "");
+              setDocArbitrios(inm.arbitrios_doc || "");
+              setDocCargas(inm.cargas_gravamenes_doc || "");
+              setDocPoderes(inm.poderes_doc || "");
+              setDocPermisos(Array.isArray(inm.permisos_docs) ? inm.permisos_docs : []);
+              setDocContrato(Array.isArray(inm.contrato_docs) ? inm.contrato_docs : []);
+              setVerifTitular(inm.titular_anunciante || "");
+              setVerifDeclaraCargas(inm.declaracion_cargas === true);
+            }
             setVerifStatus(ver.estado || "none");
             setVerifObservaciones(ver.observaciones || "");
             setVerificationEnabled(true);
@@ -547,6 +588,26 @@ function DetallesContent() {
   async function handleSubmit() {
     setSaving(true);
     try {
+      // Inmobiliario: campos obligatorios
+      if (esInmobiliario) {
+        if (!tipoInmobiliario) { toast.error("Selecciona el tipo de operación inmobiliaria (alquiler o venta)"); return; }
+        if (!conditions.metraje || Number(conditions.metraje) <= 0) { toast.error("Ingresa el metraje del inmueble"); return; }
+        if (conditions.habitaciones === "" || Number(conditions.habitaciones) < 0) { toast.error("Ingresa el número de habitaciones"); return; }
+        if (conditions.banos === "" || Number(conditions.banos) < 0) { toast.error("Ingresa el número de baños"); return; }
+        if (!inmDireccion.trim()) { toast.error("Ingresa la dirección del inmueble"); return; }
+        if (!conditions.distrito.trim()) { toast.error("Ingresa el distrito del inmueble"); return; }
+        if (!conditions.estado || !String(conditions.estado).trim()) { toast.error("Selecciona el estado del inmueble"); return; }
+        if (tipoInmobiliario === "alquiler") {
+          if (!conditions.duracion_contrato.trim()) { toast.error("Alquiler: indica la duración del contrato (ej. 12 meses)"); return; }
+          if (conditions.garantia_meses === "" || Number(conditions.garantia_meses) < 0) { toast.error("Alquiler: indica los meses de garantía/depósito"); return; }
+        }
+        if (conditions.separo_monto !== "" && Number(conditions.separo_monto) <= 0) { toast.error("El monto de separo/garantía debe ser mayor a cero"); return; }
+      }
+      // Inmobiliario: mínimo 5 fotos
+      if (esInmobiliario && productImages.length < 5) {
+        toast.error("Inmobiliario: adjunta al menos 5 fotografías del inmueble");
+        return;
+      }
       // Validación de precio: no puede ser cero ni negativo
       if (conditions.metodo_pago === "subasta") {
         const inicial = Number(conditions.precio_base);
@@ -592,6 +653,15 @@ function DetallesContent() {
         ubicacion: conditions.ubicacion || undefined,
         es_servicio: !!esServicio,
         tipo_inmobiliario: esInmobiliario && tipoInmobiliario ? tipoInmobiliario : null,
+        metraje: esInmobiliario && conditions.metraje !== "" ? Number(conditions.metraje) : undefined,
+        habitaciones: esInmobiliario && conditions.habitaciones !== "" ? Number(conditions.habitaciones) : undefined,
+        banos: esInmobiliario && conditions.banos !== "" ? Number(conditions.banos) : undefined,
+        distrito: esInmobiliario && conditions.distrito ? conditions.distrito : undefined,
+        direccion: esInmobiliario && inmDireccion.trim() ? inmDireccion.trim() : undefined,
+        duracion_contrato: esInmobiliario && tipoInmobiliario === "alquiler" && conditions.duracion_contrato ? conditions.duracion_contrato : undefined,
+        garantia_meses: esInmobiliario && tipoInmobiliario === "alquiler" && conditions.garantia_meses !== "" ? Number(conditions.garantia_meses) : undefined,
+        mantenimiento_incluido: esInmobiliario && tipoInmobiliario === "alquiler" ? !!conditions.mantenimiento_incluido : undefined,
+        separo_monto: esInmobiliario && conditions.separo_monto !== "" ? Number(conditions.separo_monto) : undefined,
         images: productImages,
       };
       let savedId = editingId;
@@ -623,7 +693,7 @@ function DetallesContent() {
           toast.error("Producto guardado, pero no se pudieron guardar los rangos");
         }
       }
-      if (savedId && (conditions.metodo_pago === "subasta" || conditions.metodo_pago === "venta_por_lote")
+      if (savedId && (conditions.metodo_pago === "subasta" || conditions.metodo_pago === "venta_por_lote" || esInmobiliario)
           && verificationEnabled && verifChanged) {
         try {
           const v = await submitVerification(savedId, {
@@ -635,6 +705,19 @@ function DetallesContent() {
               ? { unidades_mes: Number(verifCapUnidades) || 0, plazo: verifCapPlazo || undefined }
               : undefined,
             declaracion_ficha: verifDeclaracion,
+            // VI. Inmobiliario: expediente legal completo + ubicación geográfica
+            partida_registral_doc: docPartida || undefined,
+            hr_pu_doc: docHRPU || undefined,
+            arbitrios_doc: docArbitrios || undefined,
+            cargas_gravamenes_doc: docCargas || undefined,
+            poderes_doc: docPoderes || undefined,
+            permisos_docs: docPermisos.length > 0 ? docPermisos : undefined,
+            contrato_docs: docContrato.length > 0 ? docContrato : undefined,
+            titular_anunciante: verifTitular.trim() || undefined,
+            declaracion_cargas: verifDeclaraCargas === true,
+            latitud: inmLatitud !== "" ? Number(inmLatitud) : undefined,
+            longitud: inmLongitud !== "" ? Number(inmLongitud) : undefined,
+            direccion: inmDireccion || undefined,
           });
           setVerifStatus(v.estado);
           setVerifObservaciones(v.observaciones || "");
@@ -995,6 +1078,97 @@ function DetallesContent() {
                             <label className="form-label">Documentos (factura, guía, certificado de origen)</label>
                             <DocUpload urls={verifDocs} onChange={(u) => { setVerifDocs(u); setVerifChanged(true); }} />
                           </div>
+                          {esInmobiliario && (
+                            <>
+                              <div className="md:col-span-2">
+                                <label className="form-label">Checklist del expediente legal del inmueble</label>
+                                <p className="text-xs text-gray-400 mb-3">Adjunta los documentos en PDF. LOTIFYX revisará el expediente completo antes de aprobar la publicación.</p>
+                                <div className="space-y-3">
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">1. Titularidad</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${verifTitular.trim() ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{verifTitular.trim() ? "✓ Completo" : "Pendiente"}</span>
+                                    </div>
+                                    <input type="text" value={verifTitular} onChange={e => { setVerifTitular(e.target.value); setVerifChanged(true); }}
+                                      className="w-full form-input-custom focus:ring-purple-500" placeholder="Propietario único, copropietario o mandato/apoderado" />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">2. Partida registral</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docPartida ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>{docPartida ? "✓ Recibido" : "Obligatorio"}</span>
+                                    </div>
+                                    <DocUpload urls={docPartida ? [docPartida] : []} onChange={(u) => { setDocPartida(u[0] || ""); setVerifChanged(true); }} />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">3. HR/PU (Hoja Registral / Partida Única)</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docHRPU ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>{docHRPU ? "✓ Recibido" : "Obligatorio"}</span>
+                                    </div>
+                                    <DocUpload urls={docHRPU ? [docHRPU] : []} onChange={(u) => { setDocHRPU(u[0] || ""); setVerifChanged(true); }} />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">4. Certificado de cargas y gravámenes</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docCargas ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>{docCargas ? "✓ Recibido" : "Obligatorio"}</span>
+                                    </div>
+                                    <DocUpload urls={docCargas ? [docCargas] : []} onChange={(u) => { setDocCargas(u[0] || ""); setVerifChanged(true); }} />
+                                    <label className="flex items-center gap-2 text-xs text-gray-600 mt-2 cursor-pointer">
+                                      <input type="checkbox" checked={verifDeclaraCargas} onChange={e => { setVerifDeclaraCargas(e.target.checked); setVerifChanged(true); }} className="accent-purple-600 w-3.5 h-3.5" />
+                                      Declaro que no existen cargas o gravámenes ocultos sobre el inmueble
+                                    </label>
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">5. No adeudo de arbitrios</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docArbitrios ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>{docArbitrios ? "✓ Recibido" : "Obligatorio"}</span>
+                                    </div>
+                                    <DocUpload urls={docArbitrios ? [docArbitrios] : []} onChange={(u) => { setDocArbitrios(u[0] || ""); setVerifChanged(true); }} />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">6. Poderes (solo si actúas por mandato)</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docPoderes ? "bg-green-100 text-green-700" : /mandat|apoder|represent/i.test(verifTitular) && !/propietari/i.test(verifTitular) ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"}`}>
+                                        {docPoderes ? "✓ Recibido" : /mandat|apoder|represent/i.test(verifTitular) && !/propietari/i.test(verifTitular) ? "Obligatorio" : "No aplica"}
+                                      </span>
+                                    </div>
+                                    <DocUpload urls={docPoderes ? [docPoderes] : []} onChange={(u) => { setDocPoderes(u[0] || ""); setVerifChanged(true); }} />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">7. Permisos y licencias</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docPermisos.length > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{docPermisos.length > 0 ? `✓ ${docPermisos.length} archivo(s)` : "Opcional"}</span>
+                                    </div>
+                                    <DocUpload urls={docPermisos} onChange={(u) => { setDocPermisos(u); setVerifChanged(true); }} />
+                                  </div>
+                                  <div className="border rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-bold text-gray-700">8. Documentación contractual (minuta/contrato)</p>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${docContrato.length > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{docContrato.length > 0 ? `✓ ${docContrato.length} archivo(s)` : "Opcional"}</span>
+                                    </div>
+                                    <DocUpload urls={docContrato} onChange={(u) => { setDocContrato(u); setVerifChanged(true); }} />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="form-label">Ubicación geográfica del inmueble</label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div className="md:col-span-3">
+                                    <input type="text" value={inmDireccion} onChange={e => setInmDireccion(e.target.value)}
+                                      className="w-full form-input-custom focus:ring-purple-500" placeholder="Dirección exacta (ej. Av. Los Sauces 123, Lima)" />
+                                  </div>
+                                  <div>
+                                    <input type="number" step="any" value={inmLatitud} onChange={e => setInmLatitud(e.target.value)}
+                                      className="w-full form-input-custom focus:ring-purple-500" placeholder="Latitud" />
+                                  </div>
+                                  <div>
+                                    <input type="number" step="any" value={inmLongitud} onChange={e => setInmLongitud(e.target.value)}
+                                      className="w-full form-input-custom focus:ring-purple-500" placeholder="Longitud" />
+                                  </div>
+                                  <p className="text-xs text-gray-400">Dirección exacta o coordenadas (latitud / longitud)</p>
+                                </div>
+                              </div>
+                            </>
+                          )}
                           {isLot && (
                             <>
                               <div>
@@ -1042,7 +1216,7 @@ function DetallesContent() {
                           </div>
                           {esInmobiliario && (
                             <div className="mt-3">
-                              <label className="form-label">Tipo de operación inmobiliaria</label>
+                              <label className="form-label">Tipo de operación inmobiliaria *</label>
                               <select value={tipoInmobiliario} onChange={e => setTipoInmobiliario(e.target.value)}
                                 className="w-full form-input-custom focus:ring-purple-500">
                                 <option value="">Selecciona el tipo</option>
@@ -1050,6 +1224,85 @@ function DetallesContent() {
                                 <option value="venta">Venta</option>
                               </select>
                               <p className="text-xs text-gray-400 mt-1">La venta inmobiliaria requiere aprobación y verificación reforzada por LOTIFYX.</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                                <div>
+                                  <label className="form-label">Metraje (m²) *</label>
+                                  <input type="number" min="1" step="0.1" value={conditions.metraje}
+                                    onChange={e => setConditions({ ...conditions, metraje: e.target.value })}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="90" />
+                                </div>
+                                <div>
+                                  <label className="form-label">Habitaciones *</label>
+                                  <input type="number" min="0" step="1" value={conditions.habitaciones}
+                                    onChange={e => setConditions({ ...conditions, habitaciones: e.target.value })}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="3" />
+                                </div>
+                                <div>
+                                  <label className="form-label">Baños *</label>
+                                  <input type="number" min="0" step="1" value={conditions.banos}
+                                    onChange={e => setConditions({ ...conditions, banos: e.target.value })}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="2" />
+                                </div>
+                                <div>
+                                  <label className="form-label">Distrito *</label>
+                                  <input type="text" value={conditions.distrito}
+                                    onChange={e => setConditions({ ...conditions, distrito: e.target.value })}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="Miraflores" />
+                                </div>
+                                <div className="col-span-2 md:col-span-4">
+                                  <label className="form-label">Dirección *</label>
+                                  <input type="text" value={inmDireccion} onChange={e => setInmDireccion(e.target.value)}
+                                    className="w-full form-input-custom focus:ring-purple-500" placeholder="Av. Los Sauces 123, Lima" />
+                                </div>
+                              </div>
+                              {/* Separo / garantía requerida */}
+                              <div className="mt-3">
+                                <label className="form-label">Separo o garantía requerida (opcional)</label>
+                                <input type="number" min="0" step="0.01" value={conditions.separo_monto}
+                                  onChange={e => setConditions({ ...conditions, separo_monto: e.target.value })}
+                                  className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="Ej. 5000" />
+                                <p className="text-xs text-gray-400 mt-1">Monto que el interesado debe depositar para separar el inmueble. No equivale a transferencia de propiedad ni sustituye actos notariales o registrales.</p>
+                              </div>
+                              {/* Parámetros propios según mecanismo elegido */}
+                              {tipoInmobiliario === "alquiler" && (
+                                <div className="mt-3 border border-blue-100 bg-blue-50/50 rounded-xl p-3">
+                                  <p className="text-xs font-bold text-blue-800 mb-2">Parámetros de alquiler</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                      <label className="form-label">Duración del contrato *</label>
+                                      <input type="text" value={conditions.duracion_contrato}
+                                        onChange={e => setConditions({ ...conditions, duracion_contrato: e.target.value })}
+                                        className="w-full form-input-custom focus:ring-purple-500" placeholder="Ej. 12 meses" />
+                                    </div>
+                                    <div>
+                                      <label className="form-label">Garantía (meses) *</label>
+                                      <input type="number" min="0" step="1" value={conditions.garantia_meses}
+                                        onChange={e => setConditions({ ...conditions, garantia_meses: e.target.value })}
+                                        className="w-full form-input-custom focus:ring-purple-500" placeholder="1" />
+                                    </div>
+                                    <div className="flex items-end pb-1">
+                                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="checkbox" checked={!!conditions.mantenimiento_incluido}
+                                          onChange={e => setConditions({ ...conditions, mantenimiento_incluido: e.target.checked })}
+                                          className="accent-purple-600 w-4 h-4" />
+                                        Mantenimiento incluido
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {tipoInmobiliario === "venta" && (
+                                <div className="mt-3 border border-emerald-100 bg-emerald-50/60 rounded-xl p-3">
+                                  <p className="text-xs font-semibold text-emerald-800">Venta directa sujeta a aprobación</p>
+                                  <p className="text-xs text-gray-600 mt-0.5">LOTIFYX revisará el expediente legal del inmueble. La publicación solo se activa cuando la verificación sea aprobada.</p>
+                                </div>
+                              )}
+                              {conditions.metodo_pago === "subasta" && (
+                                <div className="mt-3 border border-purple-100 bg-purple-50/60 rounded-xl p-3">
+                                  <p className="text-xs font-semibold text-purple-800">Mecanismo anónimo / subasta</p>
+                                  <p className="text-xs text-gray-600 mt-0.5">Con subasta inglesa los postores compiten con pujas visibles; con sobre cerrado las ofertas permanecen ocultas (mecanismo anónimo). Requiere precio inicial, incremento mínimo y cierre estimado.</p>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1091,15 +1344,17 @@ function DetallesContent() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div>
-                          <label className="form-label pt-0">Condición del producto</label>
-                          <select value={conditions.estado} onChange={e => setConditions({ ...conditions, estado: e.target.value })}
-                            className="w-full form-input-custom focus:ring-purple-500">
-                            <option value="nuevo">Nuevo</option>
-                            <option value="usado">Usado</option>
-                            <option value="reacondicionado">Reacondicionado</option>
-                          </select>
-                        </div>
+                        {!esServicio && (
+                          <div>
+                            <label className="form-label pt-0">Condición del producto</label>
+                            <select value={conditions.estado} onChange={e => setConditions({ ...conditions, estado: e.target.value })}
+                              className="w-full form-input-custom focus:ring-purple-500">
+                              <option value="nuevo">Nuevo</option>
+                              <option value="usado">Usado</option>
+                              <option value="reacondicionado">Reacondicionado</option>
+                            </select>
+                          </div>
+                        )}
                         <div>
                           <label className="form-label pt-0">Ubicación del bien</label>
                           <input type="text" value={conditions.ubicacion} onChange={e => setConditions({ ...conditions, ubicacion: e.target.value })}

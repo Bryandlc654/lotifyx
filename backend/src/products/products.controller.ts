@@ -135,7 +135,29 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query("category_id") categoryId?: string, @Query("search") search?: string, @Query("limit") limit?: number) { return this.service.findAllActive(categoryId, search, limit); }
+  findAll(
+    @Query("category_id") categoryId?: string,
+    @Query("search") search?: string,
+    @Query("limit") limit?: number,
+    @Query("precio_min") precioMin?: string,
+    @Query("precio_max") precioMax?: string,
+    @Query("ubicacion") ubicacion?: string,
+    @Query("user_id") userId?: string,
+    @Query("vendedor") vendedor?: string,
+    @Query("estado") estado?: string,
+  ) {
+    return this.service.findAllActive(
+      categoryId,
+      search,
+      limit,
+      precioMin ? Number(precioMin) : undefined,
+      precioMax ? Number(precioMax) : undefined,
+      ubicacion || undefined,
+      userId || undefined,
+      vendedor || undefined,
+      estado || undefined,
+    );
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get("mine")
@@ -183,6 +205,20 @@ export class ProductsController {
   @HttpCode(HttpStatus.OK)
   togglePause(@Param("id") id: string, @Req() req) {
     return this.service.togglePause(id, req.user.id, req.user?.isAdmin || req.user?.role === "superadmin");
+  }
+
+  // ─── Expresión de interés inmobiliario (sin checkout estándar) ───
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/interest")
+  @HttpCode(HttpStatus.CREATED)
+  registerInterest(@Param("id") id: string, @Body() dto: any, @Req() req) {
+    return this.service.registerInterest(id, req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/interest")
+  listInterests(@Param("id") id: string, @Req() req) {
+    return this.service.listInterests(id, req.user.id, req.user?.isAdmin || req.user?.role === "superadmin");
   }
 
   // ─── Variantes ─────────────────────────────────────────

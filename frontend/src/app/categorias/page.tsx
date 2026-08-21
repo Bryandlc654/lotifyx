@@ -26,6 +26,29 @@ function requestDeadline(r: BuyerRequest) {
   return days <= 1 ? "Vence pronto" : `Vence en ${days} días`;
 }
 
+function AuctionCountdown({ fechaFin }: { fechaFin: string }) {
+  const [remaining, setRemaining] = useState("—");
+  useEffect(() => {
+    function tick() {
+      const diff = new Date(fechaFin).getTime() - Date.now();
+      if (diff <= 0) { setRemaining("Finalizada"); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${String(s).padStart(2, "0")}s`);
+    }
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [fechaFin]);
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
+      <Clock className="h-3.5 w-3.5" /> {remaining}
+    </span>
+  );
+}
+
 export default function CategoriasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,6 +60,15 @@ export default function CategoriasPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const [selectedModalidad, setSelectedModalidad] = useState<string>("");
+  const [precioMinInput, setPrecioMinInput] = useState("");
+  const [precioMaxInput, setPrecioMaxInput] = useState("");
+  const [ubicacionInput, setUbicacionInput] = useState("");
+  const [vendedorInput, setVendedorInput] = useState("");
+  const [selectedEstado, setSelectedEstado] = useState("");
+  const [precioMin, setPrecioMin] = useState<number | undefined>(undefined);
+  const [precioMax, setPrecioMax] = useState<number | undefined>(undefined);
+  const [ubicacion, setUbicacion] = useState("");
+  const [vendedor, setVendedor] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 9;
 
@@ -55,7 +87,7 @@ export default function CategoriasPage() {
     const catId = selectedSubcategory || selectedCategory || undefined;
     const reqCatId = selectedCategory || undefined;
     Promise.all([
-      getActiveProducts(catId, q || undefined),
+      getActiveProducts(catId, q || undefined, undefined, { precioMin, precioMax, ubicacion: ubicacion || undefined, vendedor: vendedor || undefined, estado: selectedEstado || undefined }),
       getCategories(),
       getRequests({ category_id: reqCatId, q: q || undefined, limit: 6 }),
     ])
@@ -66,9 +98,22 @@ export default function CategoriasPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [selectedCategory, selectedSubcategory]);
+  }, [selectedCategory, selectedSubcategory, precioMin, precioMax, ubicacion, vendedor, selectedEstado]);
 
   useEffect(() => { setPage(1); setSelectedSubcategory(""); }, [selectedCategory]);
+  useEffect(() => { setPage(1); }, [precioMin, precioMax, ubicacion, vendedor, selectedEstado]);
+
+  function aplicarFiltros() {
+    const min = precioMinInput.trim() !== "" ? Number(precioMinInput) : undefined;
+    const max = precioMaxInput.trim() !== "" ? Number(precioMaxInput) : undefined;
+    if (min != null && (!Number.isFinite(min) || min < 0)) { return; }
+    if (max != null && (!Number.isFinite(max) || max < 0)) { return; }
+    if (min != null && max != null && min > max) { return; }
+    setPrecioMin(min);
+    setPrecioMax(max);
+    setUbicacion(ubicacionInput.trim());
+    setVendedor(vendedorInput.trim());
+  }
 
   const filteredByModalidad = selectedModalidad
     ? products.filter(p => p.metodo_pago === selectedModalidad || (!selectedModalidad))
@@ -218,6 +263,72 @@ export default function CategoriasPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Condición del producto */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-[#6941C6] mb-3">Condición</h4>
+                  <div className="space-y-2">
+                    {[
+                      { value: "", label: "Todas" },
+                      { value: "nuevo", label: "Nuevo" },
+                      { value: "usado", label: "Usado" },
+                      { value: "reacondicionado", label: "Reacondicionado" },
+                    ].map(c => (
+                      <label key={c.value || "all"} className="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="condicion" checked={selectedEstado === c.value}
+                          onChange={() => setSelectedEstado(c.value)} className="sr-only" />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                          selectedEstado === c.value ? "bg-[#8234FE] border-[#8234FE]" : "border-gray-300 group-hover:border-[#8234FE]"
+                        }`}>
+                          {selectedEstado === c.value && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                        <span className="text-sm text-[#161A3A] font-medium">{c.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Precio (rango mínimo-máximo) */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-[#6941C6] mb-3">Precio</h4>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" placeholder="Mín." value={precioMinInput}
+                      onChange={e => setPrecioMinInput(e.target.value)}
+                      className="w-full min-w-0 rounded-lg border border-gray-300 px-2.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#8234FE]/30 focus:border-[#8234FE]" />
+                    <span className="text-gray-400 text-sm">–</span>
+                    <input type="number" min="0" placeholder="Máx." value={precioMaxInput}
+                      onChange={e => setPrecioMaxInput(e.target.value)}
+                      className="w-full min-w-0 rounded-lg border border-gray-300 px-2.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#8234FE]/30 focus:border-[#8234FE]" />
+                  </div>
+
+                  {/* Ubicación / zona */}
+                  <h4 className="text-sm font-semibold text-[#6941C6] mb-3 mt-5">Ubicación / zona</h4>
+                  <input type="text" placeholder="Distrito, ciudad o zona" value={ubicacionInput}
+                    onChange={e => setUbicacionInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") aplicarFiltros(); }}
+                    className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#8234FE]/30 focus:border-[#8234FE]" />
+
+                  {/* Vendedor */}
+                  <h4 className="text-sm font-semibold text-[#6941C6] mb-3 mt-5">Vendedor</h4>
+                  <input type="text" placeholder="Nombre o correo del vendedor" value={vendedorInput}
+                    onChange={e => setVendedorInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") aplicarFiltros(); }}
+                    className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#8234FE]/30 focus:border-[#8234FE]" />
+
+                  <button onClick={aplicarFiltros}
+                    className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#8234FE] to-[#26BEFE] text-white text-sm font-semibold py-2 hover:opacity-90 transition-opacity">
+                    Aplicar filtros
+                  </button>
+                  {(precioMin != null || precioMax != null || ubicacion || vendedor) && (
+                    <button onClick={() => {
+                      setPrecioMinInput(""); setPrecioMaxInput(""); setUbicacionInput(""); setVendedorInput("");
+                      setPrecioMin(undefined); setPrecioMax(undefined); setUbicacion(""); setVendedor("");
+                    }}
+                      className="mt-2 w-full text-xs text-gray-500 hover:text-red-500 transition-colors">
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             </aside>
 
@@ -319,13 +430,16 @@ export default function CategoriasPage() {
                   {paginated.map(product => {
                     const img = getFirstImage(product);
                     const precio = getSpecValue(product, /precio/i);
-                    const tipo = product.metodo_pago === "subasta" ? "Subasta" : product.metodo_pago === "venta_por_lote" ? "Venta por lote" : "Venta directa";
+                    const esSubasta = product.metodo_pago === "subasta";
+                    const esLote = product.metodo_pago === "venta_por_lote";
+                    const ai = product.auction_info;
+                    const li = product.lot_info;
                     return (
                       <Link key={product.id} href={`/producto/${product.id}`}
                         className={`bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all group ${
                           viewMode === "list" ? "flex gap-4 p-4" : "p-4 flex flex-col"
                         }`}>
-                        <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 ${
+                        <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 relative ${
                           viewMode === "list" ? "w-40 h-32" : "w-full aspect-square mb-3"
                         }`}>
                           {img ? (
@@ -335,12 +449,24 @@ export default function CategoriasPage() {
                               <Tag className="h-8 w-8 text-gray-300" />
                             </div>
                           )}
+                          {esSubasta && ai && (
+                            <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded-full bg-orange-500 text-white uppercase tracking-wide shadow">
+                              Subasta activa
+                            </span>
+                          )}
+                          {esLote && li && (
+                            <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white uppercase tracking-wide shadow">
+                              Venta por Lote
+                            </span>
+                          )}
                         </div>
 
                         <div className={viewMode === "list" ? "flex-1 min-w-0 flex flex-col justify-between" : "flex flex-col flex-1"}>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{tipo}</p>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                                {esSubasta ? "Subasta" : esLote ? "Venta por Lote" : "Venta directa"}
+                              </p>
                               {product.nivel_coincidencia && product.nivel_coincidencia !== "estricta" && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100 uppercase tracking-wide">
                                   {product.nivel_coincidencia === "flexible" ? "Coincidencia flexible" : "Coincidencia amplia"}
@@ -351,7 +477,29 @@ export default function CategoriasPage() {
                               {product.specifications?.["Título del Producto"] || product.title}
                             </h3>
                           </div>
-                          {precio && (
+
+                          {esSubasta && ai ? (
+                            <div className="mt-3 space-y-1">
+                              <p className="text-xs text-gray-500">Precio actual</p>
+                              <p className="text-lg font-bold text-gray-900 leading-tight">S/ {ai.precio_actual.toLocaleString("en-US")}</p>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-orange-600">
+                                  {ai.pujas} {ai.pujas === 1 ? "puja" : "pujas"}
+                                </span>
+                                <AuctionCountdown fechaFin={ai.fecha_fin} />
+                              </div>
+                            </div>
+                          ) : esLote && li ? (
+                            <div className="mt-3 space-y-1">
+                              <p className="text-lg font-bold text-gray-900 leading-tight">S/ {(li.precio_individual || parseFloat(precio) || 0).toLocaleString("en-US")}</p>
+                              <p className="text-xs text-gray-500">por unidad · lote de {li.cantidad_total}</p>
+                              {li.ahorro_unitario > 0 && (
+                                <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                  Ahorras S/ {li.ahorro_unitario.toLocaleString("en-US")} por unidad
+                                </span>
+                              )}
+                            </div>
+                          ) : precio && (
                             <div className="text-right mt-3">
                               <p className="text-lg font-bold text-gray-900">S/ {parseFloat(precio).toLocaleString("en-US")}</p>
                             </div>

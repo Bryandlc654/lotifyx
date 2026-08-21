@@ -52,21 +52,55 @@ export class VerificationsService {
     if (p.metodo_pago === "venta_por_lote" && !esInmobiliario && (!capacidad.unidades_mes || Number(capacidad.unidades_mes) <= 0)) {
       throw new BadRequestException("Para compra grupal indica tu capacidad de producción o suministro (unidades por mes)");
     }
-    // VI. Verificación reforzada inmobiliaria: partida registral, cargas/gravámenes y facultades del anunciante
+    // VI. Verificación reforzada inmobiliaria: expediente legal completo con checklist
+    let docPartida: string | null = null;
+    let docHR: string | null = null;
+    let docArbitrios: string | null = null;
+    let docCargas: string | null = null;
+    let docPoderes: string | null = null;
+    let permisos: string[] = [];
+    let contractual: string[] = [];
     if (esInmobiliario) {
-      if (!payload.partida_registral || !String(payload.partida_registral).trim()) {
-        throw new BadRequestException("Inmobiliario: indica la partida registral del inmueble");
+      docPartida = String(payload.partida_registral_doc || "").trim();
+      docHR = String(payload.hr_pu_doc || "").trim();
+      docArbitrios = String(payload.arbitrios_doc || "").trim();
+      docCargas = String(payload.cargas_gravamenes_doc || "").trim();
+      docPoderes = String(payload.poderes_doc || "").trim();
+      permisos = Array.isArray(payload.permisos_docs) ? payload.permisos_docs.filter(Boolean) : [];
+      contractual = Array.isArray(payload.contrato_docs) ? payload.contrato_docs.filter(Boolean) : [];
+      const titular = String(payload.titular_anunciante || "").trim();
+      const esMandato = /mandat|apoder|represent/i.test(titular) && !/propietari/i.test(titular);
+      if (!docPartida || !/\.pdf$/i.test(docPartida)) {
+        throw new BadRequestException("Inmobiliario: adjunta la partida registral en PDF");
+      }
+      if (!docHR || !/\.pdf$/i.test(docHR)) {
+        throw new BadRequestException("Inmobiliario: adjunta la HR/PU (Hoja Registral / Partida Única) en PDF");
+      }
+      if (!docCargas || !/\.pdf$/i.test(docCargas)) {
+        throw new BadRequestException("Inmobiliario: adjunta el certificado de cargas y gravámenes en PDF");
+      }
+      if (!docArbitrios || !/\.pdf$/i.test(docArbitrios)) {
+        throw new BadRequestException("Inmobiliario: adjunta el certificado de no adeudo de arbitrios en PDF");
       }
       if (!payload.declaracion_cargas || payload.declaracion_cargas !== true) {
         throw new BadRequestException("Inmobiliario: declara que no existen cargas o gravámenes ocultos sobre el inmueble");
       }
-      if (!payload.titular_anunciante || !String(payload.titular_anunciante).trim()) {
+      if (!titular) {
         throw new BadRequestException("Inmobiliario: declara la titularidad o mandato del anunciante sobre el inmueble");
+      }
+      // Poderes: obligatorio cuando el anunciante actúa por mandato/apoderado
+      if (esMandato && (!docPoderes || !/\.pdf$/i.test(docPoderes))) {
+        throw new BadRequestException("Inmobiliario: si actúas por mandato, adjunta el poder por escrito en PDF");
       }
     }
     if (payload.declaracion_ficha !== true) {
       throw new BadRequestException("Debes declarar que la ficha técnica es correcta y corresponde con la evidencia");
     }
+
+    // Ubicación geográfica del inmueble (dirección exacta y/o coordenadas)
+    const lat = payload.latitud != null && payload.latitud !== "" ? Number(payload.latitud) : null;
+    const lng = payload.longitud != null && payload.longitud !== "" ? Number(payload.longitud) : null;
+    const direccion = payload.direccion ? String(payload.direccion).trim() : null;
 
     const clean = {
       fotografias,
@@ -76,17 +110,36 @@ export class VerificationsService {
       capacidad_produccion: p.metodo_pago === "venta_por_lote" && !esInmobiliario
         ? { unidades_mes: Number(capacidad.unidades_mes) || 0, plazo: capacidad.plazo ? String(capacidad.plazo) : "" }
         : null,
-      // VI. Inmobiliario reforzado
+      // VI. Inmobiliario reforzado (expediente legal + ubicación geográfica)
       inmobiliario: esInmobiliario
         ? {
-            partida_registral: String(payload.partida_registral || ""),
+            partida_registral: docPartida,
+            hr_pu_doc: docHR,
+            arbitrios_doc: docArbitrios,
+            cargas_gravamenes_doc: docCargas,
+            poderes_doc: docPoderes || null,
+            permisos_docs: permisos,
+            contrato_docs: contractual,
             titular_anunciante: String(payload.titular_anunciante || ""),
             declaracion_cargas: true,
             tipo: p.tipo_inmobiliario || "",
+            ubicacion_geografica: { latitud: lat, longitud: lng, direccion },
           }
         : null,
       declaracion_ficha: true,
     };
+
+    // Persistir ubicación geográfica del inmueble en el producto
+    if (esInmobiliario && (lat != null || lng != null || direccion)) {
+      try {
+        await this.dataSource.query(
+          `UPDATE products SET latitud = COALESCE($2, latitud), longitud = COALESCE($3, longitud), direccion = COALESCE($4, direccion) WHERE id = $1`,
+          [productId, lat, lng, direccion],
+        );
+      } catch (e: any) {
+        console.error("[Verifications] Error guardando ubicación:", e.message);
+      }
+    }
 
     const existing = await this.repo.findOne({ where: { product_id: productId } });
     let saved: ProductVerification;

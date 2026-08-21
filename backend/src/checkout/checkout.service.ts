@@ -48,6 +48,7 @@ export class CheckoutService implements OnModuleInit {
     operationNumber: string;
     amount: number;
     proofUrl: string;
+    servicioDescripcion?: string | null;
   }) {
     if (data.items.length > 0) {
       const productIds = data.items.map(i => i.id);
@@ -81,10 +82,10 @@ export class CheckoutService implements OnModuleInit {
     try {
       const totalAmount = data.total > 0 ? data.total : data.amount;
       const [order] = await queryRunner.query(
-        `INSERT INTO orders (user_id, total_amount, status, origin_account_id, operation_number, amount, proof_image, created_at, updated_at)
-         VALUES ($1, $2, 'pending_payment', $3, $4, $5, $6, NOW(), NOW())
+        `INSERT INTO orders (user_id, total_amount, status, origin_account_id, operation_number, amount, proof_image, servicio_descripcion, created_at, updated_at)
+         VALUES ($1, $2, 'pending_payment', $3, $4, $5, $6, $7, NOW(), NOW())
          RETURNING *`,
-        [data.userId, totalAmount, data.originAccountId, data.operationNumber, data.amount, data.proofUrl],
+        [data.userId, totalAmount, data.originAccountId, data.operationNumber, data.amount, data.proofUrl, data.servicioDescripcion || null],
       );
 
       if (data.items.length > 0) {

@@ -99,6 +99,7 @@ export class CheckoutController {
       operationNumber: body.operation_number,
       amount: parseFloat(body.amount),
       proofUrl,
+      servicioDescripcion: body.servicio_descripcion?.trim() || null,
     });
 
     // Link bid to order and add auction product as order item

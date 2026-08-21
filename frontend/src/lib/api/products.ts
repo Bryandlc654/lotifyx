@@ -178,11 +178,34 @@ export async function deleteProductVariant(variantId: string): Promise<any> {
   return res.json();
 }
 
-export async function getActiveProducts(categoryId?: string, search?: string, limit?: number): Promise<import("./common").Product[]> {
+export async function registerInterest(productId: string, dto: { tipo_operacion?: string; mensaje?: string; monto_separo?: number }) {
+  const res = await authFetch(`${API_URL}/products/${productId}/interest`, { method: "POST", body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function getInterests(productId: string) {
+  const res = await authFetch(`${API_URL}/products/${productId}/interest`);
+  if (!res.ok) throw new Error("Error");
+  return res.json();
+}
+
+export async function getActiveProducts(
+  categoryId?: string,
+  search?: string,
+  limit?: number,
+  opts?: { precioMin?: number; precioMax?: number; ubicacion?: string; userId?: string; vendedor?: string; estado?: string },
+): Promise<import("./common").Product[]> {
   const params = new URLSearchParams();
   if (categoryId) params.set("category_id", categoryId);
   if (search) params.set("search", search);
   if (limit) params.set("limit", String(limit));
+  if (opts?.precioMin != null) params.set("precio_min", String(opts.precioMin));
+  if (opts?.precioMax != null) params.set("precio_max", String(opts.precioMax));
+  if (opts?.ubicacion) params.set("ubicacion", opts.ubicacion);
+  if (opts?.userId) params.set("user_id", opts.userId);
+  if (opts?.vendedor) params.set("vendedor", opts.vendedor);
+  if (opts?.estado) params.set("estado", opts.estado);
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API_URL}/products${qs}`);
   if (!res.ok) throw new Error("Error al obtener productos");

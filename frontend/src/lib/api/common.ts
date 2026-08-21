@@ -103,6 +103,15 @@ export interface Product {
   metodo_pago: string;
   es_servicio?: boolean;
   tipo_inmobiliario?: string | null;
+  metraje?: number | null;
+  habitaciones?: number | null;
+  banos?: number | null;
+  distrito?: string | null;
+  direccion?: string | null;
+  duracion_contrato?: string | null;
+  garantia_meses?: number | null;
+  mantenimiento_incluido?: boolean | null;
+  separo_monto?: number | null;
   images?: string[];
   precio_base?: number;
   precio_inicial?: number;
@@ -123,6 +132,17 @@ export interface Product {
   garantia: string;
   politicas_imagenes: string;
   status: string;
+  auction_info?: {
+    precio_actual: number;
+    fecha_fin: string;
+    pujas: number;
+  };
+  lot_info?: {
+    precio_lote: number;
+    precio_individual: number;
+    cantidad_total: number;
+    ahorro_unitario: number;
+  };
   auction_estado?: string;
   lot_estado?: string;
   lot_cantidad_total?: number;

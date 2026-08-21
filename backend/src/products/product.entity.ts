@@ -50,6 +50,49 @@ export class Product {
   @Column({ type: "varchar", length: 20, nullable: true })
   tipo_inmobiliario: string | null;
 
+  /** Coordenadas geográficas del inmueble (ubicación exacta) */
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  latitud: number | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  longitud: number | null;
+
+  /** Dirección exacta del inmueble */
+  @Column({ type: "varchar", length: 255, nullable: true })
+  direccion: string | null;
+
+  /** Inmobiliario: metraje (m²) */
+  @Column({ type: "decimal", precision: 12, scale: 2, nullable: true })
+  metraje: number | null;
+
+  /** Inmobiliario: nº de habitaciones */
+  @Column({ type: "int", nullable: true })
+  habitaciones: number | null;
+
+  /** Inmobiliario: nº de baños */
+  @Column({ type: "int", nullable: true })
+  banos: number | null;
+
+  /** Inmobiliario: distrito */
+  @Column({ type: "varchar", length: 120, nullable: true })
+  distrito: string | null;
+
+  /** Alquiler: duración del contrato (ej. "12 meses") */
+  @Column({ type: "varchar", length: 50, nullable: true })
+  duracion_contrato: string | null;
+
+  /** Alquiler: meses de garantía/depósito */
+  @Column({ type: "int", nullable: true })
+  garantia_meses: number | null;
+
+  /** Alquiler: mantenimiento incluido en la renta */
+  @Column({ type: "boolean", nullable: true })
+  mantenimiento_incluido: boolean | null;
+
+  /** Inmobiliario: monto de separo/garantía requerido (no transfiere propiedad) */
+  @Column({ type: "decimal", precision: 12, scale: 2, nullable: true })
+  separo_monto: number | null;
+
   /** Galería estándar de imágenes de la publicación (URLs) */
   @Column({ type: "jsonb", default: "[]" })
   images: string[];

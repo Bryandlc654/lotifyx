@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { id: "carga-masiva", href: "/perfil/carga-masiva", label: "Carga Masiva", roles: ["vendedor"] },
   { id: "mis-productos", href: "/perfil/mis-productos", label: "Mis Productos", roles: ["vendedor"] },
   { id: "ofrecer", href: "/perfil/ofrecer", label: "Ofrecer", roles: ["vendedor"] },
+  { id: "prestador", href: "/perfil/prestador", label: "Prestador de Servicios", roles: ["vendedor"] },
   { id: "mi-plan", href: "/perfil/mi-plan", label: "Mi Plan", roles: ["vendedor"] },
   { id: "mis-resenas", href: "/perfil/mis-resenas", label: "Mis Reseñas", roles: ["all-no-superadmin"] },
 ];

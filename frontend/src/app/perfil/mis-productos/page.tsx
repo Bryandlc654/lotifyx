@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, toggleProductPause, getImageUrl, getAuctionByProduct, reopenAuction, Product } from "@/lib/api";
-import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet, RefreshCw, Pause, Play } from "lucide-react";
+import { getMyProducts, getProfile, isAuthenticated, removeTokens, deleteProduct, toggleProductPause, getImageUrl, getAuctionByProduct, reopenAuction, getInterests, Product } from "@/lib/api";
+import { Package, ChevronRight, Pencil, Trash2, Eye, X, Search, AlertTriangle, MessageCircle, Wallet, RefreshCw, Pause, Play, Users } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -16,6 +16,9 @@ export default function MisProductosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [reopenTarget, setReopenTarget] = useState<{ productId: string; auctionId: string } | null>(null);
   const [reopenDate, setReopenDate] = useState("");
+  const [interestsProduct, setInterestsProduct] = useState<Product | null>(null);
+  const [interests, setInterests] = useState<any[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const router = useRouter();
@@ -170,6 +173,16 @@ export default function MisProductosPage() {
                             className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Ver detalle">
                             <Eye className="h-4 w-4" />
                           </button>
+                          {p.tipo_inmobiliario && (
+                            <button onClick={async () => {
+                              setInterestsProduct(p); setInterests([]); setLoadingInterests(true);
+                              try { setInterests(await getInterests(p.id) || []); } catch { toast.error("Error al cargar intereses"); }
+                              finally { setLoadingInterests(false); }
+                            }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="Ver intereses registrados">
+                              <Users className="h-4 w-4" />
+                            </button>
+                          )}
                           <button onClick={() => router.push(`/perfil/ofrecer/detalles?categoria=${p.category_id}&nombre=${encodeURIComponent(p.title)}&id=${p.id}`)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors" title="Editar">
                             <Pencil className="h-4 w-4" />
@@ -377,6 +390,42 @@ export default function MisProductosPage() {
                 Creado: {new Date(detailProduct.created_at).toLocaleString("es-PE")}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {interestsProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setInterestsProduct(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Intereses registrados</h3>
+              <button onClick={() => setInterestsProduct(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">{interestsProduct.title}</p>
+            {loadingInterests ? (
+              <p className="text-sm text-gray-400 text-center py-8">Cargando...</p>
+            ) : interests.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Aún no hay intereses registrados para este inmueble.</p>
+            ) : (
+              <div className="space-y-3">
+                {interests.map((i) => (
+                  <div key={i.id} className="border border-gray-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-800">{i.first_name || ""} {i.last_name || ""} {(!i.first_name && !i.last_name) ? "Interesado" : ""}</p>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 capitalize">{i.tipo_operacion || "interés"}</span>
+                    </div>
+                    {Number(i.monto_separo) > 0 && (
+                      <p className="text-xs text-gray-700 mt-1">Separo/garantía ofrecida: <strong>S/ {Number(i.monto_separo).toFixed(2)}</strong></p>
+                    )}
+                    {i.mensaje && <p className="text-xs text-gray-500 mt-1 italic">"{i.mensaje}"</p>}
+                    <p className="text-[10px] text-gray-400 mt-1.5">{i.user_email || ""} {i.user_phone ? `· ${i.user_phone}` : ""} · {new Date(i.created_at).toLocaleDateString("es-PE")}</p>
+                  </div>
+                ))}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-2">
+                  <p className="text-[11px] text-amber-800 leading-relaxed"><strong>Recuerda:</strong> el separo o garantía no equivale a la transferencia de propiedad ni sustituye los actos notariales o registrales.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

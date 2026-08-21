@@ -40,6 +40,7 @@ interface Order {
   remaining_balance?: boolean;
   payment_stage?: string | null;
   benefits?: Array<{ beneficio_aplicado: string; unidades_extra: number }>;
+  servicio_descripcion?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -302,6 +303,12 @@ export default function MisComprasPage() {
                 <span className="text-gray-500">Fecha</span>
                 <span className="font-medium">{formatDate(selectedOrder.created_at)}</span>
               </div>
+              {selectedOrder.servicio_descripcion && (
+                <div className="pt-3 border-t border-gray-100">
+                  <span className="text-gray-500 block mb-1">Descripción del trabajo requerido</span>
+                  <p className="text-gray-700 bg-purple-50 border border-purple-100 rounded-lg p-3 text-xs leading-relaxed">{selectedOrder.servicio_descripcion}</p>
+                </div>
+              )}
               {selectedOrder.proof_image && (
                 <div>
                   <span className="text-gray-500 block mb-2">Comprobante</span>

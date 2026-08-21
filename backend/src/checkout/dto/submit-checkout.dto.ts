@@ -17,4 +17,9 @@ export class SubmitCheckoutDto {
   @IsOptional()
   @IsString()
   bid_id?: string;
+
+  /** Descripción personalizada del trabajo requerido (checkout de servicios) */
+  @IsOptional()
+  @IsString()
+  servicio_descripcion?: string;
 }

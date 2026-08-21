@@ -37,6 +37,7 @@ export default function CheckoutPage() {
   const [remainingOrderId, setRemainingOrderId] = useState<string | null>(null);
   const [remainingAmount, setRemainingAmount] = useState(0);
   const [unavailableIds, setUnavailableIds] = useState<Set<string>>(new Set());
+  const [servicioDescripcion, setServicioDescripcion] = useState("");
 
   // Verifica disponibilidad de los productos del carrito (pausado/agotado -> no disponible)
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function CheckoutPage() {
         if (!res.ok) throw new Error((await res.json()).message || "Error");
       }
       else if (auctionMode && pendingBidId) await submitCheckout({ items: [], origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, bid_id: pendingBidId });
-      else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1, variant_id: i.variant_id })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile });
+      else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1, variant_id: i.variant_id })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, servicio_descripcion: servicioDescripcion || undefined });
       setShowSuccess(true);
     } catch (err: any) { toast.error(err.message || "Error al enviar depósito"); }
     finally { setSubmitting(false); }
@@ -172,6 +173,18 @@ export default function CheckoutPage() {
             <PaymentForm operationNumber={opNum} amount={amount} onOperationNumberChange={setOpNum} onAmountChange={setAmount} onFileChange={setProofFile} file={proofFile} />
           </div>
         </section>
+
+        {!planMode && !auctionMode && !remainingMode && items.length > 0 && (
+          <section className="mb-8" data-purpose="service-description">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Descripción del trabajo requerido</h2>
+            <p className="text-xs text-gray-500 mb-4">Describe brevemente el trabajo o servicio que necesitas (opcional).</p>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <textarea value={servicioDescripcion} onChange={e => setServicioDescripcion(e.target.value)} rows={4}
+                placeholder="Ej. Necesito la instalación eléctrica de un departamento de 3 ambientes..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500" />
+            </div>
+          </section>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4 mt-8">
           <button onClick={handleSubmitDeposit} disabled={submitting} className="text-white font-bold py-3 px-12 rounded-lg flex-grow shadow-lg shadow-purple-500/20 hover:opacity-90 transition-opacity disabled:opacity-60" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>{submitting ? "Enviando..." : "Confirmar depósito"}</button>

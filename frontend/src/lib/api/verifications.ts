@@ -8,6 +8,19 @@ export interface VerificationPayload {
   documentos: string[];
   capacidad_produccion?: { unidades_mes: number; plazo?: string };
   declaracion_ficha: boolean;
+  // VI. Inmobiliario: expediente legal + ubicación geográfica
+  partida_registral_doc?: string;
+  hr_pu_doc?: string;
+  arbitrios_doc?: string;
+  cargas_gravamenes_doc?: string;
+  poderes_doc?: string;
+  permisos_docs?: string[];
+  contrato_docs?: string[];
+  titular_anunciante?: string;
+  declaracion_cargas?: boolean;
+  latitud?: number;
+  longitud?: number;
+  direccion?: string;
 }
 
 export async function uploadVideo(file: File): Promise<string> {
