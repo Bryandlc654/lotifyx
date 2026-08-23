@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Param, Query, Body, Req, UseGuards } from "@nestjs/common";
 import { CheckoutService } from "../checkout/checkout.service";
 import { OrdersService } from "../checkout/orders.service";
 import { ClaimsService } from "../checkout/claims.service";
@@ -41,6 +41,13 @@ export class AdminOrdersController {
   @RequirePermission("orders.approve")
   updateStatus(@Param("id") id: string, @Body("status") status: string) {
     return this.checkoutService.updateOrderStatus(id, status);
+  }
+
+  /** Cancelación administrativa: obligatoria a partir de "En preparación" */
+  @Patch(":id/cancel")
+  @RequirePermission("orders.approve")
+  cancel(@Param("id") id: string, @Req() req, @Body("motivo") motivo: string) {
+    return this.checkoutService.cancelOrder(req.user.id, id, motivo || "Cancelado por el Administrador", true);
   }
 
   @Get("claims")

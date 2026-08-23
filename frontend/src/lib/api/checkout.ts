@@ -25,6 +25,16 @@ export async function getDashboard() {
   return res.json();
 }
 
+export async function cancelMyOrder(orderId: string, reason?: string) {
+  const res = await authFetch(`${API_URL}/checkout/orders/${orderId}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al cancelar" }))).message);
+  return res.json();
+}
+
 export async function submitClaim(data: { order_id: string; reason: string; description: string; solution: string; amount?: number }) {
   const res = await authFetch(`${API_URL}/checkout/claims`, {
     method: "POST",
@@ -42,6 +52,7 @@ export async function submitCheckout(data: {
   proof: File;
   bid_id?: string;
   servicio_descripcion?: string;
+  entrega_modalidad?: string;
 }) {
   const token = getAccessToken();
   const fd = new FormData();
@@ -52,6 +63,7 @@ export async function submitCheckout(data: {
   fd.append("proof", data.proof);
   if (data.bid_id) fd.append("bid_id", data.bid_id);
   if (data.servicio_descripcion) fd.append("servicio_descripcion", data.servicio_descripcion);
+  if (data.entrega_modalidad) fd.append("entrega_modalidad", data.entrega_modalidad);
 
   let res = await fetch(`${API_URL}/checkout/submit`, {
     method: "POST",

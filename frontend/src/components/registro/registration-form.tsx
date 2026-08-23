@@ -187,8 +187,12 @@ export function RegistrationForm() {
       setVerificationCode("");
 
       // Check account type and redirect
+      const redirect = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null;
       if (res.user?.profile?.account_type === "Quiero vender" && !res.user?.profile?.plan_id) {
         router.push("/planes");
+      } else if (redirect && redirect.startsWith("/")) {
+        if (res.accessToken) router.push(redirect);
+        else router.push(`/login?redirect=${encodeURIComponent(redirect)}`);
       } else if (res.accessToken) {
         // Buyers go to login
         router.push("/login");

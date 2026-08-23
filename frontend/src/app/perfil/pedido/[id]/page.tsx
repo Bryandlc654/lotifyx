@@ -151,7 +151,7 @@ export default function PedidoPage() {
                   <ArrowLeft className="h-5 w-5" />
                 </button>
                 <h1 className="text-2xl font-bold text-gray-700">
-                  Pedido #{order.operation_number?.slice(-6) || order.id.slice(0, 8)}
+                  {order.order_number ? `Pedido ${order.order_number}` : `Pedido #${order.operation_number?.slice(-6) || order.id.slice(0, 8)}`}
                 </h1>
                 <button onClick={() => { navigator.clipboard.writeText(order.id); toast.success("ID copiado"); }} className="text-gray-400 hover:text-gray-600">
                   <Copy className="h-5 w-5" />
@@ -552,6 +552,12 @@ export default function PedidoPage() {
                     <span className="text-sm text-gray-500">ID operación</span>
                     <span className="text-sm font-medium text-gray-700">{order.operation_number || "-"}</span>
                   </div>
+                  {order.entrega_modalidad && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Modalidad de entrega</span>
+                      <span className="text-sm font-medium text-gray-700">{order.entrega_modalidad === "recojo_tienda" ? "Recojo en tienda" : "Delivery externo"}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">{isSeller ? "Comprador" : "Vendedor"}</span>
                     <span className="text-sm font-medium text-gray-700">{isSeller ? buyerName : sellerName}</span>

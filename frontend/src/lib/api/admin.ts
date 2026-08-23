@@ -188,6 +188,33 @@ export async function updateOrderStatus(id: string, status: string) {
   return res.json();
 }
 
+export async function registerManualPayment(data: FormData): Promise<{ message: string; orderApproved?: boolean }> {
+  const res = await authFetch(`${API_URL}/admin/payments/manual`, { method: "POST", body: data });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al registrar pago" }))).message);
+  return res.json();
+}
+
+export async function getManualPayments(): Promise<any[]> {
+  const res = await authFetch(`${API_URL}/admin/payments/manual`);
+  if (!res.ok) throw new Error("Error al obtener pagos manuales");
+  return res.json();
+}
+
+export async function uploadConciliationTxt(file: File): Promise<{ message: string; batch_id?: string; total?: number; conciliados?: number; pendientes?: number }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await authFetch(`${API_URL}/admin/conciliation/txt`, { method: "POST", body: fd });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al importar TXT" }))).message);
+  return res.json();
+}
+
+export async function getConciliation(batchId?: string) {
+  const qs = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";
+  const res = await authFetch(`${API_URL}/admin/conciliation${qs}`);
+  if (!res.ok) throw new Error("Error al obtener conciliación");
+  return res.json();
+}
+
 export async function adminGetAuctions(): Promise<any[]> {
   const res = await authFetch(`${API_URL}/admin/auctions`);
   if (!res.ok) return [];

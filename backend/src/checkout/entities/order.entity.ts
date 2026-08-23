@@ -5,6 +5,14 @@ export class Order {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  /** Número de pedido único visible para el comprador (ej. LOT-1A2B3C4D) */
+  @Column({ length: 30, nullable: true })
+  order_number: string;
+
+  /** Modalidad de entrega elegida en el checkout: recojo_tienda | delivery_externo */
+  @Column({ length: 20, nullable: true })
+  entrega_modalidad: string;
+
   @Index()
   @Column({ type: "uuid" })
   user_id: string;

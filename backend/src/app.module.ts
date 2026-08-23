@@ -44,6 +44,7 @@ import { VerificationsModule } from "./verifications/verifications.module";
 import { ConfigModule as LotifyConfigModule } from "./config/config.module";
 import { CollusionModule } from "./collusion/collusion.module";
 import { ProvidersModule } from "./providers/providers.module";
+import { ConciliationModule } from "./conciliation/conciliation.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
@@ -153,6 +154,7 @@ import { ValidateDocumentController } from "./validate-document.controller";
     LotifyConfigModule,
     CollusionModule,
     ProvidersModule,
+    ConciliationModule,
   ],
 
   controllers: [DebugController, ValidateRucController, ValidateDocumentController],

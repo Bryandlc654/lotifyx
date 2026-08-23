@@ -849,7 +849,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                         if (buyQty < minBuyQty) { toast.error(`Cantidad mínima de compra (CMC): ${minBuyQty} unidad${minBuyQty !== 1 ? "es" : ""}.`); return; }
                         if (!getCurrentUserId()) {
                           if (!acceptTerms) { toast.error("Debes aceptar los términos y condiciones"); return; }
-                          setShowLoginModal(true);
+                          router.push(`/registro?redirect=${encodeURIComponent(`/producto/${id}`)}`);
                           return;
                         }
                         cart.addItem({
@@ -862,6 +862,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                           qty: buyQty,
                           minQty: minBuyQty,
                           variant_id: selectedVariant?.id || undefined,
+                          seller_id: product.user_id,
+                          seller_name: [product.seller?.first_name, product.seller?.last_name].filter(Boolean).join(" ") || "Vendedor",
                         });
                         setShowCartSuccess(true);
                       }}

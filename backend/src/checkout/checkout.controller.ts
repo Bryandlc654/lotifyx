@@ -100,6 +100,7 @@ export class CheckoutController {
       amount: parseFloat(body.amount),
       proofUrl,
       servicioDescripcion: body.servicio_descripcion?.trim() || null,
+      entregaModalidad: ["recojo_tienda", "delivery_externo"].includes(body.entrega_modalidad || "") ? body.entrega_modalidad : null,
     });
 
     // Link bid to order and add auction product as order item
@@ -134,6 +135,17 @@ export class CheckoutController {
     }
 
     return { message: "Depósito enviado correctamente", order };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("orders/:id/cancel")
+  @HttpCode(HttpStatus.OK)
+  cancelOrder(
+    @Req() req,
+    @Param("id") id: string,
+    @Body("reason") reason?: string,
+  ) {
+    return this.checkoutService.cancelOrder(req.user.id, id, reason?.trim() || "Cancelado por el comprador", false);
   }
 
   @UseGuards(JwtAuthGuard)

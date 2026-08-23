@@ -200,7 +200,8 @@ export class OrdersService {
 
     const sellerId = items[0]?.seller_id;
     const isBuyer = order.user_id === userId;
-    const isSeller = sellerId === userId;
+    // Multi-vendedor: cualquier vendedor con artículos en la orden puede ver el pedido
+    const isSeller = items.some((i: any) => i.seller_id === userId);
     if (!isBuyer && !isSeller) throw new ForbiddenException("No tienes acceso a este pedido");
 
     let sellerInfo = { seller_email: null, seller_first_name: null, seller_last_name: null, seller_phone: null };

@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useCart } from "@/lib/cart-context";
 import { getImageUrl, isAuthenticated, submitCheckout, submitPlanPayment, getPlans, getProfile } from "@/lib/api";
-import { Check, ArrowLeft, Banknote, LogIn, Copy, CheckCircle, AlertCircle, Moon, CreditCard, Upload } from "lucide-react";
+import { Check, ArrowLeft, Banknote, LogIn, Copy, CheckCircle, AlertCircle, Moon, CreditCard, Upload, Store } from "lucide-react";
 import { BankAccountSelector, PaymentForm } from "@/components/checkout";
 
 const CB = { name: "Lotifyx Payments S.A.C.", ruc: "20601802295", bank: "BCP - Banco de Crédito del Perú", bankLogo: "https://upload.wikimedia.org/wikipedia/commons/9/96/BCP_logo.svg", accountType: "Cuenta Corriente Soles", accountNumber: "191-23456789-0", cci: "0021911234561232023494" };
@@ -37,24 +37,33 @@ export default function CheckoutPage() {
   const [remainingOrderId, setRemainingOrderId] = useState<string | null>(null);
   const [remainingAmount, setRemainingAmount] = useState(0);
   const [unavailableIds, setUnavailableIds] = useState<Set<string>>(new Set());
+  const [stockLeft, setStockLeft] = useState<Record<string, number>>({});
   const [servicioDescripcion, setServicioDescripcion] = useState("");
+  const [entregaModalidad, setEntregaModalidad] = useState("");
+  const [orderNumber, setOrderNumber] = useState("");
 
-  // Verifica disponibilidad de los productos del carrito (pausado/agotado -> no disponible)
+  // Verifica disponibilidad Y stock de los productos del carrito en tiempo real
   useEffect(() => {
     if (!authed || items.length === 0) return;
     let cancelled = false;
     (async () => {
       const bad = new Set<string>();
+      const low: Record<string, number> = {};
       for (const it of items) {
         try {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/products/${it.id}`);
-          if (!res.ok) bad.add(it.id);
+          if (!res.ok) { bad.add(it.id); continue; }
+          const p = await res.json();
+          if (p.status !== "active") bad.add(it.id);
+          if (p.stock != null && (it.qty || 1) > Number(p.stock)) low[it.id] = Number(p.stock);
         } catch { bad.add(it.id); }
       }
-      if (!cancelled) setUnavailableIds(bad);
+      if (!cancelled) { setUnavailableIds(bad); setStockLeft(low); }
     })();
     return () => { cancelled = true; };
   }, [authed, items]);
+
+  const hayProblemasStock = items.some(i => unavailableIds.has(i.id) || stockLeft[i.id] != null);
 
   useEffect(() => { setAuthed(isAuthenticated()); }, []);
 
@@ -89,6 +98,10 @@ export default function CheckoutPage() {
     if (!opNum.trim()) { toast.error("Ingresa el número de operación"); return; }
     if (!amount.trim() || parseFloat(amount) <= 0) { toast.error("Ingresa un monto válido"); return; }
     if (!proofFile) { toast.error("Sube el comprobante de transferencia"); return; }
+    if (!planMode && !auctionMode && !remainingMode && items.length > 0) {
+      if (hayProblemasStock) { toast.error("Hay productos sin stock suficiente. Revisa tu carrito."); return; }
+      if (!entregaModalidad) { toast.error("Selecciona la modalidad de entrega"); return; }
+    }
     setSubmitting(true);
     try {
       if (planMode) await submitPlanPayment({ operation_number: opNum.trim(), amount: parseFloat(amount), origin_account_id: selectedAccount, proof: proofFile });
@@ -104,7 +117,10 @@ export default function CheckoutPage() {
         if (!res.ok) throw new Error((await res.json()).message || "Error");
       }
       else if (auctionMode && pendingBidId) await submitCheckout({ items: [], origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, bid_id: pendingBidId });
-      else await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1, variant_id: i.variant_id })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, servicio_descripcion: servicioDescripcion || undefined });
+      else {
+        const resp = await submitCheckout({ items: items.map(i => ({ id: i.id, price: i.price, qty: i.qty || 1, variant_id: i.variant_id })), origin_account_id: selectedAccount, operation_number: opNum.trim(), amount: parseFloat(amount), proof: proofFile, servicio_descripcion: servicioDescripcion || undefined, entrega_modalidad: entregaModalidad || undefined });
+        if (resp?.order?.order_number) setOrderNumber(resp.order.order_number);
+      }
       setShowSuccess(true);
     } catch (err: any) { toast.error(err.message || "Error al enviar depósito"); }
     finally { setSubmitting(false); }
@@ -140,7 +156,22 @@ export default function CheckoutPage() {
             {planMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-purple-50 rounded-xl"><CreditCard className="w-8 h-8 text-purple-600" /></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Plan {planName}</h3><p className="text-xs text-gray-400">Activación de cuenta vendedor</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {planPrice.toFixed(2)}</p></div></div>
               : remainingMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-green-50 rounded-xl"><svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" /><path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" /><path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" /></svg></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Saldo pendiente de subasta</h3><p className="text-xs text-gray-400">Pago final del producto ganado en subasta</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {remainingAmount.toFixed(2)}</p></div></div>
               : auctionMode ? <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="p-3 bg-amber-50 rounded-xl"><svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" /><path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" /><path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" /></svg></div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">Garantía de subasta</h3><p className="text-xs text-gray-400">Reembolsable si no resultas ganador</p></div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {auctionGuarantee.toFixed(2)}</p></div></div>
-              : items.map(item => <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="w-20 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">{item.image ? <img src={getImageUrl(item.image)} alt={item.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin img</div>}</div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">{item.title}</h3>{item.sku && <p className="text-xs text-gray-400">SKU: {item.sku}</p>}{(item.qty || 1) > 1 && <p className="text-xs text-gray-400 mt-0.5">{item.qty} unidades × S/ {item.price.toFixed(2)}</p>}</div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Total a pagar</p><p className="text-lg font-bold text-gray-900">S/ {(item.price * (item.qty || 1)).toFixed(2)}</p>{item.regularPrice && <p className="text-[10px] text-gray-300 line-through">S/ {(item.regularPrice * (item.qty || 1)).toFixed(2)}</p>}</div></div>)}
+              : (() => {
+                  const groups = new Map<string, { name: string; items: typeof items }>();
+                  for (const it of items) {
+                    const key = it.seller_id || "sin-vendedor";
+                    if (!groups.has(key)) groups.set(key, { name: it.seller_name || "Vendedor", items: [] });
+                    groups.get(key)!.items.push(it);
+                  }
+                  return [...groups.values()].map(g => (
+                    <div key={g.name} className="space-y-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <Store className="w-3.5 h-3.5 text-purple-600" /> Vendedor: {g.name}
+                      </p>
+                      {g.items.map(item => <div key={item.id} className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="w-20 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">{item.image ? <img src={getImageUrl(item.image)} alt={item.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin img</div>}</div><div className="flex-grow min-w-0"><h3 className="text-sm font-semibold text-gray-800">{item.title}</h3>{item.sku && <p className="text-xs text-gray-400">SKU: {item.sku}</p>}{(item.qty || 1) > 1 && <p className="text-xs text-gray-400 mt-0.5">{item.qty} unidades × S/ {item.price.toFixed(2)}</p>}</div><div className="text-right flex-shrink-0"><p className="text-xs text-gray-400">Subtotal</p><p className="text-lg font-bold text-gray-900">S/ {(item.price * (item.qty || 1)).toFixed(2)}</p>{item.regularPrice && <p className="text-[10px] text-gray-300 line-through">S/ {(item.regularPrice * (item.qty || 1)).toFixed(2)}</p>}</div></div>)}
+                    </div>
+                  ));
+                })()}
           </div>
         </section>
 
@@ -175,6 +206,32 @@ export default function CheckoutPage() {
         </section>
 
         {!planMode && !auctionMode && !remainingMode && items.length > 0 && (
+          <section className="mb-8" data-purpose="entrega-modalidad">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Modalidad de entrega</h2>
+            <p className="text-xs text-gray-500 mb-4">¿Cómo quieres recibir tu compra?</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { value: "recojo_tienda", label: "Recojo en tienda", desc: "Coordina directamente con el vendedor" },
+                { value: "delivery_externo", label: "Delivery externo", desc: "Envío por courier o delivery del vendedor" },
+              ].map(m => (
+                <button key={m.value} type="button" onClick={() => setEntregaModalidad(m.value)}
+                  className={`text-left p-4 rounded-xl border-2 transition-all ${entregaModalidad === m.value ? "border-purple-600 bg-purple-50/40" : "border-gray-200 bg-white hover:border-purple-300"}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${entregaModalidad === m.value ? "border-purple-600 bg-purple-600" : "border-gray-300 bg-white"}`}>
+                      {entregaModalidad === m.value && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">{m.label}</p>
+                      <p className="text-[11px] text-gray-500">{m.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!planMode && !auctionMode && !remainingMode && items.length > 0 && (
           <section className="mb-8" data-purpose="service-description">
             <h2 className="text-lg font-bold text-gray-800 mb-2">Descripción del trabajo requerido</h2>
             <p className="text-xs text-gray-500 mb-4">Describe brevemente el trabajo o servicio que necesitas (opcional).</p>
@@ -187,7 +244,7 @@ export default function CheckoutPage() {
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 mt-8">
-          <button onClick={handleSubmitDeposit} disabled={submitting} className="text-white font-bold py-3 px-12 rounded-lg flex-grow shadow-lg shadow-purple-500/20 hover:opacity-90 transition-opacity disabled:opacity-60" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>{submitting ? "Enviando..." : "Confirmar depósito"}</button>
+          <button onClick={handleSubmitDeposit} disabled={submitting || (items.length > 0 && !planMode && !auctionMode && !remainingMode && hayProblemasStock)} className="text-white font-bold py-3 px-12 rounded-lg flex-grow shadow-lg shadow-purple-500/20 hover:opacity-90 transition-opacity disabled:opacity-60" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>{hayProblemasStock && items.length > 0 && !planMode && !auctionMode && !remainingMode ? "Stock insuficiente" : submitting ? "Enviando..." : "Confirmar depósito"}</button>
           <button onClick={() => setShowTransferView(false)} className="bg-slate-600 text-white font-bold py-3 px-12 rounded-lg hover:bg-slate-700 transition-colors">Regresar</button>
         </div>
       </div>
@@ -207,7 +264,7 @@ export default function CheckoutPage() {
       </aside>
     </div>
   </div></main><Footer />
-    {showSuccess && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"><div className="bg-white rounded-3xl p-10 max-w-md w-full mx-4 shadow-2xl text-center"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8 text-green-600" /></div><h2 className="text-2xl font-bold text-gray-900 mb-2">¡Depósito enviado!</h2><p className="text-sm text-gray-500 mb-2">Tu comprobante fue recibido correctamente.</p><p className="text-xs text-gray-400 mb-8">{planMode ? "Revisaremos tu pago y activaremos tu cuenta de vendedor." : "Revisaremos tu pago y te confirmaremos por correo electrónico."}</p><button onClick={handleSuccessClose} className="w-full text-white font-bold py-3 rounded-xl transition-opacity hover:opacity-90" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>{planMode ? "Ir a mi perfil" : "Ir a mis compras"}</button></div></div>}
+    {showSuccess && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"><div className="bg-white rounded-3xl p-10 max-w-md w-full mx-4 shadow-2xl text-center"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8 text-green-600" /></div><h2 className="text-2xl font-bold text-gray-900 mb-2">¡Depósito enviado!</h2>{orderNumber && <p className="text-sm text-gray-700 mb-2">Tu número de pedido es: <span className="font-bold text-purple-600">{orderNumber}</span></p>}<p className="text-sm text-gray-500 mb-2">Tu comprobante fue recibido correctamente.</p><p className="text-xs text-gray-400 mb-8">{planMode ? "Revisaremos tu pago y activaremos tu cuenta de vendedor." : "Revisaremos tu pago y te confirmaremos por correo electrónico."}</p><button onClick={handleSuccessClose} className="w-full text-white font-bold py-3 rounded-xl transition-opacity hover:opacity-90" style={{ background: "linear-gradient(90deg, #7C3AED 0%, #3B82F6 100%)" }}>{planMode ? "Ir a mi perfil" : "Ir a mis compras"}</button></div></div>}
   </>;
 
   return <><Header /><main className="bg-[#F3F4F6] min-h-screen pt-24"><div className="max-w-5xl mx-auto py-10 px-4">
@@ -248,7 +305,7 @@ export default function CheckoutPage() {
           {planMode ? <div className="space-y-4"><div className="flex items-center gap-4"><div className="p-3 bg-purple-50 rounded-xl"><CreditCard className="w-8 h-8 text-purple-600" /></div><div className="flex-1"><h3 className="text-sm font-bold text-gray-800">Plan {planName}</h3><p className="text-xs text-gray-400">Activación de cuenta vendedor</p></div></div><div className="mt-4 pt-4 border-t border-gray-100"><div className="flex justify-between items-center"><span className="text-sm text-gray-500">Total</span><span className="text-lg font-bold text-gray-800">S/ {planPrice.toFixed(2)}</span></div></div></div>
             : remainingMode ? <div className="space-y-4"><div className="flex items-center gap-4"><div className="p-3 bg-green-50 rounded-xl"><svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" /><path d="m16 16 3.5 3.5c.83.83 2.17.83 3 0 0 0 0 0 0 0a2.12 2.12 0 0 0 0-3L19 13" /><path d="m15 11 3-3" /><path d="m8 4 3 3" /><path d="m2 2 16 16" /><path d="m2 11 9-9" /></svg></div><div className="flex-1"><h3 className="text-sm font-bold text-gray-800">Saldo pendiente de subasta</h3><p className="text-xs text-gray-400">Pago final del producto ganado</p></div></div><div className="mt-4 pt-4 border-t border-gray-100"><div className="flex justify-between items-center"><span className="text-sm text-gray-500">Total</span><span className="text-lg font-bold text-gray-800">S/ {remainingAmount.toFixed(2)}</span></div></div></div>
             : items.length === 0 ? <div className="text-center py-8 text-sm text-gray-400"><p>No hay productos en tu carrito</p><button onClick={() => router.push("/categorias")} className="text-purple-600 hover:underline mt-2">Ir a comprar</button></div>
-            : <div className="space-y-4">{items.map(item => <div key={item.id} className="flex gap-4"><div className="w-24 h-16 bg-black rounded overflow-hidden flex-shrink-0">{item.image ? <img src={getImageUrl(item.image)} alt={item.title} className="object-cover w-full h-full" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs bg-gray-800">Sin img</div>}</div><div className="flex-1 min-w-0"><h3 className="text-xs font-bold text-gray-800 leading-tight">{item.title}</h3>{item.sku && <p className="text-[10px] text-gray-400">Lot: {item.sku}</p>}{(item.qty || 1) > 1 && <p className="text-[10px] text-gray-400">{item.qty} unidades × S/ {item.price.toFixed(2)}</p>}{unavailableIds.has(item.id) && <p className="text-[10px] font-bold text-red-500 mt-0.5">No disponible (pausado o agotado)</p>}</div><div className="text-right flex-shrink-0"><p className="text-sm font-bold text-gray-800">S/ {(item.price * (item.qty || 1)).toFixed(2)}</p>{item.regularPrice && <p className="text-[10px] text-gray-400 line-through">S/ {(item.regularPrice * (item.qty || 1)).toFixed(2)}</p>}</div></div>)}</div>}
+            : <div className="space-y-4">{items.map(item => <div key={item.id} className="flex gap-4"><div className="w-24 h-16 bg-black rounded overflow-hidden flex-shrink-0">{item.image ? <img src={getImageUrl(item.image)} alt={item.title} className="object-cover w-full h-full" /> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs bg-gray-800">Sin img</div>}</div><div className="flex-1 min-w-0"><h3 className="text-xs font-bold text-gray-800 leading-tight">{item.title}</h3>{item.sku && <p className="text-[10px] text-gray-400">Lot: {item.sku}</p>}{(item.qty || 1) > 1 && <p className="text-[10px] text-gray-400">{item.qty} unidades × S/ {item.price.toFixed(2)}</p>}{unavailableIds.has(item.id) && <p className="text-[10px] font-bold text-red-500 mt-0.5">No disponible (pausado o agotado)</p>}{!unavailableIds.has(item.id) && stockLeft[item.id] != null && <p className="text-[10px] font-bold text-red-500 mt-0.5">Stock insuficiente: quedan {stockLeft[item.id]} unidad(es)</p>}</div><div className="text-right flex-shrink-0"><p className="text-sm font-bold text-gray-800">S/ {(item.price * (item.qty || 1)).toFixed(2)}</p>{item.regularPrice && <p className="text-[10px] text-gray-400 line-through">S/ {(item.regularPrice * (item.qty || 1)).toFixed(2)}</p>}</div></div>)}</div>}
           {(items.length > 0 || planMode || auctionMode || remainingMode) && <div className="mt-6 pt-4 border-t border-gray-100"><div className="flex justify-between items-center"><span className="text-sm text-gray-500">Total</span><span className="text-lg font-bold text-gray-800">S/ {planMode ? planPrice.toFixed(2) : remainingMode ? remainingAmount.toFixed(2) : auctionMode ? auctionGuarantee.toFixed(2) : total.toFixed(2)}</span></div></div>}
         </div>
       </section>

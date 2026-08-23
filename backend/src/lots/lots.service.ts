@@ -8,6 +8,7 @@ import { LotParticipant } from "./lot-participant.entity";
 import { LotRcgTier } from "./lot-rcg-tier.entity";
 import { LotBenefitApplication } from "./lot-benefit-application.entity";
 import { ConfigService } from "../config/config.service";
+import { CollusionService } from "../collusion/collusion.service";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
@@ -41,6 +42,7 @@ export class LotsService implements OnModuleInit {
     private readonly participantsRepo: Repository<LotParticipant>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    private readonly collusion: CollusionService,
   ) {}
 
   async onModuleInit() {
@@ -180,6 +182,10 @@ export class LotsService implements OnModuleInit {
   }
 
   async join(lotSaleId: string, compradorId: string, cantidad: number = 1) {
+    // Compradores bloqueados o sancionados no pueden participar
+    await this.collusion.assertNotBlocked(compradorId);
+    await this.collusion.assertNotSanctioned(compradorId);
+
     const lot = await this.repo.findOne({ where: { id: lotSaleId } });
     if (!lot) throw new NotFoundException("Venta por lote no encontrada");
     if (lot.estado !== "abierto") throw new BadRequestException("Esta venta por lote ya cerró");
@@ -199,56 +205,83 @@ export class LotsService implements OnModuleInit {
       throw new BadRequestException(`Debes comprometer al menos ${cmc} unidad(es) (CMC)`);
     }
 
-    // El lote nunca puede superar el stock real del producto
-    const [prodRow] = await this.dataSource.query(
-      `SELECT stock FROM products WHERE id = $1`,
-      [lot.product_id],
-    );
-    const productStock = Number(prodRow?.stock || 0);
-    const lotTotal = Math.max(1, lot.cantidad_total || 1);
-    const cantidadTotal = productStock > 0 ? Math.min(lotTotal, productStock) : lotTotal;
-    if (effectiveQty > cantidadTotal) {
-      throw new BadRequestException(`La cantidad máxima disponible es ${cantidadTotal} unidad(es)`);
-    }
+    // Transacción con bloqueo de fila del lote: evita que dos compradores simultáneos
+    // superen el volumen comprometido (atomicidad de la reserva)
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    let totalReserved = 0;
+    let lotTotal = Math.max(1, lot.cantidad_total || 1);
+    try {
+      await queryRunner.query(`SELECT id FROM lot_sales WHERE id = $1 FOR UPDATE`, [lotSaleId]);
 
-    const reserved = await this.reservedOf(lotSaleId);
-
-    const existing = await this.participantsRepo.findOne({
-      where: { lot_sale_id: lotSaleId, comprador_id: compradorId },
-    });
-
-    const currentQty = existing && existing.estado === "reservado" ? Number(existing.cantidad) || 0 : 0;
-    const totalReserved = reserved - currentQty + effectiveQty;
-    if (totalReserved > cantidadTotal) {
-      const disponible = cantidadTotal - (reserved - currentQty);
-      throw new BadRequestException(
-        disponible <= 0
-          ? "El lote ya no tiene unidades disponibles"
-          : `Solo quedan ${disponible} unidad(es) disponible(s) en el lote`
+      // El lote nunca puede superar el stock real del producto
+      const [prodRow] = await queryRunner.query(
+        `SELECT stock FROM products WHERE id = $1 FOR UPDATE`,
+        [lot.product_id],
       );
-    }
-
-    if (existing) {
-      if (existing.estado !== "reservado") {
-        throw new BadRequestException("Ya participaste en este lote");
+      const productStock = Number(prodRow?.stock || 0);
+      const cantidadTotal = productStock > 0 ? Math.min(lotTotal, productStock) : lotTotal;
+      if (effectiveQty > cantidadTotal) {
+        throw new BadRequestException(`La cantidad máxima disponible es ${cantidadTotal} unidad(es)`);
       }
-      existing.cantidad = effectiveQty;
-      await this.participantsRepo.save(existing);
-    } else {
-      await this.participantsRepo.save(this.participantsRepo.create({
-        lot_sale_id: lotSaleId,
-        comprador_id: compradorId,
-        cantidad: effectiveQty,
-        estado: "reservado",
-      }));
-    }
 
-    lot.cantidad_reservada = totalReserved;
-    await this.repo.save(lot);
+      const [reservedRow] = await queryRunner.query(
+        `SELECT COALESCE(SUM(cantidad), 0)::int AS reserved FROM lot_participants
+         WHERE lot_sale_id = $1 AND estado = 'reservado'`,
+        [lotSaleId],
+      );
+      const reserved = Number(reservedRow?.reserved || 0);
+
+      const existing = await queryRunner.query(
+        `SELECT * FROM lot_participants WHERE lot_sale_id = $1 AND comprador_id = $2`,
+        [lotSaleId, compradorId],
+      );
+      const current = existing[0];
+      const currentQty = current && current.estado === "reservado" ? Number(current.cantidad) || 0 : 0;
+
+      totalReserved = reserved - currentQty + effectiveQty;
+      if (totalReserved > cantidadTotal) {
+        const disponible = cantidadTotal - (reserved - currentQty);
+        throw new BadRequestException(
+          disponible <= 0
+            ? "El lote ya no tiene unidades disponibles"
+            : `Solo quedan ${disponible} unidad(es) disponible(s) en el lote`
+        );
+      }
+
+      if (current) {
+        if (current.estado !== "reservado") {
+          throw new BadRequestException("Ya participaste en este lote");
+        }
+        await queryRunner.query(
+          `UPDATE lot_participants SET cantidad = $2 WHERE id = $1`,
+          [current.id, effectiveQty],
+        );
+      } else {
+        await queryRunner.query(
+          `INSERT INTO lot_participants (lot_sale_id, comprador_id, cantidad, estado, created_at)
+           VALUES ($1, $2, $3, 'reservado', NOW())`,
+          [lotSaleId, compradorId, effectiveQty],
+        );
+      }
+
+      await queryRunner.query(
+        `UPDATE lot_sales SET cantidad_reservada = $2, updated_at = NOW() WHERE id = $1`,
+        [lotSaleId, totalReserved],
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
 
     const minUnits = Math.max(1, lot.participantes_minimos || 1);
     const reachMinimo = totalReserved >= minUnits;
-    const reachTotal = totalReserved >= cantidadTotal;
+    const reachTotal = totalReserved >= lotTotal;
     if (reachMinimo || reachTotal) {
       await this.closeLot(lotSaleId);
       return { message: "Lote completado. Se generó tu orden de compra; confirma el pago en Mis Compras.", lot_cerrado: true, lot_id: lotSaleId };

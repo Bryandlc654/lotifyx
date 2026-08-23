@@ -22,4 +22,9 @@ export class SubmitCheckoutDto {
   @IsOptional()
   @IsString()
   servicio_descripcion?: string;
+
+  /** Modalidad de entrega: recojo_tienda | delivery_externo */
+  @IsOptional()
+  @IsString()
+  entrega_modalidad?: string;
 }

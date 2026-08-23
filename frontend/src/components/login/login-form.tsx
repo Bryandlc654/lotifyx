@@ -33,6 +33,8 @@ export function LoginForm() {
       if (u?.role?.name === "vendedor" && !u?.profile?.plan_id) {
         router.push("/planes"); return;
       }
+      const redirect = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null;
+      if (redirect && redirect.startsWith("/")) { router.push(redirect); return; }
       router.push(u?.role?.name === "vendedor" ? "/perfil/dashboard" : "/perfil");
     } catch (err: any) {
       toast.error(err.message || "Error al iniciar sesión");

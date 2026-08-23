@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMyOrders, getOrderDetail, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId } from "@/lib/api";
+import { getMyOrders, getOrderDetail, getImageUrl, isAuthenticated, removeTokens, getProfile, getCurrentUserId, cancelMyOrder } from "@/lib/api";
 import { ShoppingBag, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, Store, Mail, Phone, MessageCircle, Wallet, Star } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -31,6 +31,8 @@ interface Order {
   total_amount: number;
   shipping_cost?: number;
   status: string;
+  order_number?: string;
+  entrega_modalidad?: string;
   operation_number: string;
   amount: number;
   proof_image: string;
@@ -39,6 +41,7 @@ interface Order {
   bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
   remaining_balance?: boolean;
   payment_stage?: string | null;
+  tracking_status?: string | null;
   benefits?: Array<{ beneficio_aplicado: string; unidades_extra: number }>;
   servicio_descripcion?: string | null;
 }
@@ -48,6 +51,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   paid: { label: "Pagado", color: "text-blue-600 bg-blue-50", icon: CheckCircle },
   completed: { label: "Completado", color: "text-green-600 bg-green-50", icon: CheckCircle },
   rejected: { label: "Rechazado", color: "text-red-600 bg-red-50", icon: XCircle },
+  cancelled: { label: "Cancelado", color: "text-gray-600 bg-gray-100", icon: XCircle },
 };
 
 export default function MisComprasPage() {
@@ -136,6 +140,9 @@ export default function MisComprasPage() {
                     <div className="p-6">
                       <div className="flex flex-wrap gap-2 items-center mb-4">
                         <div className="flex items-center gap-2">
+                          {order.order_number && (
+                            <span className="text-xs font-bold text-purple-600">{order.order_number}</span>
+                          )}
                           <span className="text-xs text-gray-400">{formatDate(order.created_at)}</span>
                           <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
                             <Icon className="w-3 h-3" />
@@ -179,6 +186,25 @@ export default function MisComprasPage() {
                             className="flex items-center gap-1 text-[10px] text-green-600 hover:underline">
                             <Star className="w-3 h-3" />
                             Reseña
+                          </button>
+                        )}
+                        {["pending_payment", "paid"].includes(order.status) && !order.tracking_status && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const motivo = window.prompt("Motivo de cancelación (opcional):") ;
+                              if (motivo === null) return;
+                              try {
+                                await cancelMyOrder(order.id, motivo || undefined);
+                                toast.success("Pedido cancelado. El stock fue reintegrado.");
+                                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "cancelled" } : o));
+                              } catch (err: any) {
+                                toast.error(err.message || "No se pudo cancelar el pedido");
+                              }
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-red-500 hover:underline">
+                            <XCircle className="w-3 h-3" />
+                            Cancelar pedido
                           </button>
                         )}
                         {showChat && (
@@ -287,10 +313,22 @@ export default function MisComprasPage() {
             </div>
 
             <div className="space-y-4 text-sm">
+              {selectedOrder.order_number && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nº de pedido</span>
+                  <span className="font-bold text-purple-600">{selectedOrder.order_number}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-500">Nº Operación</span>
                 <span className="font-medium">{selectedOrder.operation_number || "-"}</span>
               </div>
+              {selectedOrder.entrega_modalidad && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Modalidad de entrega</span>
+                  <span className="font-medium">{selectedOrder.entrega_modalidad === "recojo_tienda" ? "Recojo en tienda" : "Delivery externo"}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-500">Monto transferido</span>
                 <span className="font-medium">S/ {Number(selectedOrder.amount).toFixed(2)}</span>

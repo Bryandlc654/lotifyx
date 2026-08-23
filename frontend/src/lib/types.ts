@@ -52,6 +52,8 @@ export interface Order {
   user_id: string;
   total_amount: number;
   status: string;
+  order_number?: string;
+  entrega_modalidad?: string;
   operation_number?: string;
   amount?: number;
   proof_image?: string;

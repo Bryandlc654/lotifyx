@@ -49,6 +49,7 @@ export class CheckoutService implements OnModuleInit {
     amount: number;
     proofUrl: string;
     servicioDescripcion?: string | null;
+    entregaModalidad?: string | null;
   }) {
     if (data.items.length > 0) {
       const productIds = data.items.map(i => i.id);
@@ -58,6 +59,25 @@ export class CheckoutService implements OnModuleInit {
       );
       if (ownProducts.length > 0) {
         throw new BadRequestException("No puedes comprar tus propios productos");
+      }
+      // Validación de stock antes de crear la orden: cantidad solicitada vs disponible
+      const stockRows = await this.dataSource.query(
+        `SELECT id, title, stock, status FROM products WHERE id = ANY($1) AND deleted_at IS NULL`,
+        [productIds],
+      );
+      const stockById: Record<string, any> = {};
+      for (const r of stockRows) stockById[r.id] = r;
+      for (const item of data.items) {
+        const p = stockById[item.id];
+        if (!p || p.status !== "active") {
+          throw new BadRequestException("Un producto de tu carrito ya no está disponible");
+        }
+        const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
+        if (p.stock != null && qty > Number(p.stock)) {
+          throw new BadRequestException(
+            `Stock insuficiente para "${p.title}": solicitaste ${qty} y quedan ${p.stock} unidad(es)`
+          );
+        }
       }
       const cmcRows = await this.dataSource.query(
         `SELECT id, min_qty FROM products WHERE id = ANY($1) AND deleted_at IS NULL`,
@@ -81,11 +101,18 @@ export class CheckoutService implements OnModuleInit {
 
     try {
       const totalAmount = data.total > 0 ? data.total : data.amount;
+      // Número de pedido único y legible para el comprador
+      let orderNumber = `LOT-${Date.now().toString(36).toUpperCase().slice(-6)}${Math.random().toString(36).toUpperCase().slice(2, 4)}`;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = `LOT-${Date.now().toString(36).toUpperCase().slice(-6)}${Math.random().toString(36).toUpperCase().slice(2, 4)}`;
+        const [dup] = await queryRunner.query(`SELECT 1 FROM orders WHERE order_number = $1`, [candidate]);
+        if (!dup) { orderNumber = candidate; break; }
+      }
       const [order] = await queryRunner.query(
-        `INSERT INTO orders (user_id, total_amount, status, origin_account_id, operation_number, amount, proof_image, servicio_descripcion, created_at, updated_at)
-         VALUES ($1, $2, 'pending_payment', $3, $4, $5, $6, $7, NOW(), NOW())
+        `INSERT INTO orders (user_id, total_amount, status, origin_account_id, operation_number, amount, proof_image, servicio_descripcion, entrega_modalidad, order_number, created_at, updated_at)
+         VALUES ($1, $2, 'pending_payment', $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
          RETURNING *`,
-        [data.userId, totalAmount, data.originAccountId, data.operationNumber, data.amount, data.proofUrl, data.servicioDescripcion || null],
+        [data.userId, totalAmount, data.originAccountId, data.operationNumber, data.amount, data.proofUrl, data.servicioDescripcion || null, data.entregaModalidad || null, orderNumber || null],
       );
 
       if (data.items.length > 0) {
@@ -96,6 +123,31 @@ export class CheckoutService implements OnModuleInit {
           `INSERT INTO order_items (order_id, product_id, price, qty, variant_id, created_at) VALUES ${values}`,
           params,
         );
+
+        // El stock se descuenta al CREAR el pedido (reserva inmediata), no al confirmar el pago.
+        // Si el pago no se confirma en plazo, el cron de cancelación reintegra el stock automáticamente.
+        await queryRunner.query(
+          `UPDATE products p
+           SET stock = GREATEST(p.stock - oi.qty, 0)
+           FROM order_items oi
+           WHERE oi.order_id = $1 AND oi.product_id = p.id AND p.stock > 0`,
+          [order.id],
+        );
+        await queryRunner.query(
+          `UPDATE product_variants pv
+           SET stock = GREATEST(pv.stock - oi.qty, 0)
+           FROM order_items oi
+           WHERE oi.order_id = $1 AND oi.variant_id IS NOT NULL AND oi.variant_id = pv.id AND pv.stock > 0`,
+          [order.id],
+        );
+        await queryRunner.query(
+          `UPDATE products SET status = 'agotado'
+           WHERE id IN (
+             SELECT oi.product_id FROM order_items oi WHERE oi.order_id = $1
+           ) AND stock <= 0 AND deleted_at IS NULL`,
+          [order.id],
+        );
+        await queryRunner.query(`UPDATE orders SET stock_deducted = true WHERE id = $1`, [order.id]);
       }
 
       await queryRunner.commitTransaction();
@@ -138,13 +190,18 @@ export class CheckoutService implements OnModuleInit {
         `SELECT 1 FROM orders WHERE id = $1 AND payment_stage = 'saldo' LIMIT 1`,
         [id],
       );
+      const [stockFlag] = await queryRunner.query(
+        `SELECT stock_deducted FROM orders WHERE id = $1`,
+        [id],
+      );
+      const stockDeducted = !!stockFlag?.stock_deducted;
 
       // Las órdenes de puja y las de saldo de subasta conservan su comportamiento previo.
-      // Las órdenes de saldo de lote/solicitud de compra no descuentan stock (ya reservado
-      // al pagar la garantía) pero sí acreditan fondos al vendedor.
+      // Las órdenes creadas por checkout YA descontaron stock al crearse (stock_deducted).
+      // Solo las órdenes legacy/de ofertas descuentan aquí; las de saldo de lote no descuentan.
       if (!bidLink || isRemainingOrder) {
         if (!isRemainingOrder) {
-          if (!isSaldoStage) {
+          if (!isSaldoStage && !stockDeducted) {
             await queryRunner.query(
               `UPDATE products p
                SET stock = GREATEST(p.stock - oi.qty, 0)
@@ -168,6 +225,7 @@ export class CheckoutService implements OnModuleInit {
                ) AND stock <= 0 AND deleted_at IS NULL`,
               [id],
             );
+            await queryRunner.query(`UPDATE orders SET stock_deducted = true WHERE id = $1`, [id]);
           }
 
           await queryRunner.query(
@@ -179,13 +237,18 @@ export class CheckoutService implements OnModuleInit {
             [id],
           );
 
+          // Multi-vendedor: acredita a cada vendedor el subtotal de SUS artículos (pago único, liquidación separada)
           await queryRunner.query(
-            `UPDATE funds SET pending_balance = pending_balance + (SELECT total_amount FROM orders WHERE id = $1)
-             WHERE user_id = (
-               SELECT p.user_id FROM order_items oi
+            `UPDATE funds f
+             SET pending_balance = f.pending_balance + s.subtotal
+             FROM (
+               SELECT p.user_id, SUM(oi.price * oi.qty) AS subtotal
+               FROM order_items oi
                INNER JOIN products p ON p.id = oi.product_id
-               WHERE oi.order_id = $1 LIMIT 1
-             )`,
+               WHERE oi.order_id = $1
+               GROUP BY p.user_id
+             ) s
+             WHERE f.user_id = s.user_id`,
             [id],
           );
         }
@@ -213,8 +276,83 @@ export class CheckoutService implements OnModuleInit {
       `UPDATE orders SET status = 'rejected', rejected_reason = $2, updated_at = NOW() WHERE id = $1`,
       [id, motivo],
     );
+    // Si el stock fue descontado al crear el pedido, se reintegra
+    const [flag] = await this.dataSource.query(`SELECT stock_deducted FROM orders WHERE id = $1`, [id]);
+    if (flag?.stock_deducted) await this.restoreStockForOrder(this.dataSource, id);
     this.audit.log({ action: "order_rejected", entity: "order", entityId: id, details: { motivo } });
     return { message: "Pago rechazado" };
+  }
+
+  /** Reintegra el stock descontado por una orden cancelada/rechazada (productos y variantes). */
+  private async restoreStockForOrder(runner: any, orderId: string) {
+    await runner.query(
+      `UPDATE products p SET stock = p.stock + oi.qty
+       FROM order_items oi
+       WHERE oi.order_id = $1 AND oi.product_id = p.id`,
+      [orderId],
+    );
+    await runner.query(
+      `UPDATE product_variants pv SET stock = pv.stock + oi.qty
+       FROM order_items oi
+       WHERE oi.order_id = $1 AND oi.variant_id IS NOT NULL AND oi.variant_id = pv.id`,
+      [orderId],
+    );
+    await runner.query(
+      `UPDATE products SET status = 'active'
+       WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1)
+         AND status = 'agotado' AND stock > 0 AND deleted_at IS NULL`,
+      [orderId],
+    );
+    await runner.query(`UPDATE orders SET stock_deducted = false WHERE id = $1`, [orderId]);
+  }
+
+  /**
+   * Cancelación manual bajo reglas:
+   * - Comprador: puede cancelar si la orden está Pendiente o Pagado y aún no está En preparación.
+   * - A partir de En preparación (tracking iniciado) requiere intervención del Administrador.
+   * - El stock descontado se reintegra automáticamente.
+   */
+  async cancelOrder(userId: string, orderId: string, motivo: string, isAdmin: boolean) {
+    const [order] = await this.dataSource.query(`SELECT * FROM orders WHERE id = $1`, [orderId]);
+    if (!order) throw new NotFoundException("Pedido no encontrado");
+    if (!isAdmin && order.user_id !== userId) throw new ForbiddenException("No puedes cancelar este pedido");
+    if (["completed", "cancelled", "rejected"].includes(order.status)) {
+      throw new BadRequestException("Este pedido ya no puede cancelarse");
+    }
+    if (!isAdmin) {
+      if (!["pending_payment", "paid"].includes(order.status)) {
+        throw new ForbiddenException("Solo un administrador puede cancelar el pedido en esta etapa");
+      }
+      if (order.tracking_status) {
+        throw new ForbiddenException("El pedido está En preparación; la cancelación requiere intervención del Administrador");
+      }
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query(
+        `UPDATE orders SET status = 'cancelled', cancelled_reason = $2, updated_at = NOW() WHERE id = $1`,
+        [orderId, motivo],
+      );
+      if (order.stock_deducted) await this.restoreStockForOrder(queryRunner, orderId);
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+
+    this.audit.log({
+      userId,
+      action: isAdmin ? "order_cancelled_admin" : "order_cancelled_buyer",
+      entity: "order",
+      entityId: orderId,
+      details: { motivo },
+    });
+    return { message: "Pedido cancelado. El stock fue reintegrado." };
   }
 
   async updateOrderStatus(id: string, status: string) {
@@ -241,7 +379,14 @@ export class CheckoutService implements OnModuleInit {
       [orderId],
     );
     if (!order) throw new NotFoundException("Pedido no encontrado");
-    if (order.seller_id !== userId) throw new ForbiddenException("Solo el vendedor puede actualizar el tracking");
+    // Multi-vendedor: cualquier vendedor con artículos en la orden puede actualizar el tracking
+    const [sellerInOrder] = await this.dataSource.query(
+      `SELECT 1 FROM order_items oi
+       INNER JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = $1::uuid AND p.user_id = $2::uuid LIMIT 1`,
+      [orderId, userId],
+    );
+    if (!sellerInOrder) throw new ForbiddenException("Solo el vendedor puede actualizar el tracking");
 
     const validStatuses = ["coordination", "shipping", "delivered"];
     if (!validStatuses.includes(data.status)) throw new BadRequestException("El estado seleccionado no es válido");
@@ -283,17 +428,19 @@ export class CheckoutService implements OnModuleInit {
         `UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1::uuid AND status = 'paid'`,
         [orderId],
       );
+      // Multi-vendedor: libera el saldo pendiente a disponible por cada vendedor según SUS artículos
       await this.dataSource.query(
-        `UPDATE funds SET available_balance = available_balance + (
-           SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1::uuid
-         ), pending_balance = pending_balance - (
-           SELECT COALESCE(SUM(oi.price * oi.qty), 0) FROM order_items oi WHERE oi.order_id = $1::uuid
-         )
-         WHERE user_id = (
-           SELECT p.user_id FROM order_items oi
+        `UPDATE funds f
+         SET available_balance = f.available_balance + s.subtotal,
+             pending_balance = f.pending_balance - s.subtotal
+         FROM (
+           SELECT p.user_id, SUM(oi.price * oi.qty) AS subtotal
+           FROM order_items oi
            INNER JOIN products p ON p.id = oi.product_id
-           WHERE oi.order_id = $1::uuid LIMIT 1
-         )`,
+           WHERE oi.order_id = $1::uuid
+           GROUP BY p.user_id
+         ) s
+         WHERE f.user_id = s.user_id`,
         [orderId],
       );
       this.audit.log({ userId, action: "order_completed", entity: "order", entityId: orderId, details: { status: "completed" } });
@@ -337,6 +484,15 @@ export class CheckoutService implements OnModuleInit {
         [days],
       );
       if (result.length > 0) {
+        // Reintegra el stock descontado al crear el pedido (las órdenes vencidas liberan inventario)
+        for (const o of result as any[]) {
+          const [flag] = await this.dataSource.query(`SELECT stock_deducted FROM orders WHERE id = $1`, [o.id]);
+          if (flag?.stock_deducted) {
+            try { await this.restoreStockForOrder(this.dataSource, o.id); } catch (e: any) {
+              console.error("[Checkout] Error reintegrando stock de orden vencida:", e.message);
+            }
+          }
+        }
         const userIds: string[] = [...new Set((result as any[]).map((o: any) => o.user_id))];
         for (const o of result) {
           this.audit.log({
