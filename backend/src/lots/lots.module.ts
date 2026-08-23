@@ -5,11 +5,12 @@ import { LotParticipant } from "./lot-participant.entity";
 import { LotRcgTier } from "./lot-rcg-tier.entity";
 import { LotBenefitApplication } from "./lot-benefit-application.entity";
 import { ConfigModule } from "../config/config.module";
+import { CollusionModule } from "../collusion/collusion.module";
 import { LotsService } from "./lots.service";
 import { LotsController } from "./lots.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LotSale, LotParticipant, LotRcgTier, LotBenefitApplication]), ConfigModule],
+  imports: [TypeOrmModule.forFeature([LotSale, LotParticipant, LotRcgTier, LotBenefitApplication]), ConfigModule, CollusionModule],
   controllers: [LotsController],
   providers: [LotsService],
   exports: [LotsService],
