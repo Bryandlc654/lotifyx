@@ -27,14 +27,14 @@ export class AdminOrdersController {
 
   @Patch(":id/approve")
   @RequirePermission("orders.approve")
-  approve(@Param("id") id: string) {
-    return this.checkoutService.approveOrder(id);
+  approve(@Req() req, @Param("id") id: string) {
+    return this.checkoutService.approveOrder(id, req.user.id);
   }
 
   @Patch(":id/reject")
   @RequirePermission("orders.approve")
-  reject(@Param("id") id: string, @Body("motivo") motivo: string) {
-    return this.checkoutService.rejectOrder(id, motivo || "Sin motivo especificado");
+  reject(@Req() req, @Param("id") id: string, @Body("motivo") motivo: string) {
+    return this.checkoutService.rejectOrder(id, motivo || "Sin motivo especificado", req.user.id);
   }
 
   @Patch(":id/status")

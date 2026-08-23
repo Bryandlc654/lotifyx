@@ -24,6 +24,7 @@ import { FundsService } from "./funds.service";
 import { ClaimsService } from "./claims.service";
 import { SubmitCheckoutDto } from "./dto/submit-checkout.dto";
 import { R2Storage } from "../r2/r2-storage";
+import { AuditService } from "../audit/audit.service";
 
 @Controller("checkout")
 export class CheckoutController {
@@ -32,6 +33,7 @@ export class CheckoutController {
     private readonly ordersService: OrdersService,
     private readonly fundsService: FundsService,
     private readonly claimsService: ClaimsService,
+    private readonly audit: AuditService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -91,6 +93,14 @@ export class CheckoutController {
     const proofUrl = file.filename;
     const total = items.reduce((sum, i: any) => sum + i.price * (Math.max(1, Math.floor(Number(i.qty) || 1))), 0);
 
+    // Validación de coincidencia de montos entre el pedido y el pago registrado
+    const declaredAmount = parseFloat(body.amount);
+    if (items.length > 0 && total > 0 && Math.abs(total - declaredAmount) >= 0.01) {
+      throw new BadRequestException(
+        `El monto declarado no coincide con el total del pedido: esperado S/ ${total.toFixed(2)}, declarado S/ ${declaredAmount.toFixed(2)}`
+      );
+    }
+
     const order = await this.checkoutService.createOrder({
       userId: req.user.id,
       total,
@@ -133,6 +143,15 @@ export class CheckoutController {
         console.error(`[Checkout] Error linking bid:`, e.message);
       }
     }
+
+    // Trazabilidad: registro del pago enviado por el comprador
+    this.audit.log({
+      userId: req.user.id,
+      action: "payment_submitted",
+      entity: "order",
+      entityId: order.id,
+      details: { operation_number: body.operation_number, amount: declaredAmount },
+    });
 
     return { message: "Depósito enviado correctamente", order };
   }
@@ -195,11 +214,27 @@ export class CheckoutController {
     // Verificar que la orden pertenece al usuario
     const order = await this.ordersService.getOrderDetail(id, req.user.id);
     if (!order || order.status !== "pending_payment") throw new BadRequestException("La orden no está disponible para confirmar el pago");
+    // Validación de coincidencia de montos entre el pedido y el pago registrado
+    const declaredAmount = parseFloat(body.amount);
+    const expected = Number((order as any).amount ?? order.total_amount);
+    if (Number.isFinite(expected) && Math.abs(expected - declaredAmount) >= 0.01) {
+      throw new BadRequestException(
+        `El monto declarado no coincide con el total del pedido: esperado S/ ${expected.toFixed(2)}, declarado S/ ${declaredAmount.toFixed(2)}`
+      );
+    }
     // Actualizar orden con comprobante
     await this.dataSource.query(
       `UPDATE orders SET status = 'pending_payment', operation_number = $2, amount = $3, proof_image = $4, origin_account_id = $5, updated_at = NOW() WHERE id = $1`,
-      [id, body.operation_number, parseFloat(body.amount), file.filename, body.origin_account_id || null],
+      [id, body.operation_number, declaredAmount, file.filename, body.origin_account_id || null],
     );
+    // Trazabilidad: reenvío del pago por el comprador
+    this.audit.log({
+      userId: req.user.id,
+      action: "payment_resubmitted",
+      entity: "order",
+      entityId: id,
+      details: { operation_number: body.operation_number, amount: declaredAmount },
+    });
     return { message: "Comprobante enviado correctamente" };
   }
 

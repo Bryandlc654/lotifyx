@@ -161,15 +161,16 @@ export class CheckoutService implements OnModuleInit {
     }
   }
 
-  async approveOrder(id: string) {
+  async approveOrder(id: string, actorId?: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      // Trazabilidad: quién confirmó el pago y cuándo
       await queryRunner.query(
-        `UPDATE orders SET status = 'paid', updated_at = NOW() WHERE id = $1`,
-        [id],
+        `UPDATE orders SET status = 'paid', approved_at = NOW(), approved_by = COALESCE($2, approved_by), updated_at = NOW() WHERE id = $1`,
+        [id, actorId || null],
       );
 
       // Si la orden proviene de una venta por lote, marca la garantía del participante como pagada
@@ -255,7 +256,7 @@ export class CheckoutService implements OnModuleInit {
       }
 
       await queryRunner.commitTransaction();
-      this.audit.log({ action: "order_approved", entity: "order", entityId: id });
+      this.audit.log({ userId: actorId, action: "order_approved", entity: "order", entityId: id, details: { actorId: actorId || "system" } });
 
       this.dataSource.query(
         `UPDATE auction_bids SET estado = 'confirmada' WHERE checkout_id = $1 AND estado = 'pendiente'`,
@@ -271,7 +272,7 @@ export class CheckoutService implements OnModuleInit {
     }
   }
 
-  async rejectOrder(id: string, motivo: string) {
+  async rejectOrder(id: string, motivo: string, actorId?: string) {
     await this.dataSource.query(
       `UPDATE orders SET status = 'rejected', rejected_reason = $2, updated_at = NOW() WHERE id = $1`,
       [id, motivo],
@@ -279,7 +280,7 @@ export class CheckoutService implements OnModuleInit {
     // Si el stock fue descontado al crear el pedido, se reintegra
     const [flag] = await this.dataSource.query(`SELECT stock_deducted FROM orders WHERE id = $1`, [id]);
     if (flag?.stock_deducted) await this.restoreStockForOrder(this.dataSource, id);
-    this.audit.log({ action: "order_rejected", entity: "order", entityId: id, details: { motivo } });
+    this.audit.log({ userId: actorId, action: "order_rejected", entity: "order", entityId: id, details: { motivo, actorId: actorId || "system" } });
     return { message: "Pago rechazado" };
   }
 

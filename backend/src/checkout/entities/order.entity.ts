@@ -39,6 +39,13 @@ export class Order {
   @Column({ type: "text", nullable: true })
   rejected_reason: string;
 
+  /** Trazabilidad de pago: usuario que confirmó el pago y fecha de confirmación */
+  @Column({ type: "uuid", nullable: true })
+  approved_by: string;
+
+  @Column({ type: "timestamp", nullable: true })
+  approved_at: Date;
+
   @Column({ length: 30, nullable: true })
   tracking_status: string;
 

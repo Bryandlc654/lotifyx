@@ -33,10 +33,17 @@ export class ConciliationService {
 
     let orderId: string | null = dto.order_id?.trim() || null;
     if (orderId) {
-      const [order] = await this.dataSource.query(`SELECT id, status FROM orders WHERE id = $1`, [orderId]);
+      const [order] = await this.dataSource.query(`SELECT id, status, amount, total_amount FROM orders WHERE id = $1`, [orderId]);
       if (!order) throw new BadRequestException("El pedido indicado no existe");
       if (!["pending_payment", "paid"].includes(order.status)) {
         throw new BadRequestException(`El pedido está en estado "${order.status}" y no admite registro de pago`);
+      }
+      // Validación de coincidencia de montos entre el pedido y el pago registrado
+      const expected = Number(order.amount ?? order.total_amount);
+      if (Math.abs(expected - amount) >= 0.01) {
+        throw new BadRequestException(
+          `El monto no coincide con el pedido: esperado S/ ${expected.toFixed(2)}, recibido S/ ${amount.toFixed(2)}`
+        );
       }
     }
 
@@ -51,7 +58,7 @@ export class ConciliationService {
     if (orderId) {
       const [order] = await this.dataSource.query(`SELECT status FROM orders WHERE id = $1`, [orderId]);
       if (order?.status === "pending_payment") {
-        await this.checkoutService.approveOrder(orderId);
+        await this.checkoutService.approveOrder(orderId, adminId);
         orderApproved = true;
       }
     }
