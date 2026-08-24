@@ -333,6 +333,35 @@ export class CheckoutService implements OnModuleInit {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      // Resolución de la garantía: si el pedido ya estaba PAGO, se devuelve el dinero.
+      // Desistimiento del comprador tras el pago aplica penalización configurable; admin = reembolso total.
+      if (order.status === "paid") {
+        const penalizacion = !isAdmin ? await this.config.getNum("desistimiento_penalizacion_pct") : 0;
+        const total = Number(order.total_amount);
+        const reembolso = Math.round(total * (1 - (Number(penalizacion) || 0) / 100) * 100) / 100;
+        // Descuenta a cada vendedor su parte de la garantía (de lo pendiente) y acredita al comprador
+        await queryRunner.query(
+          `UPDATE funds f SET
+             pending_balance = GREATEST(f.pending_balance - s.subtotal, 0)
+           FROM (
+             SELECT p.user_id, SUM(oi.price * oi.qty) AS subtotal
+             FROM order_items oi INNER JOIN products p ON p.id = oi.product_id
+             WHERE oi.order_id = $1 GROUP BY p.user_id
+           ) s
+           WHERE f.user_id = s.user_id`,
+          [orderId],
+        );
+        await queryRunner.query(
+          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+           VALUES ((SELECT user_id FROM orders WHERE id = $1), 0, 0, 0) ON CONFLICT (user_id) DO NOTHING`,
+          [orderId],
+        );
+        await queryRunner.query(
+          `UPDATE funds SET available_balance = available_balance + $2 WHERE user_id = (SELECT user_id FROM orders WHERE id = $1)`,
+          [orderId, reembolso],
+        );
+      }
+
       await queryRunner.query(
         `UPDATE orders SET status = 'cancelled', cancelled_reason = $2, updated_at = NOW() WHERE id = $1`,
         [orderId, motivo],

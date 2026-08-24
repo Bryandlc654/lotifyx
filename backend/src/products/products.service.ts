@@ -4,6 +4,7 @@ import { Repository, In, ILike, IsNull, Not, DataSource } from "typeorm";
 import { randomBytes } from "crypto";
 import { Product } from "./product.entity";
 import { AuditService } from "../audit/audit.service";
+import { ConfigService } from "../config/config.service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -18,6 +19,7 @@ export class ProductsService {
     @InjectRepository(Product) private readonly repo: Repository<Product>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly config: ConfigService,
   ) {}
 
   async findAllActive(categoryId?: string, search?: string, limit?: number, precioMin?: number, precioMax?: number, ubicacion?: string, userId?: string, vendedor?: string, estado?: string) {
@@ -292,7 +294,7 @@ export class ProductsService {
       } catch {}
     }
     // Clean empty decimal/date fields for auction/lot
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado", "precio_objetivo", "canal", "modalidad", "divisible"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -303,12 +305,20 @@ export class ProductsService {
     // Auto-create auction/lot records based on metodo_pago
     try {
       if ((dto as any).metodo_pago === "subasta" && (dto as any).precio_inicial) {
+        const tipoSubasta = (dto as any).tipo_subasta || (dto as any).modalidad || "inglesa";
+        // El incremento mínimo solo aplica en subasta inglesa y se obtiene de Umbrales
+        const inc = tipoSubasta === "inglesa"
+          ? ((dto as any).incremento_minimo && Number((dto as any).incremento_minimo) > 0 ? Number((dto as any).incremento_minimo) : await this.config.getNum("incremento_minimo_subasta"))
+          : 0;
         await this.dataSource.query(
-          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, tipo_subasta, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, $2, $3, $3, $4, $5, NOW(), $6, 'pendiente')
+          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, tipo_subasta, canal, precio_objetivo, divisible, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, NOW(), $9, 'pendiente')
            ON CONFLICT (product_id) DO NOTHING`,
-          [product.id, dto.user_id, (dto as any).precio_inicial, (dto as any).incremento_minimo || 1,
-           (dto as any).tipo_subasta || "inglesa",
+          [product.id, dto.user_id, (dto as any).precio_inicial, inc,
+           tipoSubasta,
+           (dto as any).canal || "subasta",
+           (dto as any).precio_objetivo ?? null,
+           (dto as any).divisible === true,
            (dto as any).cierre_estimado ? new Date((dto as any).cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
         );
       }
@@ -366,7 +376,7 @@ export class ProductsService {
     if ((dto.stock === undefined || dto.stock === null) && specs) {
       (dto as any).stock = parseInt(specs["Stock"] || specs["stock"] || String(p.stock)) || 0;
     }
-    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado"]) {
+    for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado", "precio_objetivo", "canal", "modalidad", "divisible"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {
         delete (dto as any)[field];
       }
@@ -374,7 +384,7 @@ export class ProductsService {
     const saved = await this.repo.save({ ...p, ...dto });
 
     // Actualizar subasta si se modificaron campos de subasta
-    if ((dto as any).cierre_estimado || (dto as any).precio_inicial || (dto as any).incremento_minimo) {
+    if ((dto as any).cierre_estimado || (dto as any).precio_inicial || (dto as any).incremento_minimo || (dto as any).tipo_subasta || (dto as any).modalidad || (dto as any).canal || (dto as any).precio_objetivo !== undefined || (dto as any).divisible !== undefined) {
       try {
         const updates: string[] = [];
         const params: any[] = [id];
@@ -386,7 +396,27 @@ export class ProductsService {
           updates.push(`precio_inicial = $${params.length + 1}, precio_actual = $${params.length + 1}`);
           params.push((dto as any).precio_inicial);
         }
-        if ((dto as any).incremento_minimo) {
+        const tipoSub = (dto as any).tipo_subasta || (dto as any).modalidad;
+        if (tipoSub) {
+          updates.push(`tipo_subasta = $${params.length + 1}`);
+          params.push(tipoSub);
+        }
+        if ((dto as any).canal) {
+          updates.push(`canal = $${params.length + 1}`);
+          params.push((dto as any).canal);
+        }
+        if ((dto as any).precio_objetivo !== undefined) {
+          updates.push(`precio_objetivo = $${params.length + 1}`);
+          params.push((dto as any).precio_objetivo ?? null);
+        }
+        if ((dto as any).divisible !== undefined) {
+          updates.push(`divisible = $${params.length + 1}`);
+          params.push((dto as any).divisible === true);
+        }
+        // El incremento mínimo solo aplica en subasta inglesa y se obtiene de Umbrales
+        if (tipoSub && tipoSub !== "inglesa") {
+          updates.push(`incremento_minimo = 0`);
+        } else if ((dto as any).incremento_minimo) {
           updates.push(`incremento_minimo = $${params.length + 1}`);
           params.push((dto as any).incremento_minimo);
         }

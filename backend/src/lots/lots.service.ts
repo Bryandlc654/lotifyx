@@ -9,6 +9,7 @@ import { LotRcgTier } from "./lot-rcg-tier.entity";
 import { LotBenefitApplication } from "./lot-benefit-application.entity";
 import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
+import { GuaranteesService } from "../guarantees/guarantees.service";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
@@ -43,6 +44,7 @@ export class LotsService implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     private readonly collusion: CollusionService,
+    private readonly guarantees: GuaranteesService,
   ) {}
 
   async onModuleInit() {
@@ -380,7 +382,8 @@ export class LotsService implements OnModuleInit {
 
       const basePrice = Number(lot.precio_individual || 0);
       const cmcMin = this.cmcOf(lot);
-      const pct = await this.config.getPct("garantia_demanda_agregada_pct");
+      const [prodCat] = await queryRunner.query(`SELECT category_id FROM products WHERE id = $1`, [lot.product_id]);
+      const categoriaId = prodCat?.category_id || null;
 
       for (const p of participants) {
         const cantidad = Math.max(1, Number(p.cantidad) || 1);
@@ -396,7 +399,9 @@ export class LotsService implements OnModuleInit {
         const shippingCost = fleteTier ? Number(fleteTier.valor || 0) : 0;
         const itemsTotal = unitPrice * cantidad;
         const total = itemsTotal + shippingCost;
-        const guarantee = Number((total * pct / 100).toFixed(2));
+        const calc = await this.guarantees.calcular({ canal: "demanda_agregada", categoriaId, base: total });
+        const guarantee = calc.monto;
+        const garantiaPct = calc.pct_aplicado;
         const saldo = Number((total - guarantee).toFixed(2));
 
         const [order] = await queryRunner.query(
@@ -427,7 +432,7 @@ export class LotsService implements OnModuleInit {
         }
         await queryRunner.query(
           `UPDATE lot_participants SET order_id = $2, remaining_order_id = $3, garantia_pct = $4 WHERE id = $1`,
-          [p.id, order.id, remainingOrderId, pct],
+          [p.id, order.id, remainingOrderId, garantiaPct],
         );
 
         const seenTiers = new Set<string>();

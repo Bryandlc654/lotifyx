@@ -6,6 +6,10 @@ import { AppConfig } from "./app-config.entity";
 export const UMBRALES = {
   garantia_subasta_inversa_pct: 5,
   garantia_demanda_agregada_pct: 5,
+  garantia_min_monto: 0,
+  garantia_tope_monto: 0,
+  garantia_redondeo_monto: 0.01,
+  desistimiento_penalizacion_pct: 10,
   limite_pago_dias: 3,
   limite_pago_normal_dias: 3,
   limite_pago_subasta_dias: 2,
@@ -14,6 +18,7 @@ export const UMBRALES = {
   max_incumplimientos: 2,
   sancion_dias: 7,
   garantia_oferta_pct: 1,
+  incremento_minimo_subasta: 1,
   max_ofertas_pendientes: 10,
   max_pujas_pendientes: 5,
   reconexion_dias: 3,

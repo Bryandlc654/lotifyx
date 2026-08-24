@@ -162,6 +162,8 @@ function DetallesContent() {
     ubicacion: "",
     divisible: true,
     tipo_subasta: "inglesa",
+    canal: "subasta",
+    precio_objetivo: "",
     metraje: "",
     habitaciones: "",
     banos: "",
@@ -279,8 +281,10 @@ function DetallesContent() {
             politicas_imagenes: p.politicas_imagenes || "",
             estado: p.estado || "nuevo",
             ubicacion: p.ubicacion || "",
-            divisible: true,
+            divisible: p.divisible ?? true,
             tipo_subasta: "inglesa",
+            canal: p.canal || "subasta",
+            precio_objetivo: p.precio_objetivo != null ? String(p.precio_objetivo) : "",
             metraje: p.metraje != null ? String(p.metraje) : "",
             habitaciones: p.habitaciones != null ? String(p.habitaciones) : "",
             banos: p.banos != null ? String(p.banos) : "",
@@ -632,6 +636,9 @@ function DetallesContent() {
         precio_inicial: conditions.metodo_pago === "subasta" && conditions.precio_base
           ? parseFloat(conditions.precio_base) : undefined,
         tipo_subasta: conditions.metodo_pago === "subasta" ? conditions.tipo_subasta : undefined,
+        modalidad: conditions.metodo_pago === "subasta" ? conditions.tipo_subasta : undefined,
+        canal: conditions.canal || (conditions.metodo_pago === "subasta" ? "subasta" : conditions.metodo_pago === "venta_por_lote" ? "demanda_agregada" : "oferta"),
+        precio_objetivo: conditions.precio_objetivo ? parseFloat(conditions.precio_objetivo) : undefined,
         cierre_estimado: conditions.cierre_estimado
           ? new Date(conditions.cierre_estimado).toISOString() : undefined,
         incremento_minimo: conditions.incremento_minimo ? parseFloat(conditions.incremento_minimo) : undefined,
@@ -647,7 +654,7 @@ function DetallesContent() {
         cantidad_total: isLot
           ? (lotStock > 0 ? lotStock : undefined)
           : (conditions.cantidad_total ? parseInt(conditions.cantidad_total) : undefined),
-        divisible: isLot ? conditions.divisible : undefined,
+        divisible: (isLot || conditions.metodo_pago === "subasta") ? conditions.divisible : undefined,
         nivel_coincidencia: nivelCoincidencia,
         estado: conditions.estado || "nuevo",
         ubicacion: conditions.ubicacion || undefined,
@@ -860,9 +867,28 @@ function DetallesContent() {
                         </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Canal</label>
+                        <div>
+                          <select value={conditions.canal} onChange={e => setConditions({ ...conditions, canal: e.target.value })}
+                            className="w-full form-input-custom focus:ring-purple-500 max-w-xs">
+                            <option value="subasta">Subasta</option>
+                            <option value="demanda_agregada">Demanda agregada (lote)</option>
+                            <option value="subasta_inversa">Subasta inversa (RFQ)</option>
+                            <option value="oferta">Oferta directa</option>
+                          </select>
+                          <p className="text-xs text-gray-400 mt-1">Define el canal de la oportunidad transaccional (afecta la regla de garantía aplicable).</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
+                        <label className="form-label pt-2">Precio objetivo</label>
+                        <input type="number" step="0.01" value={conditions.precio_objetivo} onChange={e => setConditions({ ...conditions, precio_objetivo: e.target.value })}
+                          className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="0.00" />
+                      </div>
+                      <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Incremento mínimo</label>
                         <input type="number" step="0.01" value={conditions.incremento_minimo} onChange={e => setConditions({ ...conditions, incremento_minimo: e.target.value })}
                           className="w-full form-input-custom focus:ring-purple-500 max-w-xs" placeholder="1.00" />
+                        <p className="text-xs text-gray-400 mt-1 col-start-2">Solo aplica a subasta inglesa; en sobre cerrado no se usa.</p>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
                         <label className="form-label pt-2">Cierre de subasta</label>

@@ -7,9 +7,10 @@ import { RequestsController } from "./requests.controller";
 import { MatchingService } from "./matching.service";
 import { ConfigModule } from "../config/config.module";
 import { CollusionModule } from "../collusion/collusion.module";
+import { GuaranteesModule } from "../guarantees/guarantees.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule],
+  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule, GuaranteesModule],
   controllers: [RequestsController],
   providers: [RequestsService, MatchingService],
   exports: [RequestsService],

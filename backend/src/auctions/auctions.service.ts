@@ -25,14 +25,15 @@ export class AuctionsService implements OnModuleInit {
          LEFT JOIN auctions a ON a.product_id = p.id
          WHERE p.metodo_pago = 'subasta' AND a.id IS NULL`
       );
+      const incDefecto = await this.config.getNum("incremento_minimo_subasta");
       for (const p of missing) {
         if (!p.precio_inicial || Number(p.precio_inicial) <= 0) continue;
         const estado = p.status === "active" ? "activo" : "pendiente";
         await this.dataSource.query(
-          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, $2, $3, $3, $4, NOW(), $5, $6)
+          `INSERT INTO auctions (product_id, vendedor_id, precio_inicial, precio_actual, incremento_minimo, tipo_subasta, canal, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2, $3, $3, $4, 'inglesa', 'subasta', NOW(), $5, $6)
            ON CONFLICT (product_id) DO NOTHING`,
-          [p.id, p.user_id, p.precio_inicial, p.incremento_minimo || 1,
+          [p.id, p.user_id, p.precio_inicial, incDefecto,
            p.cierre_estimado ? new Date(p.cierre_estimado) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
            estado]
         );
@@ -141,17 +142,31 @@ export class AuctionsService implements OnModuleInit {
     incremento_minimo?: number;
     precio_reserva?: number;
     fecha_fin: string;
+    tipo_subasta?: string | null;
+    canal?: string;
+    precio_objetivo?: number | null;
+    divisible?: boolean;
   }) {
     const existing = await this.repo.findOne({ where: { product_id: dto.product_id } });
     if (existing) throw new BadRequestException("Este producto ya tiene una subasta activa");
+
+    const tipo = dto.tipo_subasta || "inglesa";
+    // El incremento mínimo solo aplica en subasta inglesa y se obtiene de Umbrales
+    const incremento = tipo === "inglesa"
+      ? (dto.incremento_minimo && Number(dto.incremento_minimo) > 0 ? Number(dto.incremento_minimo) : await this.config.getNum("incremento_minimo_subasta"))
+      : 0;
 
     return this.repo.save(this.repo.create({
       product_id: dto.product_id,
       vendedor_id: dto.vendedor_id,
       precio_inicial: dto.precio_inicial,
       precio_actual: dto.precio_inicial,
-      incremento_minimo: dto.incremento_minimo || 1,
+      incremento_minimo: incremento,
       precio_reserva: dto.precio_reserva,
+      tipo_subasta: tipo as any,
+      canal: dto.canal || "subasta",
+      precio_objetivo: dto.precio_objetivo ?? null,
+      divisible: dto.divisible ?? false,
       fecha_inicio: new Date(),
       fecha_fin: new Date(dto.fecha_fin),
       estado: "activo",
@@ -272,8 +287,11 @@ export class AuctionsService implements OnModuleInit {
       order: { monto: "DESC" },
     });
     const precioActual = highestConfirmed?.monto || auction.precio_inicial;
-    if (monto < Number(precioActual) + Number(auction.incremento_minimo)) {
-      throw new BadRequestException(`La puja debe ser al menos S/ ${(Number(precioActual) + Number(auction.incremento_minimo)).toFixed(2)}`);
+    // El incremento mínimo solo aplica en subasta inglesa y se obtiene de Umbrales
+    const esInglesa = auction.tipo_subasta === "inglesa" || auction.tipo_subasta === null || auction.tipo_subasta === undefined;
+    const incremento = esInglesa ? Number(auction.incremento_minimo) : 0;
+    if (esInglesa && monto < Number(precioActual) + incremento) {
+      throw new BadRequestException(`La puja debe ser al menos S/ ${(Number(precioActual) + incremento).toFixed(2)}`);
     }
 
     const bid = await this.bidsRepo.save(this.bidsRepo.create({

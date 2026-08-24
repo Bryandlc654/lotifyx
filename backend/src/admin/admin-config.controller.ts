@@ -23,6 +23,11 @@ export class AdminConfigController {
       limite_pago_lote_saldo_dias: all.limite_pago_lote_saldo_dias ?? 5,
       max_incumplimientos: all.max_incumplimientos ?? 2,
       sancion_dias: all.sancion_dias ?? 7,
+      garantia_min_monto: all.garantia_min_monto ?? 0,
+      garantia_tope_monto: all.garantia_tope_monto ?? 0,
+      garantia_redondeo_monto: all.garantia_redondeo_monto ?? 0.01,
+      desistimiento_penalizacion_pct: all.desistimiento_penalizacion_pct ?? 10,
+      incremento_minimo_subasta: all.incremento_minimo_subasta ?? 1,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,
       max_ofertas_pendientes: all.max_ofertas_pendientes ?? 10,
       max_pujas_pendientes: all.max_pujas_pendientes ?? 5,
@@ -40,6 +45,9 @@ export class AdminConfigController {
     garantia_subasta_inversa_pct?: number; garantia_demanda_agregada_pct?: number;
     limite_pago_dias?: number; limite_pago_normal_dias?: number; limite_pago_subasta_dias?: number;
     limite_pago_lote_garantia_dias?: number; limite_pago_lote_saldo_dias?: number;
+    garantia_min_monto?: number; garantia_tope_monto?: number;     garantia_redondeo_monto?: number;
+    desistimiento_penalizacion_pct?: number;
+    incremento_minimo_subasta?: number;
     max_incumplimientos?: number; sancion_dias?: number;
     garantia_oferta_pct?: number; max_ofertas_pendientes?: number; max_pujas_pendientes?: number; reconexion_dias?: number;
     session_timeout_minutos?: number; max_login_intentos?: number; bloqueo_login_minutos?: number;
@@ -79,6 +87,31 @@ export class AdminConfigController {
       const v = Number(dto.sancion_dias);
       if (!Number.isFinite(v) || v <= 0 || v > 365) throw new BadRequestException("sancion_dias debe ser un número entre 1 y 365");
       await this.config.setPct("sancion_dias", v);
+    }
+    if (dto.garantia_min_monto !== undefined && dto.garantia_min_monto !== null) {
+      const v = Number(dto.garantia_min_monto);
+      if (!Number.isFinite(v) || v < 0 || v > 100000) throw new BadRequestException("garantia_min_monto debe ser entre 0 y 100000");
+      await this.config.setPct("garantia_min_monto", v);
+    }
+    if (dto.garantia_tope_monto !== undefined && dto.garantia_tope_monto !== null) {
+      const v = Number(dto.garantia_tope_monto);
+      if (!Number.isFinite(v) || v < 0 || v > 1000000) throw new BadRequestException("garantia_tope_monto debe ser entre 0 y 1000000 (0 = sin tope)");
+      await this.config.setPct("garantia_tope_monto", v);
+    }
+    if (dto.garantia_redondeo_monto !== undefined && dto.garantia_redondeo_monto !== null) {
+      const v = Number(dto.garantia_redondeo_monto);
+      if (!Number.isFinite(v) || v <= 0 || v > 100) throw new BadRequestException("garantia_redondeo_monto debe ser mayor a 0 y menor a 100");
+      await this.config.setPct("garantia_redondeo_monto", v);
+    }
+    if (dto.desistimiento_penalizacion_pct !== undefined && dto.desistimiento_penalizacion_pct !== null) {
+      const v = Number(dto.desistimiento_penalizacion_pct);
+      if (!Number.isFinite(v) || v < 0 || v > 100) throw new BadRequestException("desistimiento_penalizacion_pct debe ser entre 0 y 100");
+      await this.config.setPct("desistimiento_penalizacion_pct", v);
+    }
+    if (dto.incremento_minimo_subasta !== undefined && dto.incremento_minimo_subasta !== null) {
+      const v = Number(dto.incremento_minimo_subasta);
+      if (!Number.isFinite(v) || v < 0 || v > 1000) throw new BadRequestException("incremento_minimo_subasta debe ser entre 0 y 1000");
+      await this.config.setPct("incremento_minimo_subasta", v);
     }
     if (dto.garantia_oferta_pct !== undefined && dto.garantia_oferta_pct !== null) {
       const v = Number(dto.garantia_oferta_pct);
@@ -126,6 +159,11 @@ export class AdminConfigController {
       limite_pago_lote_saldo_dias: all.limite_pago_lote_saldo_dias ?? 5,
       max_incumplimientos: all.max_incumplimientos ?? 2,
       sancion_dias: all.sancion_dias ?? 7,
+      garantia_min_monto: all.garantia_min_monto ?? 0,
+      garantia_tope_monto: all.garantia_tope_monto ?? 0,
+      garantia_redondeo_monto: all.garantia_redondeo_monto ?? 0.01,
+      desistimiento_penalizacion_pct: all.desistimiento_penalizacion_pct ?? 10,
+      incremento_minimo_subasta: all.incremento_minimo_subasta ?? 1,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,
       max_ofertas_pendientes: all.max_ofertas_pendientes ?? 10,
       max_pujas_pendientes: all.max_pujas_pendientes ?? 5,

@@ -25,6 +25,18 @@ export class Auction {
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   precio_reserva: number;
 
+  /** Canal de la oportunidad transaccional (p.ej. 'subasta', 'demanda_agregada', 'subasta_inversa', 'oferta') */
+  @Column({ type: "varchar", length: 30, default: "subasta" })
+  canal: string;
+
+  /** Precio objetivo de la oportunidad (según canal/modalidad) */
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_objetivo: number | null;
+
+  /** Divisibilidad de la oportunidad transaccional */
+  @Column({ type: "boolean", default: false })
+  divisible: boolean;
+
   @Column({ type: "timestamp" })
   fecha_inicio: Date;
 

@@ -24,6 +24,7 @@ const modules = [
   { href: "/admin/auctions", label: "Subastas", icon: Gavel, permission: "auctions" },
   { href: "/admin/verificaciones", label: "Verificaciones", icon: BadgeCheck, permission: "verifications" },
   { href: "/admin/umbrales", label: "Umbrales", icon: SlidersHorizontal, permission: "config" },
+  { href: "/admin/garantias", label: "Garantías", icon: ShieldCheck, permission: "config" },
   { href: "/admin/solicitudes", label: "Solicitudes", icon: PackageSearch, permission: "orders" },
   { href: "/admin/colusion", label: "Colusión", icon: ShieldAlert, permission: "orders" },
   { href: "/admin/sales", label: "Ventas", icon: ShoppingCart, permission: "orders" },

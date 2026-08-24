@@ -7,6 +7,7 @@ import { RequestOffer } from "./entities/request-offer.entity";
 import { MatchingService } from "./matching.service";
 import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
+import { GuaranteesService } from "../guarantees/guarantees.service";
 
 @Injectable()
 export class RequestsService {
@@ -17,6 +18,7 @@ export class RequestsService {
     private readonly matching: MatchingService,
     private readonly config: ConfigService,
     private readonly collusion: CollusionService,
+    private readonly guarantees: GuaranteesService,
   ) {}
 
   private num(v: any): number | null {
@@ -255,9 +257,10 @@ export class RequestsService {
     }
 
     // Garantía de oferta: compromiso real al ofertar (se reserva de fondos disponibles)
-    const garantiaOfertaPct = await this.config.getNum("garantia_oferta_pct");
     const montoOferta = precio * cantidad + envio;
-    const garantiaOferta = Number((montoOferta * garantiaOfertaPct / 100).toFixed(2));
+    const calcOferta = await this.guarantees.calcular({ canal: "oferta", categoriaId: req.category_id, base: montoOferta });
+    const garantiaOfertaPct = calcOferta.pct_aplicado;
+    const garantiaOferta = calcOferta.monto;
     const [fund] = await this.dataSource.query(
       `SELECT COALESCE(available_balance, 0) AS available FROM funds WHERE user_id = $1`,
       [userId],
@@ -363,8 +366,9 @@ export class RequestsService {
     const shipping = Number(offer.costo_envio) || 0;
     const total = Number((unitPrice * qty + shipping).toFixed(2));
 
-    const pct = offer.garantia_pct ?? (await this.config.getPct("garantia_subasta_inversa_pct"));
-    const guarantee = Number((total * pct / 100).toFixed(2));
+    const pct = offer.garantia_pct ?? null;
+    const calc = await this.guarantees.calcular({ canal: "subasta_inversa", categoriaId: req.category_id, base: total, pctOverride: pct });
+    const guarantee = calc.monto;
     const saldo = Number((total - guarantee).toFixed(2));
 
     const qr = this.dataSource.createQueryRunner();

@@ -46,6 +46,7 @@ import { CollusionModule } from "./collusion/collusion.module";
 import { ProvidersModule } from "./providers/providers.module";
 import { ConciliationModule } from "./conciliation/conciliation.module";
 import { PaymentsGatewayModule } from "./payments-gateway/payments-gateway.module";
+import { GuaranteesModule } from "./guarantees/guarantees.module";
 import { R2Module } from "./r2/r2.module";
 import { AuthMiddleware } from "./common/middleware/auth.middleware";
 import { DebugController } from "./debug.controller";
@@ -157,6 +158,7 @@ import { ValidateDocumentController } from "./validate-document.controller";
     ProvidersModule,
     ConciliationModule,
     PaymentsGatewayModule,
+    GuaranteesModule,
   ],
 
   controllers: [DebugController, ValidateRucController, ValidateDocumentController],

@@ -115,6 +115,22 @@ export class Product {
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   precio_individual: number;
 
+  /** Canal de la oportunidad transaccional (subasta, demanda_agregada, subasta_inversa, oferta) */
+  @Column({ type: "varchar", length: 30, default: "plataforma" })
+  canal: string;
+
+  /** Modalidad de la oportunidad (p.ej. inglesa | sobre_cerrado para subastas) */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  modalidad: string | null;
+
+  /** Precio objetivo según canal/modalidad */
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_objetivo: number | null;
+
+  /** Divisibilidad de la oportunidad transaccional */
+  @Column({ type: "boolean", default: false })
+  divisible: boolean;
+
   @Column({ type: "int", nullable: true })
   participantes_minimos: number;
 

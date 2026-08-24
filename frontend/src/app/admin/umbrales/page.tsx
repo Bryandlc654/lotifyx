@@ -14,6 +14,11 @@ export default function UmbralesPage() {
   const [limiteSubasta, setLimiteSubasta] = useState("2");
   const [limiteLoteGarantia, setLimiteLoteGarantia] = useState("2");
   const [limiteLoteSaldo, setLimiteLoteSaldo] = useState("5");
+  const [garantiaMin, setGarantiaMin] = useState("0");
+  const [garantiaTope, setGarantiaTope] = useState("0");
+  const [garantiaRedondeo, setGarantiaRedondeo] = useState("0.01");
+  const [penalizacionDesist, setPenalizacionDesist] = useState("10");
+  const [incrementoSubasta, setIncrementoSubasta] = useState("1");
   const [maxInc, setMaxInc] = useState("2");
   const [sancionDias, setSancionDias] = useState("7");
   const [garantiaOferta, setGarantiaOferta] = useState("1");
@@ -37,6 +42,11 @@ export default function UmbralesPage() {
         setLimiteSubasta(String(d.limite_pago_subasta_dias ?? 2));
         setLimiteLoteGarantia(String(d.limite_pago_lote_garantia_dias ?? 2));
         setLimiteLoteSaldo(String(d.limite_pago_lote_saldo_dias ?? 5));
+        setGarantiaMin(String(d.garantia_min_monto ?? 0));
+        setGarantiaTope(String(d.garantia_tope_monto ?? 0));
+        setGarantiaRedondeo(String(d.garantia_redondeo_monto ?? 0.01));
+        setPenalizacionDesist(String(d.desistimiento_penalizacion_pct ?? 10));
+        setIncrementoSubasta(String(d.incremento_minimo_subasta ?? 1));
         setMaxInc(String(d.max_incumplimientos ?? 2));
         setSancionDias(String(d.sancion_dias ?? 7));
         setGarantiaOferta(String(d.garantia_oferta_pct ?? 1));
@@ -80,6 +90,16 @@ export default function UmbralesPage() {
     if (!Number.isFinite(mp) || mp <= 0 || mp > 50) { toast.error("El máximo de pujas debe ser entre 1 y 50"); return; }
     const rd = Number(reconexionDias);
     if (!Number.isFinite(rd) || rd <= 0 || rd > 30) { toast.error("Los días de reconexión deben ser entre 1 y 30"); return; }
+    const gMin = Number(garantiaMin);
+    if (!Number.isFinite(gMin) || gMin < 0) { toast.error("El mínimo de garantía no puede ser negativo"); return; }
+    const gTope = Number(garantiaTope);
+    if (!Number.isFinite(gTope) || gTope < 0) { toast.error("El tope de garantía no puede ser negativo"); return; }
+    const gRed = Number(garantiaRedondeo);
+    if (!Number.isFinite(gRed) || gRed <= 0) { toast.error("El redondeo de garantía debe ser mayor a 0"); return; }
+    const pen = Number(penalizacionDesist);
+    if (!Number.isFinite(pen) || pen < 0 || pen > 100) { toast.error("La penalización por desistimiento debe ser entre 0 y 100%"); return; }
+    const inc = Number(incrementoSubasta);
+    if (!Number.isFinite(inc) || inc < 0 || inc > 1000) { toast.error("El incremento mínimo de subasta debe ser entre 0 y 1000"); return; }
     const st = Number(sessionTimeout);
     if (!Number.isFinite(st) || st < 1 || st > 1440) { toast.error("El tiempo de sesión debe ser entre 1 y 1440 minutos"); return; }
     const ml = Number(maxLogin);
@@ -96,6 +116,11 @@ export default function UmbralesPage() {
         limite_pago_subasta_dias: Number(limiteSubasta),
         limite_pago_lote_garantia_dias: Number(limiteLoteGarantia),
         limite_pago_lote_saldo_dias: Number(limiteLoteSaldo),
+        garantia_min_monto: Number(garantiaMin),
+        garantia_tope_monto: Number(garantiaTope),
+        garantia_redondeo_monto: Number(garantiaRedondeo),
+        desistimiento_penalizacion_pct: Number(penalizacionDesist),
+        incremento_minimo_subasta: Number(incrementoSubasta),
         max_incumplimientos: max,
         sancion_dias: sd,
         garantia_oferta_pct: go,
@@ -113,6 +138,11 @@ export default function UmbralesPage() {
       setLimiteSubasta(String(res.limite_pago_subasta_dias ?? limiteSubasta));
       setLimiteLoteGarantia(String(res.limite_pago_lote_garantia_dias ?? limiteLoteGarantia));
       setLimiteLoteSaldo(String(res.limite_pago_lote_saldo_dias ?? limiteLoteSaldo));
+      setGarantiaMin(String(res.garantia_min_monto ?? garantiaMin));
+      setGarantiaTope(String(res.garantia_tope_monto ?? garantiaTope));
+      setGarantiaRedondeo(String(res.garantia_redondeo_monto ?? garantiaRedondeo));
+      setPenalizacionDesist(String(res.desistimiento_penalizacion_pct ?? penalizacionDesist));
+      setIncrementoSubasta(String(res.incremento_minimo_subasta ?? incrementoSubasta));
       setMaxInc(String(res.max_incumplimientos ?? max));
       setSancionDias(String(res.sancion_dias ?? sd));
       setGarantiaOferta(String(res.garantia_oferta_pct ?? go));
@@ -344,6 +374,43 @@ export default function UmbralesPage() {
                     <span className="text-sm text-gray-500 font-semibold">min</span>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1">Duración del bloqueo tras superar los intentos.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-1">
+                Fórmula global de garantía
+              </label>
+              <p className="text-xs text-gray-400 mb-4">
+                Parámetros aplicables cuando no haya una regla específica por categoría. La garantía se calcula como
+                base × % y luego se ajusta con mínimo, tope y redondeo.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Monto mínimo (S/)</label>
+                  <input type="number" min="0" step="0.01" value={garantiaMin} onChange={(e) => setGarantiaMin(e.target.value)} className="form-input-custom w-full" />
+                  <p className="text-[11px] text-gray-400 mt-1">La garantía nunca será menor a este monto.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Tope máximo (S/)</label>
+                  <input type="number" min="0" step="0.01" value={garantiaTope} onChange={(e) => setGarantiaTope(e.target.value)} className="form-input-custom w-full" />
+                  <p className="text-[11px] text-gray-400 mt-1">0 = sin tope.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Redondeo (S/)</label>
+                  <input type="number" min="0.01" step="0.01" value={garantiaRedondeo} onChange={(e) => setGarantiaRedondeo(e.target.value)} className="form-input-custom w-full" />
+                  <p className="text-[11px] text-gray-400 mt-1">Ej. 1 redondea a soles enteros; 0.5 a medio sol.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Penalización por desistimiento (%)</label>
+                  <input type="number" min="0" max="100" step="1" value={penalizacionDesist} onChange={(e) => setPenalizacionDesist(e.target.value)} className="form-input-custom w-full" />
+                  <p className="text-[11px] text-gray-400 mt-1">% retenido si el comprador cancela tras pagar la garantía.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Incremento mínimo de subasta (S/)</label>
+                  <input type="number" min="0" max="1000" step="0.01" value={incrementoSubasta} onChange={(e) => setIncrementoSubasta(e.target.value)} className="form-input-custom w-full" />
+                  <p className="text-[11px] text-gray-400 mt-1">Solo aplica a subastas inglesas; en sobre cerrado no se usa.</p>
                 </div>
               </div>
             </div>
