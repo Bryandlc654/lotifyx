@@ -475,18 +475,54 @@ export class CheckoutService implements OnModuleInit {
   @Cron(CronExpression.EVERY_HOUR)
   async cancelExpiredPendingOrders() {
     try {
-      const days = await this.config.getNum("limite_pago_dias");
-      const result = await this.dataSource.query(
-        `UPDATE orders
-         SET status = 'cancelled', updated_at = NOW()
-         WHERE status = 'pending_payment'
-           AND created_at < NOW() - ($1::int * INTERVAL '1 day')
-         RETURNING id, user_id`,
-        [days],
+      // Plazo configurable POR MODALIDAD (Umbrales). En demanda agregada, el plazo del saldo
+      // corre desde la confirmación del proveedor (provider_confirmed_at), no desde la creación.
+      const [dNormal, dSubasta, dLoteGarantia, dLoteSaldo, dLegacy] = await Promise.all([
+        this.config.getNum("limite_pago_normal_dias"),
+        this.config.getNum("limite_pago_subasta_dias"),
+        this.config.getNum("limite_pago_lote_garantia_dias"),
+        this.config.getNum("limite_pago_lote_saldo_dias"),
+        this.config.getNum("limite_pago_dias"),
+      ]);
+      const pending = await this.dataSource.query(
+        `SELECT o.id, o.user_id, o.payment_stage,
+           CASE
+             WHEN o.payment_stage = 'saldo' THEN 'lote_saldo'
+             WHEN EXISTS (SELECT 1 FROM auction_bids ab WHERE ab.checkout_id = o.id) THEN 'subasta'
+             WHEN EXISTS (SELECT 1 FROM lot_participants lp WHERE lp.order_id = o.id OR lp.remaining_order_id = o.id) THEN 'lote'
+             WHEN EXISTS (SELECT 1 FROM request_offers ro WHERE ro.order_id = o.id OR ro.remaining_order_id = o.id) THEN 'rfq'
+             ELSE 'normal'
+           END AS modality,
+           COALESCE(o.provider_confirmed_at, o.created_at) AS deadline_from
+         FROM orders o
+         WHERE o.status = 'pending_payment'`,
       );
-      if (result.length > 0) {
+      const daysByModality: Record<string, number> = {
+        normal: dNormal ?? dLegacy,
+        subasta: dSubasta ?? dLegacy,
+        lote: dLoteGarantia ?? dLegacy,
+        rfq: dLoteGarantia ?? dLegacy,
+        lote_saldo: dLoteSaldo ?? dLegacy,
+      };
+      const expired: any[] = [];
+      for (const o of pending as any[]) {
+        const days = Number(daysByModality[o.modality] ?? dLegacy);
+        const [row] = await this.dataSource.query(
+          `SELECT 1 FROM orders WHERE id = $1 AND status = 'pending_payment'
+             AND COALESCE(provider_confirmed_at, created_at) < NOW() - ($2::int * INTERVAL '1 day')`,
+          [o.id, days],
+        );
+        if (row) { o.days = days; expired.push(o); }
+      }
+      for (const o of expired) {
+        await this.dataSource.query(
+          `UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
+          [o.id],
+        );
+      }
+      if (expired.length > 0) {
         // Reintegra el stock descontado al crear el pedido (las órdenes vencidas liberan inventario)
-        for (const o of result as any[]) {
+        for (const o of expired) {
           const [flag] = await this.dataSource.query(`SELECT stock_deducted FROM orders WHERE id = $1`, [o.id]);
           if (flag?.stock_deducted) {
             try { await this.restoreStockForOrder(this.dataSource, o.id); } catch (e: any) {
@@ -494,14 +530,14 @@ export class CheckoutService implements OnModuleInit {
             }
           }
         }
-        const userIds: string[] = [...new Set((result as any[]).map((o: any) => o.user_id))];
-        for (const o of result) {
+        const userIds: string[] = [...new Set(expired.map((o: any) => o.user_id))];
+        for (const o of expired) {
           this.audit.log({
             userId: o.user_id,
             action: "order_cancelled_expired",
             entity: "order",
             entityId: o.id,
-            details: { motivo: `No pagado en ${days} días` },
+            details: { motivo: `No pagado en ${o.days} día(s)`, modalidad: o.modality },
           });
         }
         // Penalización por incumplimiento (configurable): incrementa contador y sanciona si supera el umbral
@@ -517,10 +553,100 @@ export class CheckoutService implements OnModuleInit {
             });
           }
         }
-        console.log(`[Checkout] ${result.length} orden(es) pendiente(s) cancelada(s) por vencer el pago (${days} días)`);
+        console.log(`[Checkout] ${expired.length} orden(es) pendiente(s) cancelada(s) por vencer el pago según modalidad`);
       }
     } catch (e: any) {
       console.error("[Checkout] Error cancelando órdenes vencidas:", e.message);
     }
+  }
+
+  /** Confirma el proveedor su capacidad de cumplir en demanda agregada: habilita el reloj del saldo. */
+  async confirmProvider(orderId: string, sellerId: string) {
+    const [sellerInOrder] = await this.dataSource.query(
+      `SELECT 1 FROM order_items oi
+       INNER JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = $1::uuid AND p.user_id = $2::uuid LIMIT 1`,
+      [orderId, sellerId],
+    );
+    if (!sellerInOrder) throw new ForbiddenException("Solo el vendedor del pedido puede confirmarlo");
+    const [order] = await this.dataSource.query(
+      `SELECT id, payment_stage, provider_confirmed_at FROM orders WHERE id = $1::uuid`,
+      [orderId],
+    );
+    if (!order) throw new NotFoundException("Pedido no encontrado");
+    if (order.payment_stage !== "saldo") throw new BadRequestException("La confirmación aplica solo a pedidos de saldo");
+    if (order.provider_confirmed_at) return { message: "El pedido ya fue confirmado", provider_confirmed_at: order.provider_confirmed_at };
+    await this.dataSource.query(
+      `UPDATE orders SET provider_confirmed_at = NOW(), updated_at = NOW() WHERE id = $1::uuid`,
+      [orderId],
+    );
+    this.audit.log({ userId: sellerId, action: "provider_confirmed", entity: "order", entityId: orderId });
+    return { message: "Confirmación registrada: inicia el plazo de pago del saldo" };
+  }
+
+  /** Devolución administrativa: retorna el dinero al comprador y lo descuenta a cada vendedor. */
+  async refundOrder(orderId: string, actorId: string, motivo: string) {
+    if (!motivo?.trim()) throw new BadRequestException("El motivo de la devolución es obligatorio");
+    const [order] = await this.dataSource.query(`SELECT * FROM orders WHERE id = $1::uuid`, [orderId]);
+    if (!order) throw new NotFoundException("Pedido no encontrado");
+    if (!["paid", "completed"].includes(order.status)) {
+      throw new BadRequestException(`Solo se pueden devolver pedidos pagados o completados (estado actual: ${order.status})`);
+    }
+    const isCompleted = order.status === "completed";
+    const total = Number(order.total_amount);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      // Descuenta a cada vendedor SU subtotal (disponible si ya liquidado, pendiente si aún no)
+      await queryRunner.query(
+        `UPDATE funds f SET
+           available_balance = GREATEST(f.available_balance - CASE WHEN $2 THEN s.subtotal ELSE 0 END, 0),
+           pending_balance   = GREATEST(f.pending_balance   - CASE WHEN $2 THEN 0 ELSE s.subtotal END, 0)
+         FROM (
+           SELECT p.user_id, SUM(oi.price * oi.qty) AS subtotal
+           FROM order_items oi INNER JOIN products p ON p.id = oi.product_id
+           WHERE oi.order_id = $1 GROUP BY p.user_id
+         ) s
+         WHERE f.user_id = s.user_id`,
+        [orderId, isCompleted],
+      );
+      // Crea fila de fondos del comprador si no existe y le acredita el total devuelto
+      await queryRunner.query(
+        `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+         VALUES ((SELECT user_id FROM orders WHERE id = $1), 0, 0, 0)
+         ON CONFLICT (user_id) DO NOTHING`,
+        [orderId],
+      );
+      await queryRunner.query(
+        `UPDATE funds SET available_balance = available_balance + $2
+         WHERE user_id = (SELECT user_id FROM orders WHERE id = $1)`,
+        [orderId, total],
+      );
+      // Reintegra stock si fue descontado (la mercadería vuelve al inventario)
+      const [flag] = await queryRunner.query(`SELECT stock_deducted FROM orders WHERE id = $1::uuid`, [orderId]);
+      if (flag?.stock_deducted) await this.restoreStockForOrder(queryRunner, orderId);
+      // Marca el pedido como devuelto con trazabilidad completa
+      await queryRunner.query(
+        `UPDATE orders SET status = 'refunded', refunded_by = $2::uuid, refunded_at = NOW(),
+           refunded_reason = $3, updated_at = NOW() WHERE id = $1::uuid`,
+        [orderId, actorId, motivo.trim()],
+      );
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+    this.audit.log({
+      userId: actorId,
+      action: "order_refunded",
+      entity: "order",
+      entityId: orderId,
+      details: { motivo: motivo.trim(), monto_devuelto: total, origen_vendedor: isCompleted ? "disponible" : "pendiente" },
+    });
+    return { message: `Devolución aplicada: S/ ${total.toFixed(2)} acreditados al comprador` };
   }
 }

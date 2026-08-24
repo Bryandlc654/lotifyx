@@ -4,6 +4,10 @@ export interface Umbrales {
   garantia_subasta_inversa_pct: number;
   garantia_demanda_agregada_pct: number;
   limite_pago_dias: number;
+  limite_pago_normal_dias: number;
+  limite_pago_subasta_dias: number;
+  limite_pago_lote_garantia_dias: number;
+  limite_pago_lote_saldo_dias: number;
   max_incumplimientos: number;
   sancion_dias: number;
   garantia_oferta_pct: number;

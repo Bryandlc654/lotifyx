@@ -10,6 +10,10 @@ export default function UmbralesPage() {
   const [subasta, setSubasta] = useState("5");
   const [demanda, setDemanda] = useState("5");
   const [limiteDias, setLimiteDias] = useState("3");
+  const [limiteNormal, setLimiteNormal] = useState("3");
+  const [limiteSubasta, setLimiteSubasta] = useState("2");
+  const [limiteLoteGarantia, setLimiteLoteGarantia] = useState("2");
+  const [limiteLoteSaldo, setLimiteLoteSaldo] = useState("5");
   const [maxInc, setMaxInc] = useState("2");
   const [sancionDias, setSancionDias] = useState("7");
   const [garantiaOferta, setGarantiaOferta] = useState("1");
@@ -29,6 +33,10 @@ export default function UmbralesPage() {
         setSubasta(String(d.garantia_subasta_inversa_pct));
         setDemanda(String(d.garantia_demanda_agregada_pct));
         setLimiteDias(String(d.limite_pago_dias ?? 3));
+        setLimiteNormal(String(d.limite_pago_normal_dias ?? 3));
+        setLimiteSubasta(String(d.limite_pago_subasta_dias ?? 2));
+        setLimiteLoteGarantia(String(d.limite_pago_lote_garantia_dias ?? 2));
+        setLimiteLoteSaldo(String(d.limite_pago_lote_saldo_dias ?? 5));
         setMaxInc(String(d.max_incumplimientos ?? 2));
         setSancionDias(String(d.sancion_dias ?? 7));
         setGarantiaOferta(String(d.garantia_oferta_pct ?? 1));
@@ -53,6 +61,13 @@ export default function UmbralesPage() {
     if (!validPct(demanda)) { toast.error("La garantía de compra grupal debe ser un % entre 1 y 100"); return; }
     const dias = Number(limiteDias);
     if (!Number.isFinite(dias) || dias <= 0 || dias > 90) { toast.error("El límite de días debe ser entre 1 y 90"); return; }
+    for (const [label, val] of [
+      ["compra directa", limiteNormal], ["subasta", limiteSubasta],
+      ["garantía de lote", limiteLoteGarantia], ["saldo de lote", limiteLoteSaldo],
+    ] as const) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n <= 0 || n > 90) { toast.error(`El plazo de pago (${label}) debe ser entre 1 y 90 días`); return; }
+    }
     const max = Number(maxInc);
     if (!Number.isFinite(max) || max <= 0 || max > 20) { toast.error("El máximo de incumplimientos debe ser entre 1 y 20"); return; }
     const sd = Number(sancionDias);
@@ -77,6 +92,10 @@ export default function UmbralesPage() {
         garantia_subasta_inversa_pct: Number(subasta),
         garantia_demanda_agregada_pct: Number(demanda),
         limite_pago_dias: dias,
+        limite_pago_normal_dias: Number(limiteNormal),
+        limite_pago_subasta_dias: Number(limiteSubasta),
+        limite_pago_lote_garantia_dias: Number(limiteLoteGarantia),
+        limite_pago_lote_saldo_dias: Number(limiteLoteSaldo),
         max_incumplimientos: max,
         sancion_dias: sd,
         garantia_oferta_pct: go,
@@ -90,6 +109,10 @@ export default function UmbralesPage() {
       setSubasta(String(res.garantia_subasta_inversa_pct));
       setDemanda(String(res.garantia_demanda_agregada_pct));
       setLimiteDias(String(res.limite_pago_dias ?? dias));
+      setLimiteNormal(String(res.limite_pago_normal_dias ?? limiteNormal));
+      setLimiteSubasta(String(res.limite_pago_subasta_dias ?? limiteSubasta));
+      setLimiteLoteGarantia(String(res.limite_pago_lote_garantia_dias ?? limiteLoteGarantia));
+      setLimiteLoteSaldo(String(res.limite_pago_lote_saldo_dias ?? limiteLoteSaldo));
       setMaxInc(String(res.max_incumplimientos ?? max));
       setSancionDias(String(res.sancion_dias ?? sd));
       setGarantiaOferta(String(res.garantia_oferta_pct ?? go));
@@ -171,18 +194,43 @@ export default function UmbralesPage() {
               </label>
               <p className="text-xs text-gray-400 mb-3">
                 Si una oferta/puja aceptada no se paga dentro de este plazo, la orden se cancela automáticamente.
+                El plazo se define por modalidad:
               </p>
-              <div className="flex items-center gap-3 max-w-xs">
-                <input
-                  type="number"
-                  min="1"
-                  max="90"
-                  step="1"
-                  value={limiteDias}
-                  onChange={(e) => setLimiteDias(e.target.value)}
-                  className="form-input-custom w-full"
-                />
-                <span className="text-sm text-gray-500 font-semibold">días</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Compra directa (catálogo)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="1" max="90" step="1" value={limiteNormal}
+                      onChange={(e) => setLimiteNormal(e.target.value)} className="form-input-custom w-full" />
+                    <span className="text-sm text-gray-500 font-semibold">días</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Subasta (pago del ganador)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="1" max="90" step="1" value={limiteSubasta}
+                      onChange={(e) => setLimiteSubasta(e.target.value)} className="form-input-custom w-full" />
+                    <span className="text-sm text-gray-500 font-semibold">días</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Demanda agregada — garantía</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="1" max="90" step="1" value={limiteLoteGarantia}
+                      onChange={(e) => setLimiteLoteGarantia(e.target.value)} className="form-input-custom w-full" />
+                    <span className="text-sm text-gray-500 font-semibold">días</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">Para pagar la garantía tras el cierre del lote.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Demanda agregada — saldo</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="1" max="90" step="1" value={limiteLoteSaldo}
+                      onChange={(e) => setLimiteLoteSaldo(e.target.value)} className="form-input-custom w-full" />
+                    <span className="text-sm text-gray-500 font-semibold">días</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">Corre desde que el proveedor confirma su cumplimiento.</p>
+                </div>
               </div>
             </div>
 

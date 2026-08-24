@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Body, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, Post, Param, Query, Body, Req, UseGuards, BadRequestException } from "@nestjs/common";
 import { CheckoutService } from "../checkout/checkout.service";
 import { OrdersService } from "../checkout/orders.service";
 import { ClaimsService } from "../checkout/claims.service";
@@ -35,6 +35,14 @@ export class AdminOrdersController {
   @RequirePermission("orders.approve")
   reject(@Req() req, @Param("id") id: string, @Body("motivo") motivo: string) {
     return this.checkoutService.rejectOrder(id, motivo || "Sin motivo especificado", req.user.id);
+  }
+
+  /** Devolución administrativa con registro de motivo */
+  @Post(":id/refund")
+  @RequirePermission("orders.approve")
+  refund(@Req() req, @Param("id") id: string, @Body("motivo") motivo: string) {
+    if (!motivo?.trim()) throw new BadRequestException("El motivo de la devolución es obligatorio");
+    return this.checkoutService.refundOrder(id, req.user.id, motivo);
   }
 
   @Patch(":id/status")

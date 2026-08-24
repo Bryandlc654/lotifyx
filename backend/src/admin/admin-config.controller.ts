@@ -17,6 +17,10 @@ export class AdminConfigController {
       garantia_subasta_inversa_pct: all.garantia_subasta_inversa_pct ?? 5,
       garantia_demanda_agregada_pct: all.garantia_demanda_agregada_pct ?? 5,
       limite_pago_dias: all.limite_pago_dias ?? 3,
+      limite_pago_normal_dias: all.limite_pago_normal_dias ?? 3,
+      limite_pago_subasta_dias: all.limite_pago_subasta_dias ?? 2,
+      limite_pago_lote_garantia_dias: all.limite_pago_lote_garantia_dias ?? 2,
+      limite_pago_lote_saldo_dias: all.limite_pago_lote_saldo_dias ?? 5,
       max_incumplimientos: all.max_incumplimientos ?? 2,
       sancion_dias: all.sancion_dias ?? 7,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,
@@ -34,7 +38,9 @@ export class AdminConfigController {
   @RequirePermission("config.umbrales")
   async update(@Body() dto: {
     garantia_subasta_inversa_pct?: number; garantia_demanda_agregada_pct?: number;
-    limite_pago_dias?: number; max_incumplimientos?: number; sancion_dias?: number;
+    limite_pago_dias?: number; limite_pago_normal_dias?: number; limite_pago_subasta_dias?: number;
+    limite_pago_lote_garantia_dias?: number; limite_pago_lote_saldo_dias?: number;
+    max_incumplimientos?: number; sancion_dias?: number;
     garantia_oferta_pct?: number; max_ofertas_pendientes?: number; max_pujas_pendientes?: number; reconexion_dias?: number;
     session_timeout_minutos?: number; max_login_intentos?: number; bloqueo_login_minutos?: number;
   }) {
@@ -52,6 +58,17 @@ export class AdminConfigController {
       const v = Number(dto.limite_pago_dias);
       if (!Number.isFinite(v) || v <= 0 || v > 90) throw new BadRequestException("limite_pago_dias debe ser un número entre 1 y 90");
       await this.config.setPct("limite_pago_dias", v);
+    }
+    for (const [key, min] of [
+      ["limite_pago_normal_dias", 1], ["limite_pago_subasta_dias", 1],
+      ["limite_pago_lote_garantia_dias", 1], ["limite_pago_lote_saldo_dias", 1],
+    ] as const) {
+      const raw = (dto as any)[key];
+      if (raw !== undefined && raw !== null) {
+        const v = Number(raw);
+        if (!Number.isFinite(v) || v < min || v > 90) throw new BadRequestException(`${key} debe ser un número entre ${min} y 90`);
+        await this.config.setPct(key as any, v);
+      }
     }
     if (dto.max_incumplimientos !== undefined && dto.max_incumplimientos !== null) {
       const v = Number(dto.max_incumplimientos);
@@ -103,6 +120,10 @@ export class AdminConfigController {
       garantia_subasta_inversa_pct: all.garantia_subasta_inversa_pct ?? 5,
       garantia_demanda_agregada_pct: all.garantia_demanda_agregada_pct ?? 5,
       limite_pago_dias: all.limite_pago_dias ?? 3,
+      limite_pago_normal_dias: all.limite_pago_normal_dias ?? 3,
+      limite_pago_subasta_dias: all.limite_pago_subasta_dias ?? 2,
+      limite_pago_lote_garantia_dias: all.limite_pago_lote_garantia_dias ?? 2,
+      limite_pago_lote_saldo_dias: all.limite_pago_lote_saldo_dias ?? 5,
       max_incumplimientos: all.max_incumplimientos ?? 2,
       sancion_dias: all.sancion_dias ?? 7,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,

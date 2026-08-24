@@ -46,6 +46,20 @@ export class Order {
   @Column({ type: "timestamp", nullable: true })
   approved_at: Date;
 
+  /** Trazabilidad de devolución administrativa */
+  @Column({ type: "uuid", nullable: true })
+  refunded_by: string;
+
+  @Column({ type: "timestamp", nullable: true })
+  refunded_at: Date;
+
+  @Column({ type: "text", nullable: true })
+  refunded_reason: string;
+
+  /** Confirmación del proveedor en demanda agregada: habilita el plazo del saldo */
+  @Column({ type: "timestamp", nullable: true })
+  provider_confirmed_at: Date;
+
   @Column({ length: 30, nullable: true })
   tracking_status: string;
 

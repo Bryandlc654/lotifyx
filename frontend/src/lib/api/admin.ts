@@ -179,6 +179,15 @@ export async function rejectOrderPayment(id: string, motivo: string) {
   return res.json();
 }
 
+export async function refundOrderPayment(id: string, motivo: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_URL}/admin/orders/${id}/refund`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al procesar la devolución" }))).message);
+  return res.json();
+}
+
 export async function updateOrderStatus(id: string, status: string) {
   const res = await authFetch(`${API_URL}/admin/orders/${id}/status`, {
     method: "PATCH",

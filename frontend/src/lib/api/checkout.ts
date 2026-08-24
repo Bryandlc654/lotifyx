@@ -19,6 +19,13 @@ export async function getMySales() {
   return res.json();
 }
 
+/** El vendedor confirma su capacidad de cumplir en demanda agregada: habilita el plazo del saldo */
+export async function confirmProviderOrder(orderId: string) {
+  const res = await authFetch(`${API_URL}/checkout/orders/${orderId}/confirm-provider`, { method: "PATCH" });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error al confirmar" }))).message);
+  return res.json();
+}
+
 export async function getDashboard() {
   const res = await authFetch(`${API_URL}/checkout/dashboard`);
   if (!res.ok) throw new Error("Error al cargar dashboard");

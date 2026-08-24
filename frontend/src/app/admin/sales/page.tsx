@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminOrders, approveOrderPayment, rejectOrderPayment, updateOrderStatus, getImageUrl } from "@/lib/api";
-import { Check, Eye, Search, Store, Mail, Phone, User, X, XCircle, AlertTriangle } from "lucide-react";
+import { getAdminOrders, approveOrderPayment, rejectOrderPayment, refundOrderPayment, updateOrderStatus, getImageUrl } from "@/lib/api";
+import { Check, Eye, Search, Store, Mail, Phone, User, X, XCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface Seller {
@@ -19,6 +19,7 @@ interface Order {
   id: string; user_id: string; total_amount: number; status: string;
   operation_number: string; amount: number; proof_image: string;
   rejected_reason?: string;
+  refunded_reason?: string | null;
   created_at: string; buyer: { first_name: string; last_name: string; email: string } | null;
   items: OrderItem[];
   bid_info?: { bid_amount: number; ganador_id?: string | null; auction_estado?: string } | null;
@@ -29,6 +30,7 @@ const STATUS_FILTERS = [
   { value: "pending_payment", label: "Pendientes" },
   { value: "completed", label: "Completados" },
   { value: "rejected", label: "Rechazados" },
+  { value: "refunded", label: "Devueltos" },
 ];
 
 const statusLabels: Record<string, string> = {
@@ -36,6 +38,7 @@ const statusLabels: Record<string, string> = {
   paid: "Pagado",
   completed: "Completado",
   rejected: "Rechazado",
+  refunded: "Devuelto",
 };
 
 const statusColor: Record<string, string> = {
@@ -43,6 +46,7 @@ const statusColor: Record<string, string> = {
   completed: "bg-green-50 text-green-700",
   rejected: "bg-red-50 text-red-700",
   paid: "bg-blue-50 text-blue-700",
+  refunded: "bg-purple-50 text-purple-700",
 };
 
 export default function AdminSalesPage() {
@@ -54,6 +58,9 @@ export default function AdminSalesPage() {
   const [rejectTarget, setRejectTarget] = useState<Order | null>(null);
   const [rejectMotivo, setRejectMotivo] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null);
+  const [refundMotivo, setRefundMotivo] = useState("");
+  const [refunding, setRefunding] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -108,6 +115,22 @@ export default function AdminSalesPage() {
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     } catch {
       toast.error("Error al actualizar estado");
+    }
+  }
+
+  async function handleRefund() {
+    if (!refundTarget || !refundMotivo.trim()) { toast.error("El motivo de la devolución es obligatorio"); return; }
+    setRefunding(true);
+    try {
+      const res = await refundOrderPayment(refundTarget.id, refundMotivo.trim());
+      toast.success(res.message || "Devolución aplicada");
+      setOrders(prev => prev.map(o => o.id === refundTarget.id ? { ...o, status: "refunded", refunded_reason: refundMotivo.trim() } : o));
+      setRefundTarget(null);
+      setRefundMotivo("");
+    } catch (e: any) {
+      toast.error(e.message || "Error al procesar la devolución");
+    } finally {
+      setRefunding(false);
     }
   }
 
@@ -178,9 +201,13 @@ export default function AdminSalesPage() {
                           <option value="paid">Pagado</option>
                           <option value="completed">Completado</option>
                           <option value="rejected">Rechazado</option>
+                          <option value="refunded">Devuelto</option>
                         </select>
                         {order.rejected_reason && (
                           <p className="text-[10px] text-red-500 max-w-[100px] truncate">{order.rejected_reason}</p>
+                        )}
+                        {order.refunded_reason && (
+                          <p className="text-[10px] text-purple-500 max-w-[100px] truncate">Dev: {order.refunded_reason}</p>
                         )}
                       </div>
                     </td>
@@ -233,6 +260,12 @@ export default function AdminSalesPage() {
                             </button>
                           </>
                         )}
+                        {(order.status === "paid" || order.status === "completed") && (
+                          <button onClick={() => { setRefundTarget(order); setRefundMotivo(""); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors" title="Devolver dinero al comprador">
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -281,6 +314,13 @@ export default function AdminSalesPage() {
                 <div className="bg-red-50 rounded-lg p-3 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                   <div><span className="text-xs font-semibold text-red-700 block">Motivo del rechazo</span><p className="text-xs text-red-600">{detail.rejected_reason}</p></div>
+                </div>
+              )}
+
+              {detail.refunded_reason && (
+                <div className="bg-purple-50 rounded-lg p-3 flex items-start gap-2">
+                  <RotateCcw className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div><span className="text-xs font-semibold text-purple-700 block">Motivo de la devolución</span><p className="text-xs text-purple-600">{detail.refunded_reason}</p></div>
                 </div>
               )}
 
@@ -335,6 +375,13 @@ export default function AdminSalesPage() {
                   <button onClick={() => { setRejectTarget(detail); setRejectMotivo(""); setDetail(null); }} className="px-4 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors">Rechazar</button>
                 </div>
               )}
+
+              {(detail.status === "paid" || detail.status === "completed") && (
+                <button onClick={() => { setRefundTarget(detail); setRefundMotivo(""); setDetail(null); }}
+                  className="w-full mt-2 flex items-center justify-center gap-2 border border-purple-300 text-purple-700 font-bold py-3 rounded-xl hover:bg-purple-50 transition-colors">
+                  <RotateCcw className="h-4 w-4" /> Devolver dinero al comprador
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -356,6 +403,31 @@ export default function AdminSalesPage() {
               <div className="flex gap-3 pt-2">
                 <button onClick={handleReject} disabled={rejecting} className="flex-1 bg-red-500 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-60">{rejecting ? "Rechazando..." : "Confirmar rechazo"}</button>
                 <button onClick={() => setRejectTarget(null)} className="px-6 py-3 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund modal */}
+      {refundTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setRefundTarget(null)}>
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><RotateCcw className="h-5 w-5 text-purple-600" /> Devolución administrativa</h2>
+              <button onClick={() => setRefundTarget(null)} className="p-1 rounded-lg hover:bg-gray-100"><X className="h-5 w-5 text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              Se devolverán S/ {Number(refundTarget.total_amount).toFixed(2)} al comprador y se descontará a cada vendedor su parte. El stock vuelve al inventario.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-700">Motivo de la devolución <span className="text-red-500">*</span></label>
+                <textarea value={refundMotivo} onChange={e => setRefundMotivo(e.target.value)} placeholder="Explica el motivo de la devolución (producto defectuoso, desistimiento, etc.)..." rows={3} className="w-full border border-gray-200 rounded-lg text-sm p-3 mt-1 focus:ring-purple-500 focus:border-purple-500 resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleRefund} disabled={refunding} className="flex-1 bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-60">{refunding ? "Procesando..." : "Confirmar devolución"}</button>
+                <button onClick={() => setRefundTarget(null)} className="px-6 py-3 bg-gray-500 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
               </div>
             </div>
           </div>

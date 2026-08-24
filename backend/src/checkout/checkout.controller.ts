@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Param,
   Query,
   UseGuards,
@@ -236,6 +237,12 @@ export class CheckoutController {
       details: { operation_number: body.operation_number, amount: declaredAmount },
     });
     return { message: "Comprobante enviado correctamente" };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("orders/:id/confirm-provider")
+  async confirmProvider(@Req() req, @Param("id") id: string) {
+    return this.checkoutService.confirmProvider(id, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)

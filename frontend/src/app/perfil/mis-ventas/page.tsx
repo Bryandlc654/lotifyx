@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { getMySales, isAuthenticated, removeTokens, getProfile } from "@/lib/api";
-import { ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, User, Mail, Store, MessageCircle, Truck, Package, Wallet } from "lucide-react";
+import { getMySales, isAuthenticated, removeTokens, getProfile, confirmProviderOrder } from "@/lib/api";
+import { ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Eye, User, Mail, Store, MessageCircle, Truck, Package, Wallet, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
 
@@ -20,6 +20,8 @@ interface SaleItem {
 interface Sale {
   id: string; user_id: string; total_amount: number; status: string;
   created_at: string; buyer: Buyer | null; items: SaleItem[];
+  payment_stage?: string | null;
+  provider_confirmed_at?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -122,6 +124,34 @@ export default function MisVentasPage() {
                           </div>
                         ))}
                       </div>
+
+                      {sale.payment_stage === "saldo" && sale.status === "pending_payment" && (
+                        <div className="mt-3 flex items-center gap-2 text-[10px] bg-purple-50 text-purple-700 rounded-lg px-3 py-2">
+                          <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>
+                            {sale.provider_confirmed_at
+                              ? `Cumplimiento confirmado el ${new Date(sale.provider_confirmed_at).toLocaleDateString("es-PE")}: el comprador ya tiene plazo para pagar el saldo.`
+                              : "Confirma que puedes cumplir con esta venta para habilitar el pago del saldo por el comprador."}
+                          </span>
+                          {!sale.provider_confirmed_at && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await confirmProviderOrder(sale.id);
+                                  toast.success("Confirmación registrada");
+                                  setSales(prev => prev.map(s => s.id === sale.id ? { ...s, provider_confirmed_at: new Date().toISOString() } : s));
+                                } catch (err: any) {
+                                  toast.error(err.message || "Error al confirmar");
+                                }
+                              }}
+                              className="ml-auto bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
+                            >
+                              Confirmar cumplimiento
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {(sale.status === "paid" || sale.status === "completed") && (
                         <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
