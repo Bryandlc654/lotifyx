@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Param, Body, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Put, Post, Param, Body, Query, Req, UseGuards, BadRequestException } from "@nestjs/common";
 import { ProductsService } from "../products/products.service";
 import { LotsService } from "../lots/lots.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -44,5 +44,12 @@ export class AdminLotsController {
   @RequirePermission("products.write")
   savePricing(@Param("id") id: string, @Body() body: any) {
     return this.lotsService.savePricing(id, body.tiers, body.meta_venta);
+  }
+
+  @Post(":id/cancel")
+  @RequirePermission("products.write")
+  async cancel(@Param("id") id: string, @Req() req, @Body("motivo") motivo: string) {
+    if (!motivo || !motivo.trim()) throw new BadRequestException("El motivo de cancelación es requerido");
+    return this.lotsService.cancelForIrregularity(id, req.user.id, motivo.trim());
   }
 }

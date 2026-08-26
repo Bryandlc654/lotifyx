@@ -653,4 +653,59 @@ export class RequestsService {
       console.error("[Requests] Error expirando solicitudes:", e.message);
     }
   }
+
+  /** Cancelación administrativa por irregularidades */
+  async cancelByAdmin(requestId: string, actorId: string, motivo: string) {
+    const req = await this.requestsRepo.findOne({ where: { id: requestId } });
+    if (!req) throw new NotFoundException("Solicitud no encontrada");
+    if (!["abierta", "expirada"].includes(req.estado)) throw new BadRequestException("Solo se pueden cancelar solicitudes abiertas o expiradas");
+
+    // Rechazar ofertas pendientes y liberar garantías
+    const pendientes = await this.dataSource.query(
+      `SELECT id, seller_id, garantia_oferta FROM request_offers
+       WHERE request_id = $1 AND estado = 'pendiente' AND garantia_oferta_reservada = true`,
+      [requestId],
+    );
+    await this.dataSource.query(
+      `UPDATE request_offers SET estado = 'rechazada', garantia_oferta_reservada = false, garantia_oferta = 0
+       WHERE request_id = $1 AND estado = 'pendiente'`,
+      [requestId],
+    );
+    for (const o of pendientes) {
+      if (Number(o.garantia_oferta) > 0) {
+        await this.dataSource.query(
+          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+           VALUES ($1, $2, 0, 0)
+           ON CONFLICT (user_id) DO UPDATE
+           SET available_balance = funds.available_balance + $2,
+               pending_balance = GREATEST(funds.pending_balance - $2, 0)`,
+          [o.seller_id, Number(o.garantia_oferta)],
+        );
+      }
+    }
+
+    await this.requestsRepo.save({ ...req, estado: "cancelada" } as any);
+    await this.emitRequestUpdate(requestId, "cancelada");
+
+    // Auditoría
+    this.audit.log({
+      userId: actorId,
+      action: "request_cancelled_irregularity",
+      entity: "buyer_request",
+      entityId: requestId,
+      details: { titulo: req.title || null, motivo, ofertas_rechazadas: pendientes.length },
+    });
+
+    // Notificar al comprador
+    try {
+      this.gateway.notifyUser(req.user_id, {
+        tipo: "solicitud_cancelada_admin",
+        titulo: "Solicitud cancelada por administración",
+        mensaje: `"${req.title || "Solicitud"}": tu solicitud fue cancelada por irregularidades. Motivo: ${motivo}.`,
+        url: `/solicitudes/${requestId}`,
+      });
+    } catch {}
+
+    return { message: "Solicitud cancelada por irregularidades. Ofertas y garantías procesadas." };
+  }
 }

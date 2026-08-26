@@ -1,14 +1,18 @@
-import { Controller, Post, Param, Get, Query, NotFoundException, BadRequestException, UseGuards } from "@nestjs/common";
+import { Controller, Post, Param, Get, Query, Req, Body, NotFoundException, BadRequestException, UseGuards } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/permissions.decorator";
+import { AuctionsService } from "../auctions/auctions.service";
 
 @Controller("admin/auctions")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminAuctionsController {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly auctionsService: AuctionsService,
+  ) {}
 
   @Get()
   @RequirePermission("auctions.manage")
@@ -172,5 +176,12 @@ export class AdminAuctionsController {
     }
 
     return { message: "Subasta cerrada correctamente" };
+  }
+
+  @Post(":id/cancel")
+  @RequirePermission("auctions.manage")
+  async cancelForIrregularity(@Param("id") id: string, @Req() req, @Body("motivo") motivo: string) {
+    if (!motivo || !motivo.trim()) throw new BadRequestException("El motivo de cancelación es requerido");
+    return this.auctionsService.cancelForIrregularity(id, req.user.id, motivo.trim());
   }
 }

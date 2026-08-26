@@ -702,4 +702,75 @@ export class AuctionsService implements OnModuleInit {
     }
     console.log(`[Auction] ${auctionId.slice(0,8)} re-adjudicada al siguiente postor ${next.postor_id.slice(0,8)}`);
   }
+
+  /** Cancelación administrativa por irregularidades: cierra sin ganador y devuelve garantías */
+  async cancelForIrregularity(auctionId: string, actorId: string, motivo: string) {
+    const auction = await this.repo.findOne({ where: { id: auctionId } });
+    if (!auction) throw new NotFoundException("Subasta no encontrada");
+    if (auction.estado !== "activo") throw new BadRequestException("Solo se pueden cancelar subastas activas");
+
+    // Cerrar la subasta sin ganador
+    auction.estado = "cerrado";
+    auction.ganador_id = null;
+    await this.repo.save(auction);
+
+    // Marcar todas las pujas como canceladas por irregularidad y devolver garantías
+    const confirmedBids = await this.dataSource.query(
+      `SELECT ab.id, ab.postor_id, ab.monto, o.id AS order_id, COALESCE(o.amount, 0) AS guarantee_paid
+       FROM auction_bids ab
+       LEFT JOIN orders o ON o.id = ab.checkout_id
+       WHERE ab.auction_id = $1 AND ab.estado = 'confirmada'`,
+      [auctionId],
+    );
+
+    for (const bid of confirmedBids) {
+      const refundAmount = Number(bid.guarantee_paid) || 0;
+      if (refundAmount > 0) {
+        await this.dataSource.query(
+          `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+           VALUES ($1, $2, 0, 0)
+           ON CONFLICT (user_id) DO UPDATE
+           SET available_balance = funds.available_balance + $2,
+               pending_balance = GREATEST(funds.pending_balance - $2, 0)`,
+          [bid.postor_id, refundAmount],
+        );
+      }
+      // Cancelar orden de garantía asociada si existe
+      if (bid.order_id) {
+        await this.dataSource.query(
+          `UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status IN ('pending_payment', 'paid')`,
+          [bid.order_id],
+        );
+      }
+    }
+
+    // Marcar todas las pujas no canceladas
+    await this.dataSource.query(
+      `UPDATE auction_bids SET estado = 'cancelada_irregularidad'
+       WHERE auction_id = $1 AND estado IN ('confirmada', 'pendiente')`,
+      [auctionId],
+    );
+
+    // Auditoría
+    this.audit.log({
+      userId: actorId,
+      action: "auction_cancelled_irregularity",
+      entity: "auction",
+      entityId: auctionId,
+      details: { product_id: auction.product_id, motivo, bids_refundeadas: confirmedBids.length },
+    });
+
+    // Notificar al vendedor
+    try {
+      const [prod] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [auction.product_id]);
+      this.gateway.notifyUser(auction.vendedor_id, {
+        tipo: "subasta_cancelada_admin",
+        titulo: "Subasta cancelada por administración",
+        mensaje: `"${prod?.title || "Producto"}": la subasta fue cancelada por irregularidades. Motivo: ${motivo}.`,
+        url: `/producto/${auction.product_id}`,
+      });
+    } catch {}
+
+    return { message: "Subasta cancelada por irregularidades. Garantías devueltas." };
+  }
 }

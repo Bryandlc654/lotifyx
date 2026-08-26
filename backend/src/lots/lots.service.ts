@@ -702,6 +702,24 @@ export class LotsService implements OnModuleInit {
   async cancelLot(lotSaleId: string) {
     const lot = await this.repo.findOne({ where: { id: lotSaleId } });
     if (!lot) throw new NotFoundException("Venta por lote no encontrada");
+
+    // Devolver garantías pagadas a los participantes antes de cancelar
+    const participants = await this.dataSource.query(
+      `SELECT comprador_id, COALESCE(garantia_pagada, 0) AS garantia_pagada
+       FROM lot_participants WHERE lot_sale_id = $1 AND estado = 'reservado' AND garantia_pagada > 0`,
+      [lotSaleId],
+    );
+    for (const p of participants) {
+      await this.dataSource.query(
+        `INSERT INTO funds (user_id, available_balance, pending_balance, disputed_balance)
+         VALUES ($1, $2, 0, 0)
+         ON CONFLICT (user_id) DO UPDATE
+         SET available_balance = funds.available_balance + $2,
+             pending_balance = GREATEST(funds.pending_balance - $2, 0)`,
+        [p.comprador_id, Number(p.garantia_pagada)],
+      );
+    }
+
     lot.estado = "cancelado";
     await this.repo.save(lot);
     await this.dataSource.query(
@@ -716,19 +734,50 @@ export class LotsService implements OnModuleInit {
       action: "lot_closed_deserted",
       entity: "lot",
       entityId: lotSaleId,
-      details: { product_id: lot.product_id, reservado, minimo },
+      details: { product_id: lot.product_id, reservado, minimo, garantias_devueltas: participants.length },
     });
     try {
       const [prod] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [lot.product_id]);
       this.gateway.notifyUser(lot.vendedor_id, {
         tipo: "lote_cancelado",
         titulo: "Lote no alcanzó el mínimo",
-        mensaje: `"${prod?.title || "Lote"}": el lote canceló con ${reservado}/${minimo} unidad(es). Los participantes fueron liberados.`,
+        mensaje: `"${prod?.title || "Lote"}": el lote canceló con ${reservado}/${minimo} unidad(es). Garantías devueltas a ${participants.length} participante(s).`,
         url: `/producto/${lot.product_id}`,
       });
     } catch {}
 
     return lot;
+  }
+
+  /** Cancelación administrativa por irregularidades: cierra lote y devuelve garantías */
+  async cancelForIrregularity(lotSaleId: string, actorId: string, motivo: string) {
+    const lot = await this.repo.findOne({ where: { id: lotSaleId } });
+    if (!lot) throw new NotFoundException("Venta por lote no encontrada");
+    if (lot.estado !== "abierto") throw new BadRequestException("Solo se pueden cancelar lotes abiertos");
+
+    await this.cancelLot(lotSaleId);
+
+    // Auditoría adicional de cancelación administrativa
+    this.audit.log({
+      userId: actorId,
+      action: "lot_cancelled_irregularity",
+      entity: "lot",
+      entityId: lotSaleId,
+      details: { product_id: lot.product_id, motivo },
+    });
+
+    // Notificación adicional al vendedor
+    try {
+      const [prod] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [lot.product_id]);
+      this.gateway.notifyUser(lot.vendedor_id, {
+        tipo: "lote_cancelado_admin",
+        titulo: "Lote cancelado por administración",
+        mensaje: `"${prod?.title || "Lote"}": el lote fue cancelado por irregularidades. Motivo: ${motivo}.`,
+        url: `/producto/${lot.product_id}`,
+      });
+    } catch {}
+
+    return { message: "Lote cancelado por irregularidades. Garantías devueltas." };
   }
 
   /** Cierra lotes abiertos cuya fecha de cierre ya pasó: cierra si alcanzó el mínimo, si no cancela */

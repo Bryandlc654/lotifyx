@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminRequests, getAdminRequestOffers } from "@/lib/api";
+import { getAdminRequests, getAdminRequestOffers, adminCancelRequest } from "@/lib/api";
 import { toast } from "sonner";
-import { PackageSearch, Loader2, X, ChevronRight, Mail, Phone } from "lucide-react";
+import { PackageSearch, Loader2, X, ChevronRight, Mail, Phone, Ban } from "lucide-react";
 
 const ESTADO_LABEL: Record<string, string> = {
   abierta: "Abierta",
@@ -24,6 +24,7 @@ export default function AdminSolicitudesPage() {
   const [selected, setSelected] = useState<any>(null);
   const [offers, setOffers] = useState<any[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null);
 
   const PER_PAGE = 15;
 
@@ -53,6 +54,21 @@ export default function AdminSolicitudesPage() {
       toast.error("Error al cargar ofertas");
     } finally {
       setOffersLoading(false);
+    }
+  }
+
+  async function handleCancelRequest(id: string) {
+    const motivo = prompt("Motivo de cancelación de solicitud por irregularidad:");
+    if (!motivo?.trim()) return;
+    setCancellingRequestId(id);
+    try {
+      await adminCancelRequest(id, motivo.trim());
+      toast.success("Solicitud cancelada. Ofertas y garantías procesadas.");
+      load();
+    } catch {
+      toast.error("Error al cancelar solicitud");
+    } finally {
+      setCancellingRequestId(null);
     }
   }
 
@@ -127,10 +143,19 @@ export default function AdminSolicitudesPage() {
                       {r.precio_maximo != null ? `S/ ${Number(r.precio_maximo).toFixed(2)}` : "-"}
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openOffers(r)}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-[#8234FE] hover:underline">
                         Ver ofertas <ChevronRight className="w-3 h-3" />
                       </button>
+                      {r.estado === "abierta" && (
+                        <button onClick={() => handleCancelRequest(r.id)} disabled={cancellingRequestId === r.id}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline disabled:opacity-50">
+                          {cancellingRequestId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3 h-3" />}
+                          Cancelar
+                        </button>
+                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}

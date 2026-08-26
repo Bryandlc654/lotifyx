@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Param, Body, Query, Req, UseGuards, BadRequestException } from "@nestjs/common";
 import { RequestsService } from "../requests/requests.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
@@ -24,5 +24,12 @@ export class AdminRequestsController {
   @RequirePermission("orders.read")
   findOffers(@Param("id") id: string) {
     return this.service.findOffersAdmin(id);
+  }
+
+  @Post(":id/cancel")
+  @RequirePermission("orders.read")
+  async cancel(@Param("id") id: string, @Req() req, @Body("motivo") motivo: string) {
+    if (!motivo || !motivo.trim()) throw new BadRequestException("El motivo de cancelación es requerido");
+    return this.service.cancelByAdmin(id, req.user.id, motivo.trim());
   }
 }

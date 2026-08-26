@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getAdminLots, getAdminLotDetail, saveAdminLotPricing, approveProduct, rejectProduct, deleteProduct, getAdminUsers, getCategories } from "@/lib/api";
-import { Check, X, Eye, Search, XCircle, Trash2, ArrowUpDown, Layers, Users } from "lucide-react";
+import { getAdminLots, getAdminLotDetail, saveAdminLotPricing, approveProduct, rejectProduct, deleteProduct, getAdminUsers, getCategories, adminCancelLot } from "@/lib/api";
+import { Check, X, Eye, Search, XCircle, Trash2, ArrowUpDown, Layers, Users, Ban, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUSES = [
@@ -85,6 +85,7 @@ export default function AdminLotesPage() {
   const [pricingSaving, setPricingSaving] = useState(false);
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [deleteConfirm, setDeleteConfirm] = useState<LotRow | null>(null);
+  const [cancellingLotId, setCancellingLotId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -152,6 +153,21 @@ export default function AdminLotesPage() {
       setDeleteConfirm(null);
     } catch {
       toast.error("Error al eliminar lote");
+    }
+  }
+
+  async function handleCancelLot(id: string) {
+    const motivo = prompt("Motivo de cancelación del lote por irregularidad:");
+    if (!motivo?.trim()) return;
+    setCancellingLotId(id);
+    try {
+      await adminCancelLot(id, motivo.trim());
+      toast.success("Lote cancelado. Garantías devueltas.");
+      load();
+    } catch {
+      toast.error("Error al cancelar lote");
+    } finally {
+      setCancellingLotId(null);
     }
   }
 
@@ -332,6 +348,12 @@ export default function AdminLotesPage() {
                             <button onClick={() => handleReject(p.id)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Rechazar">
                               <X className="h-4 w-4" />
+                            </button>
+                          )}
+                          {p.lot_estado === "abierto" && (
+                            <button onClick={() => handleCancelLot(p.id)} disabled={cancellingLotId === p.id}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-50" title="Cancelar lote por irregularidad">
+                              {cancellingLotId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
                             </button>
                           )}
                           <button onClick={() => setDeleteConfirm(p)}

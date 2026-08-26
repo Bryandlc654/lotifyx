@@ -244,6 +244,33 @@ export async function adminCloseAuction(auctionId: string): Promise<any> {
   return res.json();
 }
 
+export async function adminCancelAuction(auctionId: string, motivo: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/auctions/${auctionId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function adminCancelLot(lotId: string, motivo: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/lots/${lotId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function adminCancelRequest(requestId: string, motivo: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/admin/requests/${requestId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
 export async function adminGetAuctionBids(auctionId: string): Promise<any> {
   const res = await authFetch(`${API_URL}/admin/auctions/${auctionId}/bids`);
   if (!res.ok) throw new Error("Error al cargar pujas");

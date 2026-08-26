@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { adminGetAuctions, adminGetEndedAuctions, adminCloseAuction, adminGetAuctionBids } from "@/lib/api";
-import { Eye, X, Gavel, Users, Search, Trophy, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { adminGetAuctions, adminGetEndedAuctions, adminCloseAuction, adminCancelAuction, adminGetAuctionBids } from "@/lib/api";
+import { Eye, X, Gavel, Users, Search, Trophy, Clock, CheckCircle, XCircle, Loader2, Ban } from "lucide-react";
 import { toast } from "sonner";
 
 interface Auction {
@@ -26,6 +26,7 @@ export default function AdminAuctionsPage() {
   const [tab, setTab] = useState<"activas" | "cerradas">("activas");
   const [search, setSearch] = useState("");
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [modal, setModal] = useState<{ type: "participants" | "winner"; auction: Auction; bids: Bid[]; loading: boolean } | null>(null);
 
   async function load() {
@@ -54,6 +55,15 @@ export default function AdminAuctionsPage() {
     try { await adminCloseAuction(id); toast.success("Subasta cerrada"); load(); }
     catch { toast.error("Error al cerrar"); }
     finally { setClosingId(null); }
+  }
+
+  async function handleCancel(id: string) {
+    const motivo = prompt("Motivo de cancelación por irregularidad:");
+    if (!motivo?.trim()) return;
+    setCancellingId(id);
+    try { await adminCancelAuction(id, motivo.trim()); toast.success("Subasta cancelada. Garantías devueltas."); load(); }
+    catch { toast.error("Error al cancelar"); }
+    finally { setCancellingId(null); }
   }
 
   const filtered = auctions.filter((a) =>
@@ -158,11 +168,18 @@ export default function AdminAuctionsPage() {
                             </button>
                           )}
                           {isActive && (
+                            <>
                             <button onClick={() => handleClose(a.id)} disabled={closingId === a.id}
                               className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                               {closingId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
                               Cerrar
                             </button>
+                            <button onClick={() => handleCancel(a.id)} disabled={cancellingId === a.id}
+                              className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50">
+                              {cancellingId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                              Cancelar
+                            </button>
+                            </>
                           )}
                         </div>
                       </td>
