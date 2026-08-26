@@ -176,6 +176,9 @@ export class ProductsController {
   @Get(":id/save-status")
   saveStatus(@Param("id") id: string, @Req() req) { return this.service.getSaveStatus(id, req.user.id); }
 
+  @Get("matrix/canal/:canal")
+  matrixRules(@Param("canal") canal: string) { return this.service.matrixRules(canal); }
+
   @Get(":id")
   findOne(@Param("id") id: string) { return this.service.findOnePublic(id); }
 

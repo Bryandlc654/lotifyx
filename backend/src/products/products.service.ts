@@ -5,6 +5,7 @@ import { randomBytes } from "crypto";
 import { Product } from "./product.entity";
 import { AuditService } from "../audit/audit.service";
 import { ConfigService } from "../config/config.service";
+import { AuctionMatrixService } from "../auction-matrix/auction-matrix.service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -20,6 +21,7 @@ export class ProductsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
+    private readonly matrix: AuctionMatrixService,
   ) {}
 
   async findAllActive(categoryId?: string, search?: string, limit?: number, precioMin?: number, precioMax?: number, ubicacion?: string, userId?: string, vendedor?: string, estado?: string) {
@@ -279,6 +281,16 @@ export class ProductsService {
 
     // Detección de publicaciones duplicadas (mismo título, categoría y precio)
     await this.alertarDuplicado(dto);
+
+    // Validación de Matriz subasta: canal × modalidad × categoría × divisibilidad
+    if (dto.canal || (dto as any).metodo_pago === "subasta" || (dto as any).metodo_pago === "venta_por_lote") {
+      await this.matrix.validarMatriz({
+        canal: (dto as any).canal || ((dto as any).metodo_pago === "venta_por_lote" ? "demanda_agregada" : "subasta"),
+        modalidad: (dto as any).modalidad || (dto as any).tipo_subasta || null,
+        categoria_id: dto.category_id || null,
+        divisible: dto.divisible,
+      });
+    }
 
     const specs = (dto.specifications || {}) as Record<string, string>;
     if (dto.stock === undefined || dto.stock === null) {
@@ -922,5 +934,26 @@ export class ProductsService {
     } catch (e: any) {
       if (e?.status === 400) throw e;
     }
+  }
+
+  /** Devuelve las reglas de matriz válidas para un canal (endpoint público) */
+  async matrixRules(canal: string) {
+    const rules = await this.dataSource.query(
+      `SELECT modalidad, divisibilidad_requerida, actores_permitidos, categoria_id
+       FROM auction_matrix_rules
+       WHERE canal = $1 AND activo = TRUE`,
+      [canal],
+    );
+    if (rules.length === 0) {
+      return { modalidades: [], divisibilidad: "cualquiera", actores: [] };
+    }
+    const modalidades = [...new Set(rules.map((r: any) => r.modalidad).filter(Boolean))] as string[];
+    const divisibilidades = rules.map((r: any) => r.divisibilidad_requerida).filter((v: any) => v !== null);
+    const actores = [...new Set(rules.map((r: any) => r.actores_permitidos))] as string[];
+    return {
+      modalidades: modalidades.length > 0 ? modalidades : ["inglesa", "sobre_cerrado"],
+      divisibilidad: divisibilidades.length === 1 ? (divisibilidades[0] ? "requerida" : "prohibida") : "cualquiera",
+      actores,
+    };
   }
 }

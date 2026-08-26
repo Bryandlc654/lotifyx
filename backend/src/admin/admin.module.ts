@@ -25,6 +25,8 @@ import { ConfigModule } from "../config/config.module";
 import { CollusionModule } from "../collusion/collusion.module";
 import { RequestsModule } from "../requests/requests.module";
 import { AuctionsModule } from "../auctions/auctions.module";
+import { AuctionMatrixModule } from "../auction-matrix/auction-matrix.module";
+import { AdminMatrixController } from "./admin-matrix.controller";
 import { User } from "../auth/entities/user.entity";
 import { UserProfile } from "../auth/entities/user-profile.entity";
 import { UserVerification } from "../auth/entities/user-verification.entity";
@@ -33,8 +35,8 @@ import { Permission } from "../auth/entities/permission.entity";
 import { RolePermission } from "../auth/entities/role-permission.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule, ConfigModule, CollusionModule, RequestsModule, MessagesModule, AuctionsModule],
-  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminLotsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController, AdminVerificationsController, AdminConfigController, AdminCollusionController, AdminRequestsController],
+  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule, ConfigModule, CollusionModule, RequestsModule, MessagesModule, AuctionsModule, AuctionMatrixModule],
+  controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminLotsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController, AdminVerificationsController, AdminConfigController, AdminCollusionController, AdminRequestsController, AdminMatrixController],
   providers: [AdminUsersService, AdminRbacService],
 })
 export class AdminModule {}

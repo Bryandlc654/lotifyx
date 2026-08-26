@@ -285,3 +285,15 @@ export async function getProductSaveStatus(id: string): Promise<{ saved: boolean
   if (!res.ok) throw new Error("Error");
   return res.json();
 }
+
+export interface MatrixRulesResponse {
+  modalidades: string[];
+  divisibilidad: string;
+  actores: string[];
+}
+
+export async function getMatrixRulesByCanal(canal: string): Promise<MatrixRulesResponse> {
+  const res = await fetch(`${API_URL}/products/matrix/canal/${canal}`);
+  if (!res.ok) return { modalidades: [], divisibilidad: "cualquiera", actores: [] };
+  return res.json();
+}

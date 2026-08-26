@@ -773,3 +773,51 @@ export async function clearSanction(userId: string) {
   if (!res.ok) throw new Error("Error al quitar sanción");
   return res.json();
 }
+
+// --- Auction Matrix Rules ---
+
+export interface MatrixRule {
+  id: string; canal: string; modalidad: string | null; categoria_id: string | null;
+  divisibilidad_requerida: boolean | null; actores_permitidos: string;
+  activo: boolean; categoria_nombre?: string; created_at: string;
+}
+
+export async function getMatrixRules(activo?: boolean): Promise<MatrixRule[]> {
+  const qs = activo !== undefined ? `?activo=${activo}` : "";
+  const res = await authFetch(`${API_URL}/admin/matrix${qs}`);
+  if (!res.ok) throw new Error("Error al cargar reglas de matriz");
+  return res.json();
+}
+
+export async function getAdminMatrixRulesByCanal(canal: string): Promise<MatrixRule[]> {
+  const res = await authFetch(`${API_URL}/admin/matrix/canal/${canal}`);
+  if (!res.ok) throw new Error("Error al cargar reglas del canal");
+  return res.json();
+}
+
+export async function createMatrixRule(dto: {
+  canal: string; modalidad?: string | null; categoria_id?: string | null;
+  divisibilidad_requerida?: boolean | null; actores_permitidos?: string;
+}): Promise<MatrixRule> {
+  const res = await authFetch(`${API_URL}/admin/matrix`, {
+    method: "POST", body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function updateMatrixRule(id: string, dto: Partial<{
+  canal: string; modalidad: string | null; categoria_id: string | null;
+  divisibilidad_requerida: boolean | null; actores_permitidos: string; activo: boolean;
+}>): Promise<MatrixRule> {
+  const res = await authFetch(`${API_URL}/admin/matrix/${id}`, {
+    method: "PUT", body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({ message: "Error" }))).message);
+  return res.json();
+}
+
+export async function deleteMatrixRule(id: string): Promise<void> {
+  const res = await authFetch(`${API_URL}/admin/matrix/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Error al eliminar regla");
+}

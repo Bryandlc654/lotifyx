@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { MessageCircle, Wallet } from "lucide-react";
-import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile, getProductVariants, createProductVariant, updateProductVariant, deleteProductVariant, ProductVariant } from "@/lib/api";
+import { getCategoryFields, getProfile, isAuthenticated, removeTokens, CategoryField, uploadGallery, uploadImage, getImageUrl, createProduct, getMyProduct, updateProduct, getCategories, getVerification, submitVerification, uploadVideo, uploadFile, getProductVariants, createProductVariant, updateProductVariant, deleteProductVariant, ProductVariant, getMatrixRulesByCanal } from "@/lib/api";
 import { getLotByProduct, getAuctionByProduct, saveLotPricing, RcgTier } from "@/lib/api";
 import { toast } from "sonner";
 import { PerfilSidebar } from "@/components/layout/perfil-sidebar";
@@ -180,6 +180,7 @@ function DetallesContent() {
   const [tipoInmobiliario, setTipoInmobiliario] = useState("");
   const [productImages, setProductImages] = useState<string[]>([]);
   const [imagesUploading, setImagesUploading] = useState(false);
+  const [matrixInfo, setMatrixInfo] = useState<{ modalidades: string[]; divisibilidad: string; actores: string[] } | null>(null);
   const esInmobiliario = /inmob/i.test(categoryName || "");
 
   // III.4 Verificación de stock y ficha técnica
@@ -347,6 +348,23 @@ function DetallesContent() {
       loadFields.finally(() => setLoading(false));
     }
   }, [categoryId, editingId, router]);
+
+  useEffect(() => {
+    if (!conditions.canal) { setMatrixInfo(null); return; }
+    getMatrixRulesByCanal(conditions.canal)
+      .then(info => {
+        setMatrixInfo(info);
+        if (info.modalidades.length > 0 && !info.modalidades.includes(conditions.tipo_subasta)) {
+          setConditions(prev => ({ ...prev, tipo_subasta: info.modalidades[0] }));
+        }
+        if (info.divisibilidad === "requerida") {
+          setConditions(prev => ({ ...prev, divisible: true }));
+        } else if (info.divisibilidad === "prohibida") {
+          setConditions(prev => ({ ...prev, divisible: false }));
+        }
+      })
+      .catch(() => setMatrixInfo(null));
+  }, [conditions.canal]);
 
   function GalleryUpload({ urls, onChange }: { urls: string[]; onChange: (urls: string[]) => void }) {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -860,10 +878,17 @@ function DetallesContent() {
                         <div>
                           <select value={conditions.tipo_subasta} onChange={e => setConditions({ ...conditions, tipo_subasta: e.target.value })}
                             className="w-full form-input-custom focus:ring-purple-500 max-w-xs">
-                            <option value="inglesa">Subasta inglesa (pujas visibles)</option>
-                            <option value="sobre_cerrado">Oferta privada en sobre cerrado</option>
+                            {(!matrixInfo || matrixInfo.modalidades.length === 0 || matrixInfo.modalidades.includes("inglesa")) && (
+                              <option value="inglesa">Subasta inglesa (pujas visibles)</option>
+                            )}
+                            {(!matrixInfo || matrixInfo.modalidades.length === 0 || matrixInfo.modalidades.includes("sobre_cerrado")) && (
+                              <option value="sobre_cerrado">Oferta privada en sobre cerrado</option>
+                            )}
                           </select>
                           <p className="text-xs text-gray-400 mt-1">En sobre cerrado las ofertas permanecen ocultas hasta el cierre.</p>
+                          {matrixInfo && matrixInfo.modalidades.length > 0 && (
+                            <p className="text-xs text-[#8234FE] mt-1">Modalidades habilitadas para este canal: {matrixInfo.modalidades.join(", ")}</p>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
@@ -877,6 +902,11 @@ function DetallesContent() {
                             <option value="oferta">Oferta directa</option>
                           </select>
                           <p className="text-xs text-gray-400 mt-1">Define el canal de la oportunidad transaccional (afecta la regla de garantía aplicable).</p>
+                          {matrixInfo && matrixInfo.actores.length > 0 && !matrixInfo.actores.includes("todos") && (
+                            <p className="text-xs text-amber-600 mt-1">
+                              Para este canal solo pueden participar: {matrixInfo.actores.join(", ")}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
@@ -930,16 +960,23 @@ function DetallesContent() {
                         <div>
                           <div className="flex gap-2">
                             <button type="button" onClick={() => setConditions({ ...conditions, divisible: true })}
-                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              disabled={matrixInfo?.divisibilidad === "prohibida"}
+                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"} ${matrixInfo?.divisibilidad === "prohibida" ? "opacity-40 cursor-not-allowed" : ""}`}>
                               <span className="block text-sm font-semibold text-gray-800">Divisible</span>
                               <span className="block text-[11px] text-gray-500">Cada participante puede tomar varias unidades</span>
                             </button>
                             <button type="button" onClick={() => setConditions({ ...conditions, divisible: false })}
-                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${!conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"}`}>
+                              disabled={matrixInfo?.divisibilidad === "requerida"}
+                              className={`flex-1 max-w-[180px] rounded-xl border px-3 py-2 text-left transition-colors ${!conditions.divisible ? "border-purple-600 bg-purple-50" : "border-gray-200 hover:border-purple-400"} ${matrixInfo?.divisibilidad === "requerida" ? "opacity-40 cursor-not-allowed" : ""}`}>
                               <span className="block text-sm font-semibold text-gray-800">Indivisible</span>
                               <span className="block text-[11px] text-gray-500">Cada participante compromete 1 unidad</span>
                             </button>
                           </div>
+                          {matrixInfo && matrixInfo.divisibilidad !== "cualquiera" && (
+                            <p className="text-xs text-[#8234FE] mt-1">
+                              Para este canal la divisibilidad debe ser: {matrixInfo.divisibilidad === "requerida" ? "Divisible" : "Indivisible"}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-[180px_1fr] gap-4 items-start">
