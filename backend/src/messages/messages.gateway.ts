@@ -51,6 +51,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     client.leave(`product:${productId}`);
   }
 
+  @SubscribeMessage("join_request")
+  handleJoinRequest(client: Socket, requestId: string) {
+    client.join(`request:${requestId}`);
+  }
+
+  @SubscribeMessage("leave_request")
+  handleLeaveRequest(client: Socket, requestId: string) {
+    client.leave(`request:${requestId}`);
+  }
+
   notifyNewMessage(conversationId: string, message: any) {
     this.server.to(`conv:${conversationId}`).emit("new_message", message);
   }
@@ -61,5 +71,20 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   notifyNewBid(productId: string, data: { precio_actual: number; bid_count: number; highest_bid: number; estado?: string; ganador_id?: string | null }) {
     this.server.to(`product:${productId}`).emit("auction_update", data);
+  }
+
+  /** Difusión en tiempo real de la demanda agregada (lotes): volumen comprometido y umbral */
+  notifyLotUpdate(productId: string, data: { cantidad_reservada: number; participantes_count: number; umbral: number; estado: string }) {
+    this.server.to(`product:${productId}`).emit("lot_update", data);
+  }
+
+  /** Difusión en tiempo real de ofertas en una solicitud (subasta inversa / RFQ) */
+  notifyRequestUpdate(requestId: string, data: { offers_count: number; mejor_precio: number | null; estado: string }) {
+    this.server.to(`request:${requestId}`).emit("request_update", data);
+  }
+
+  /** Difusión en tiempo real de los umbrales a todos los clientes conectados */
+  notifyUmbralesUpdate(data: any) {
+    this.server.emit("umbrales_update", data);
   }
 }

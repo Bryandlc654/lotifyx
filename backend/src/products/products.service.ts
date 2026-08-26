@@ -293,6 +293,13 @@ export class ProductsService {
         if (cat?.require_verification) (dto as any).verification_required = true;
       } catch {}
     }
+    // Duración por defecto de publicación según Tiempo_Public (por modalidad)
+    if (!dto.cierre_estimado && (dto.metodo_pago === "subasta" || dto.metodo_pago === "venta_por_lote")) {
+      const horas = await this.config.getNum(
+        dto.metodo_pago === "subasta" ? "tiempo_public_subasta_horas" : "tiempo_public_lote_horas",
+      );
+      (dto as any).cierre_estimado = new Date(Date.now() + Number(horas) * 3600 * 1000).toISOString();
+    }
     // Clean empty decimal/date fields for auction/lot
     for (const field of ["precio_base", "precio_inicial", "incremento_minimo", "precio_lote", "precio_individual", "participantes_minimos", "cantidad_total", "min_qty", "cmc", "cierre_estimado", "precio_objetivo", "canal", "modalidad", "divisible"]) {
       if ((dto as any)[field] === "" || (dto as any)[field] === undefined || (dto as any)[field] === null) {

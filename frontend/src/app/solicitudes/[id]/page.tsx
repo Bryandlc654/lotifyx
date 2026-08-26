@@ -14,7 +14,9 @@ import {
   getRequest, getCategories, getCategoryFields, getMyProducts,
   getRequestOffers, getMyRequestOffer, makeRequestOffer, acceptRequestOffer,
   checkCoincidencia, getCurrentUserId, getUmbrales,
-} from "@/lib/api";
+}   from "@/lib/api";
+import { joinRequest, leaveRequest, onRequestUpdate, offRequestUpdate } from "@/lib/socket";
+import { useUmbrales } from "@/lib/umbrales-context";
 import type { BuyerRequest, Category, CategoryField, RequestOffer, CoincidenciaResult } from "@/lib/api";
 
 export default function SolicitudDetallePage() {
@@ -45,6 +47,14 @@ export default function SolicitudDetallePage() {
   const [variantConfirm, setVariantConfirm] = useState<Record<string, boolean>>({});
 
   const isOwn = !!userId && request?.user_id === userId;
+  const umbralesCtx = useUmbrales();
+
+  // Reflejar en vivo el % de garantía desde Umbrales
+  useEffect(() => {
+    if (umbralesCtx?.garantia_subasta_inversa_pct != null) {
+      setOfferGarantia(String(umbralesCtx.garantia_subasta_inversa_pct));
+    }
+  }, [umbralesCtx]);
 
   useEffect(() => {
     const uid = getCurrentUserId();
@@ -82,6 +92,17 @@ export default function SolicitudDetallePage() {
   useEffect(() => {
     if (isOwn || userId) loadOffers();
   }, [isOwn, userId, loadOffers]);
+
+  // Actualización en tiempo real de ofertas y estado de la solicitud (subasta inversa)
+  useEffect(() => {
+    if (!id) return;
+    joinRequest(id);
+    onRequestUpdate((data: any) => {
+      setRequest((prev: any) => prev ? { ...prev, estado: data.estado, offers_count: data.offers_count } : prev);
+      if (isOwn || userId) loadOffers();
+    });
+    return () => { leaveRequest(id); offRequestUpdate(); };
+  }, [id, isOwn, userId, loadOffers]);
 
   function fieldLabel(key: string) {
     const f = fields.find(x => x.name === key);

@@ -9,6 +9,7 @@ import { CartButton } from "@/components/layout/cart-button";
 import { CartSidebar } from "@/components/layout/cart-sidebar";
 import { CookieConsent } from "@/components/layout/cookie-consent";
 import { NotificationProvider } from "@/lib/notification-context";
+import { UmbralesProvider } from "@/lib/umbrales-context";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -41,10 +42,12 @@ export default function RootLayout({
           <UserProvider>
             <CartProvider>
               <NotificationProvider>
-                {children}
-                <CartButton />
-                <CartSidebar />
-                <CookieConsent />
+                <UmbralesProvider>
+                  {children}
+                  <CartButton />
+                  <CartSidebar />
+                  <CookieConsent />
+                </UmbralesProvider>
               </NotificationProvider>
             </CartProvider>
           </UserProvider>

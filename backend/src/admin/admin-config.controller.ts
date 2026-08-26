@@ -1,5 +1,6 @@
 import { Controller, Get, Put, Body, UseGuards, HttpCode, HttpStatus, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "../config/config.service";
+import { MessagesGateway } from "../messages/messages.gateway";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequirePermission } from "../auth/decorators/permissions.decorator";
@@ -7,7 +8,10 @@ import { RequirePermission } from "../auth/decorators/permissions.decorator";
 @Controller("admin/config/umbrales")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminConfigController {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly gateway: MessagesGateway,
+  ) {}
 
   @Get()
   @RequirePermission("config.umbrales")
@@ -28,6 +32,10 @@ export class AdminConfigController {
       garantia_redondeo_monto: all.garantia_redondeo_monto ?? 0.01,
       desistimiento_penalizacion_pct: all.desistimiento_penalizacion_pct ?? 10,
       incremento_minimo_subasta: all.incremento_minimo_subasta ?? 1,
+      tiempo_public_subasta_horas: all.tiempo_public_subasta_horas ?? 168,
+      tiempo_public_lote_horas: all.tiempo_public_lote_horas ?? 168,
+      tiempo_public_oferta_horas: all.tiempo_public_oferta_horas ?? 72,
+      tiempo_public_rfq_horas: all.tiempo_public_rfq_horas ?? 72,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,
       max_ofertas_pendientes: all.max_ofertas_pendientes ?? 10,
       max_pujas_pendientes: all.max_pujas_pendientes ?? 5,
@@ -48,6 +56,10 @@ export class AdminConfigController {
     garantia_min_monto?: number; garantia_tope_monto?: number;     garantia_redondeo_monto?: number;
     desistimiento_penalizacion_pct?: number;
     incremento_minimo_subasta?: number;
+    tiempo_public_subasta_horas?: number;
+    tiempo_public_lote_horas?: number;
+    tiempo_public_oferta_horas?: number;
+    tiempo_public_rfq_horas?: number;
     max_incumplimientos?: number; sancion_dias?: number;
     garantia_oferta_pct?: number; max_ofertas_pendientes?: number; max_pujas_pendientes?: number; reconexion_dias?: number;
     session_timeout_minutos?: number; max_login_intentos?: number; bloqueo_login_minutos?: number;
@@ -113,6 +125,13 @@ export class AdminConfigController {
       if (!Number.isFinite(v) || v < 0 || v > 1000) throw new BadRequestException("incremento_minimo_subasta debe ser entre 0 y 1000");
       await this.config.setPct("incremento_minimo_subasta", v);
     }
+    for (const key of ["tiempo_public_subasta_horas", "tiempo_public_lote_horas", "tiempo_public_oferta_horas", "tiempo_public_rfq_horas"] as const) {
+      if (dto[key] !== undefined && dto[key] !== null) {
+        const v = Number(dto[key]);
+        if (!Number.isFinite(v) || v < 1 || v > 8760) throw new BadRequestException(`${key} debe ser entre 1 y 8760 horas`);
+        await this.config.setPct(key as any, v);
+      }
+    }
     if (dto.garantia_oferta_pct !== undefined && dto.garantia_oferta_pct !== null) {
       const v = Number(dto.garantia_oferta_pct);
       if (!Number.isFinite(v) || v < 0 || v > 100) throw new BadRequestException("garantia_oferta_pct debe ser un número entre 0 y 100");
@@ -149,7 +168,7 @@ export class AdminConfigController {
       await this.config.setPct("bloqueo_login_minutos", v);
     }
     const all = await this.config.getAll();
-    return {
+    const result = {
       garantia_subasta_inversa_pct: all.garantia_subasta_inversa_pct ?? 5,
       garantia_demanda_agregada_pct: all.garantia_demanda_agregada_pct ?? 5,
       limite_pago_dias: all.limite_pago_dias ?? 3,
@@ -164,6 +183,10 @@ export class AdminConfigController {
       garantia_redondeo_monto: all.garantia_redondeo_monto ?? 0.01,
       desistimiento_penalizacion_pct: all.desistimiento_penalizacion_pct ?? 10,
       incremento_minimo_subasta: all.incremento_minimo_subasta ?? 1,
+      tiempo_public_subasta_horas: all.tiempo_public_subasta_horas ?? 168,
+      tiempo_public_lote_horas: all.tiempo_public_lote_horas ?? 168,
+      tiempo_public_oferta_horas: all.tiempo_public_oferta_horas ?? 72,
+      tiempo_public_rfq_horas: all.tiempo_public_rfq_horas ?? 72,
       garantia_oferta_pct: all.garantia_oferta_pct ?? 1,
       max_ofertas_pendientes: all.max_ofertas_pendientes ?? 10,
       max_pujas_pendientes: all.max_pujas_pendientes ?? 5,
@@ -172,5 +195,8 @@ export class AdminConfigController {
       max_login_intentos: all.max_login_intentos ?? 5,
       bloqueo_login_minutos: all.bloqueo_login_minutos ?? 15,
     };
+    // Difusión en tiempo real de los umbrales a todos los clientes conectados
+    this.gateway.notifyUmbralesUpdate(result);
+    return result;
   }
 }

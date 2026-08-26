@@ -28,23 +28,26 @@ function requestDeadline(r: BuyerRequest) {
 
 function AuctionCountdown({ fechaFin }: { fechaFin: string }) {
   const [remaining, setRemaining] = useState("—");
+  const [porCerrar, setPorCerrar] = useState(false);
   useEffect(() => {
     function tick() {
       const diff = new Date(fechaFin).getTime() - Date.now();
-      if (diff <= 0) { setRemaining("Finalizada"); return; }
+      if (diff <= 0) { setRemaining("Finalizada"); setPorCerrar(false); return; }
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
       setRemaining(d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${String(s).padStart(2, "0")}s`);
+      setPorCerrar(diff <= 3600000);
     }
     tick();
     const iv = setInterval(tick, 1000);
     return () => clearInterval(iv);
   }, [fechaFin]);
+  const label = remaining === "Finalizada" ? "Finalizada" : porCerrar ? "Por cerrar" : "En vivo";
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
-      <Clock className="h-3.5 w-3.5" /> {remaining}
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${porCerrar ? "text-red-600" : "text-orange-600"}`}>
+      <Clock className="h-3.5 w-3.5" /> {label} · {remaining}
     </span>
   );
 }

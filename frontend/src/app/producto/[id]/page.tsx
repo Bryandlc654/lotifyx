@@ -8,7 +8,7 @@ import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, registerInterest, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
 import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck, Star } from "lucide-react";
-import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate } from "@/lib/socket";
+import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate, onLotUpdate, offLotUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
 import { LoginModal } from "@/components/layout/login-modal";
@@ -93,6 +93,15 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
       }
       if (p.metodo_pago === "venta_por_lote") {
         getLotByProduct(id).then(setLot).catch(() => {});
+        joinProductAuction(id);
+        onLotUpdate((data) => {
+          setLot((prev: any) => prev ? {
+            ...prev,
+            cantidad_reservada: data.cantidad_reservada,
+            participantes_count: data.participantes_count,
+            estado: data.estado,
+          } : prev);
+        });
       }
       const uid = getCurrentUserId();
       setIsOwn(uid === p.user_id);
@@ -104,6 +113,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
     return () => {
       leaveProductAuction(id);
       offAuctionUpdate();
+      offLotUpdate();
     };
   }, [id]);
 
@@ -348,7 +358,7 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     </div>
                     {auction.estado !== "cerrado" && (
                       <div className="px-4 pb-4">
-                        <AuctionCountdown endDate={auction.fecha_fin} onEnded={() => {
+                        <AuctionCountdown endDate={auction.fecha_fin} estado={auction.estado} onEnded={() => {
                           // Hacer polling hasta que la subasta se cierre
                           const poll = setInterval(async () => {
                             const a = await getAuctionByProduct(id).catch(() => null);
@@ -491,6 +501,11 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                     </div>
                     <Layers className="w-8 h-8 text-[#8b5cf6] opacity-80" />
                   </div>
+                  {lot.fecha_cierre && (
+                    <div className="p-4">
+                      <AuctionCountdown endDate={lot.fecha_cierre} estado={lot.estado} onEnded={() => {}} />
+                    </div>
+                  )}
                   <div className="divide-y divide-gray-100">
                     <div className="flex justify-between items-center p-4">
                       <span className="text-gray-500 text-[15px]">Precio por unidad</span>

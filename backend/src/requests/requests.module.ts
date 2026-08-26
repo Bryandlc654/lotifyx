@@ -8,9 +8,10 @@ import { MatchingService } from "./matching.service";
 import { ConfigModule } from "../config/config.module";
 import { CollusionModule } from "../collusion/collusion.module";
 import { GuaranteesModule } from "../guarantees/guarantees.module";
+import { MessagesModule } from "../messages/messages.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule, GuaranteesModule],
+  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule, GuaranteesModule, MessagesModule],
   controllers: [RequestsController],
   providers: [RequestsService, MatchingService],
   exports: [RequestsService],

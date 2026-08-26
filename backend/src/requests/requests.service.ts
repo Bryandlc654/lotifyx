@@ -8,6 +8,7 @@ import { MatchingService } from "./matching.service";
 import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
 import { GuaranteesService } from "../guarantees/guarantees.service";
+import { MessagesGateway } from "../messages/messages.gateway";
 
 @Injectable()
 export class RequestsService {
@@ -19,11 +20,28 @@ export class RequestsService {
     private readonly config: ConfigService,
     private readonly collusion: CollusionService,
     private readonly guarantees: GuaranteesService,
+    private readonly gateway: MessagesGateway,
   ) {}
 
   private num(v: any): number | null {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
+  }
+
+  /** Difusión en tiempo real de ofertas en una solicitud (subasta inversa / RFQ) */
+  private async emitRequestUpdate(requestId: string, estado: string = "abierta") {
+    try {
+      const [r] = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS offers_count, MIN(precio) AS mejor_precio
+         FROM request_offers WHERE request_id = $1 AND estado = 'pendiente'`,
+        [requestId],
+      );
+      this.gateway.notifyRequestUpdate(requestId, {
+        offers_count: Number(r?.offers_count || 0),
+        mejor_precio: r?.mejor_precio != null ? Number(r.mejor_precio) : null,
+        estado,
+      });
+    } catch {}
   }
 
   // ─── Solicitudes del comprador ──────────────────────────
@@ -47,7 +65,9 @@ export class RequestsService {
       precio_minimo: this.num(dto?.precio_minimo),
       precio_maximo: this.num(dto?.precio_maximo),
       cantidad,
-      fecha_limite: dto?.fecha_limite ? new Date(dto.fecha_limite) : null,
+      fecha_limite: dto?.fecha_limite
+        ? new Date(dto.fecha_limite)
+        : new Date(Date.now() + (await this.config.getNum("tiempo_public_rfq_horas")) * 3600 * 1000),
       estado: "abierta",
     });
     await this.requestsRepo.save(req);
@@ -302,6 +322,7 @@ export class RequestsService {
       garantia_oferta_reservada: true,
     });
     await this.offersRepo.save(offer);
+    await this.emitRequestUpdate(requestId);
 
     // Registro de señal para detección de colusión (IP + monto)
     this.collusion
@@ -438,6 +459,7 @@ export class RequestsService {
         }
       }
       await qr.query(`UPDATE buyer_requests SET estado = 'aceptada' WHERE id = $1`, [requestId]);
+      await this.emitRequestUpdate(requestId, "aceptada");
       await qr.commitTransaction();
       return {
         order_id: order.id,

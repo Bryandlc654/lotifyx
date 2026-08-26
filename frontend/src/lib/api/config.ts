@@ -13,6 +13,10 @@ export interface Umbrales {
   garantia_redondeo_monto: number;
   desistimiento_penalizacion_pct: number;
   incremento_minimo_subasta: number;
+  tiempo_public_subasta_horas: number;
+  tiempo_public_lote_horas: number;
+  tiempo_public_oferta_horas: number;
+  tiempo_public_rfq_horas: number;
   max_incumplimientos: number;
   sancion_dias: number;
   garantia_oferta_pct: number;

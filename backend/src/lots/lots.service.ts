@@ -10,6 +10,7 @@ import { LotBenefitApplication } from "./lot-benefit-application.entity";
 import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
 import { GuaranteesService } from "../guarantees/guarantees.service";
+import { MessagesGateway } from "../messages/messages.gateway";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
@@ -45,6 +46,7 @@ export class LotsService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly collusion: CollusionService,
     private readonly guarantees: GuaranteesService,
+    private readonly gateway: MessagesGateway,
   ) {}
 
   async onModuleInit() {
@@ -286,14 +288,36 @@ export class LotsService implements OnModuleInit {
     const reachTotal = totalReserved >= lotTotal;
     if (reachMinimo || reachTotal) {
       await this.closeLot(lotSaleId);
+      await this.emitLotUpdate(lotSaleId);
       return { message: "Lote completado. Se generó tu orden de compra; confirma el pago en Mis Compras.", lot_cerrado: true, lot_id: lotSaleId };
     }
 
+    await this.emitLotUpdate(lotSaleId);
     return {
       message: "Te uniste al lote. La reserva queda pendiente hasta completar el mínimo.",
       lot_cerrado: false,
       lot_id: lotSaleId,
     };
+  }
+
+  /** Emite en tiempo real el volumen comprometido y umbral del lote (demanda agregada) */
+  private async emitLotUpdate(lotSaleId: string) {
+    try {
+      const [row] = await this.dataSource.query(
+        `SELECT l.product_id, l.cantidad_reservada, l.participantes_minimos, l.estado,
+                (SELECT COUNT(*)::int FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count
+         FROM lot_sales l WHERE l.id = $1`,
+        [lotSaleId],
+      );
+      if (row) {
+        this.gateway.notifyLotUpdate(row.product_id, {
+          cantidad_reservada: Number(row.cantidad_reservada) || 0,
+          participantes_count: Number(row.participantes_count) || 0,
+          umbral: Number(row.participantes_minimos) || 0,
+          estado: row.estado,
+        });
+      }
+    } catch {}
   }
 
   async getParticipants(lotSaleId: string) {
@@ -468,6 +492,7 @@ export class LotsService implements OnModuleInit {
     }
 
     lot.estado = "cerrado";
+    await this.emitLotUpdate(lotSaleId);
     return lot;
   }
 

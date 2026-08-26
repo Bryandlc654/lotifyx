@@ -108,3 +108,43 @@ export function offAuctionUpdate() {
   const s = getSocket();
   if (s) s.off("auction_update");
 }
+
+export function joinRequest(requestId: string) {
+  const s = getSocket();
+  if (s?.connected) s.emit("join_request", requestId);
+}
+
+export function leaveRequest(requestId: string) {
+  const s = getSocket();
+  if (s?.connected) s.emit("leave_request", requestId);
+}
+
+export function onRequestUpdate(callback: (data: any) => void) {
+  const s = getSocket();
+  if (s) s.on("request_update", callback);
+}
+
+export function offRequestUpdate() {
+  const s = getSocket();
+  if (s) s.off("request_update");
+}
+
+export function onLotUpdate(callback: (data: any) => void) {
+  const s = getSocket();
+  if (s) s.on("lot_update", callback);
+}
+
+export function offLotUpdate() {
+  const s = getSocket();
+  if (s) s.off("lot_update");
+}
+
+export function onUmbralesUpdate(callback: (data: any) => void) {
+  const s = getSocket();
+  if (s) s.on("umbrales_update", callback);
+}
+
+export function offUmbralesUpdate() {
+  const s = getSocket();
+  if (s) s.off("umbrales_update");
+}

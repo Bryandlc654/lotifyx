@@ -13,6 +13,7 @@ import { AdminReviewsController } from "./admin-reviews.controller";
 import { AdminAuctionsController } from "./admin-auctions.controller";
 import { AdminVerificationsController } from "./admin-verifications.controller";
 import { AdminConfigController } from "./admin-config.controller";
+import { MessagesModule } from "../messages/messages.module";
 import { AdminCollusionController } from "./admin-collusion.controller";
 import { AdminRequestsController } from "./admin-requests.controller";
 import { ProductsModule } from "../products/products.module";
@@ -31,7 +32,7 @@ import { Permission } from "../auth/entities/permission.entity";
 import { RolePermission } from "../auth/entities/role-permission.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule, ConfigModule, CollusionModule, RequestsModule],
+  imports: [TypeOrmModule.forFeature([User, UserProfile, UserVerification, Role, Permission, RolePermission]), ProductsModule, LotsModule, CheckoutModule, AuditModule, VerificationsModule, ConfigModule, CollusionModule, RequestsModule, MessagesModule],
   controllers: [AdminUsersController, AdminRbacController, AdminProductsController, AdminLotsController, AdminOrdersController, AdminDashboardController, AdminWithdrawalsController, AdminReviewsController, AdminAuctionsController, AdminVerificationsController, AdminConfigController, AdminCollusionController, AdminRequestsController],
   providers: [AdminUsersService, AdminRbacService],
 })

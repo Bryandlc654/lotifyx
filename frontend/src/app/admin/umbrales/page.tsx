@@ -19,6 +19,10 @@ export default function UmbralesPage() {
   const [garantiaRedondeo, setGarantiaRedondeo] = useState("0.01");
   const [penalizacionDesist, setPenalizacionDesist] = useState("10");
   const [incrementoSubasta, setIncrementoSubasta] = useState("1");
+  const [tiempoSubasta, setTiempoSubasta] = useState("168");
+  const [tiempoLote, setTiempoLote] = useState("168");
+  const [tiempoOferta, setTiempoOferta] = useState("72");
+  const [tiempoRfq, setTiempoRfq] = useState("72");
   const [maxInc, setMaxInc] = useState("2");
   const [sancionDias, setSancionDias] = useState("7");
   const [garantiaOferta, setGarantiaOferta] = useState("1");
@@ -47,6 +51,10 @@ export default function UmbralesPage() {
         setGarantiaRedondeo(String(d.garantia_redondeo_monto ?? 0.01));
         setPenalizacionDesist(String(d.desistimiento_penalizacion_pct ?? 10));
         setIncrementoSubasta(String(d.incremento_minimo_subasta ?? 1));
+        setTiempoSubasta(String(d.tiempo_public_subasta_horas ?? 168));
+        setTiempoLote(String(d.tiempo_public_lote_horas ?? 168));
+        setTiempoOferta(String(d.tiempo_public_oferta_horas ?? 72));
+        setTiempoRfq(String(d.tiempo_public_rfq_horas ?? 72));
         setMaxInc(String(d.max_incumplimientos ?? 2));
         setSancionDias(String(d.sancion_dias ?? 7));
         setGarantiaOferta(String(d.garantia_oferta_pct ?? 1));
@@ -100,6 +108,10 @@ export default function UmbralesPage() {
     if (!Number.isFinite(pen) || pen < 0 || pen > 100) { toast.error("La penalización por desistimiento debe ser entre 0 y 100%"); return; }
     const inc = Number(incrementoSubasta);
     if (!Number.isFinite(inc) || inc < 0 || inc > 1000) { toast.error("El incremento mínimo de subasta debe ser entre 0 y 1000"); return; }
+    for (const [label, val] of [["subasta", tiempoSubasta], ["lote", tiempoLote], ["oferta", tiempoOferta], ["RFQ", tiempoRfq]] as const) {
+      const h = Number(val);
+      if (!Number.isFinite(h) || h < 1 || h > 8760) { toast.error(`El tiempo de publicación (${label}) debe ser entre 1 y 8760 horas`); return; }
+    }
     const st = Number(sessionTimeout);
     if (!Number.isFinite(st) || st < 1 || st > 1440) { toast.error("El tiempo de sesión debe ser entre 1 y 1440 minutos"); return; }
     const ml = Number(maxLogin);
@@ -121,6 +133,10 @@ export default function UmbralesPage() {
         garantia_redondeo_monto: Number(garantiaRedondeo),
         desistimiento_penalizacion_pct: Number(penalizacionDesist),
         incremento_minimo_subasta: Number(incrementoSubasta),
+        tiempo_public_subasta_horas: Number(tiempoSubasta),
+        tiempo_public_lote_horas: Number(tiempoLote),
+        tiempo_public_oferta_horas: Number(tiempoOferta),
+        tiempo_public_rfq_horas: Number(tiempoRfq),
         max_incumplimientos: max,
         sancion_dias: sd,
         garantia_oferta_pct: go,
@@ -143,6 +159,10 @@ export default function UmbralesPage() {
       setGarantiaRedondeo(String(res.garantia_redondeo_monto ?? garantiaRedondeo));
       setPenalizacionDesist(String(res.desistimiento_penalizacion_pct ?? penalizacionDesist));
       setIncrementoSubasta(String(res.incremento_minimo_subasta ?? incrementoSubasta));
+      setTiempoSubasta(String(res.tiempo_public_subasta_horas ?? tiempoSubasta));
+      setTiempoLote(String(res.tiempo_public_lote_horas ?? tiempoLote));
+      setTiempoOferta(String(res.tiempo_public_oferta_horas ?? tiempoOferta));
+      setTiempoRfq(String(res.tiempo_public_rfq_horas ?? tiempoRfq));
       setMaxInc(String(res.max_incumplimientos ?? max));
       setSancionDias(String(res.sancion_dias ?? sd));
       setGarantiaOferta(String(res.garantia_oferta_pct ?? go));
@@ -411,6 +431,31 @@ export default function UmbralesPage() {
                   <label className="text-xs font-medium text-gray-600 block mb-1">Incremento mínimo de subasta (S/)</label>
                   <input type="number" min="0" max="1000" step="0.01" value={incrementoSubasta} onChange={(e) => setIncrementoSubasta(e.target.value)} className="form-input-custom w-full" />
                   <p className="text-[11px] text-gray-400 mt-1">Solo aplica a subastas inglesas; en sobre cerrado no se usa.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <label className="block text-sm font-semibold text-gray-800 mb-1">Tiempo de publicación (Tiempo_Public)</label>
+              <p className="text-xs text-gray-400 mb-4">
+                Duración máxima por defecto de cada modalidad cuando el publicador no indica una fecha de cierre. El temporizador se ajusta a estos valores.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Subasta (horas)</label>
+                  <input type="number" min="1" max="8760" step="1" value={tiempoSubasta} onChange={(e) => setTiempoSubasta(e.target.value)} className="form-input-custom w-full" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Lote / demanda agregada (horas)</label>
+                  <input type="number" min="1" max="8760" step="1" value={tiempoLote} onChange={(e) => setTiempoLote(e.target.value)} className="form-input-custom w-full" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Oferta directa (horas)</label>
+                  <input type="number" min="1" max="8760" step="1" value={tiempoOferta} onChange={(e) => setTiempoOferta(e.target.value)} className="form-input-custom w-full" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 block mb-1">RFQ / subasta inversa (horas)</label>
+                  <input type="number" min="1" max="8760" step="1" value={tiempoRfq} onChange={(e) => setTiempoRfq(e.target.value)} className="form-input-custom w-full" />
                 </div>
               </div>
             </div>
