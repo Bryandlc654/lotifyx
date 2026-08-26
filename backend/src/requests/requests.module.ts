@@ -9,9 +9,10 @@ import { ConfigModule } from "../config/config.module";
 import { CollusionModule } from "../collusion/collusion.module";
 import { GuaranteesModule } from "../guarantees/guarantees.module";
 import { MessagesModule } from "../messages/messages.module";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule, GuaranteesModule, MessagesModule],
+  imports: [TypeOrmModule.forFeature([BuyerRequest, RequestOffer]), ConfigModule, CollusionModule, GuaranteesModule, MessagesModule, AuditModule],
   controllers: [RequestsController],
   providers: [RequestsService, MatchingService],
   exports: [RequestsService],

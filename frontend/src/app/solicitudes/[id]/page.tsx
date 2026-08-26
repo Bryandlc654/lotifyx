@@ -238,7 +238,7 @@ export default function SolicitudDetallePage() {
                 <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-green-50 text-green-600">Activa</span>
               ) : (
                 <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">
-                  {request.estado === "aceptada" ? "Cerrada (oferta aceptada)" : request.estado === "cancelada" ? "Cancelada" : "Expirada"}
+                  {request.estado === "aceptada" ? "Cerrada (oferta aceptada)" : request.estado === "cancelada" ? "Cancelada" : request.estado === "expirada" ? "Expirada (no adjudicada)" : "Expirada"}
                 </span>
               )}
               {request.fecha_limite && (

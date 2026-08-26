@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Param, Body, Req, UseGuards, HttpCode, HttpStatus, BadRequestException } from "@nestjs/common";
 import { AuctionsService } from "./auctions.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 @Controller("auctions")
 export class AuctionsController {
@@ -41,7 +43,8 @@ export class AuctionsController {
   @Get(":id/bids")
   getBids(@Param("id") id: string) { return this.service.getBids(id); }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("auctions.manage")
   @Post(":id/reopen")
   @HttpCode(HttpStatus.OK)
   reopen(@Req() req, @Param("id") id: string, @Body("fecha_fin") fechaFin: string) {

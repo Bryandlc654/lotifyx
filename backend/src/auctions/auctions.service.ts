@@ -10,6 +10,7 @@ import { MessagesGateway } from "../messages/messages.gateway";
 import { MailService } from "../mail/mail.service";
 import { CollusionService } from "../collusion/collusion.service";
 import { ConfigService } from "../config/config.service";
+import { AuditService } from "../audit/audit.service";
 
 @Injectable()
 export class AuctionsService implements OnModuleInit {
@@ -71,6 +72,7 @@ export class AuctionsService implements OnModuleInit {
     private readonly mail: MailService,
     private readonly collusion: CollusionService,
     private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Cierra la subasta on-demand si ya expiró pero sigue activa */
@@ -352,6 +354,45 @@ export class AuctionsService implements OnModuleInit {
       highest_bid: highestConfirmed?.monto || auction.precio_inicial,
     });
 
+    // Notificación dirigida: postor superado y vendedor afectado por la nueva puja
+    try {
+      const esInglesa = !auction.tipo_subasta || auction.tipo_subasta === "inglesa";
+      const [prod] = await this.dataSource.query(
+        `SELECT title FROM products WHERE id = $1`, [auction.product_id],
+      );
+      const tituloProd = prod?.title || "Producto";
+      if (esInglesa) {
+        const [prevTop] = await this.dataSource.query(
+          `SELECT postor_id FROM auction_bids
+           WHERE auction_id = $1 AND id != $2 AND estado = 'confirmada'
+           ORDER BY monto DESC LIMIT 1`,
+          [bid.auction_id, bid.id],
+        );
+        if (prevTop && prevTop.postor_id !== bid.postor_id) {
+          this.gateway.notifyUser(prevTop.postor_id, {
+            tipo: "puja_superada",
+            titulo: "Te han superado en una subasta",
+            mensaje: `"${tituloProd}": tu puja fue superada. Nueva puja líder: S/ ${Number(bid.monto).toFixed(2)}.`,
+            url: `/producto/${auction.product_id}`,
+          });
+        }
+        this.gateway.notifyUser(auction.vendedor_id, {
+          tipo: "nueva_puja",
+          titulo: "Nueva puja en tu subasta",
+          mensaje: `"${tituloProd}": nueva puja de S/ ${Number(bid.monto).toFixed(2)}.`,
+          url: `/producto/${auction.product_id}`,
+        });
+      } else {
+        // Sobre cerrado: pujas ocultas; se avisa al vendedor sin revelar montos
+        this.gateway.notifyUser(auction.vendedor_id, {
+          tipo: "nueva_puja",
+          titulo: "Nueva oferta en tu subasta de sobre cerrado",
+          mensaje: `"${tituloProd}": recibiste una nueva oferta. Los montos permanecen ocultos hasta el cierre.`,
+          url: `/producto/${auction.product_id}`,
+        });
+      }
+    } catch {}
+
     return { message: "Puja confirmada" };
   }
 
@@ -405,6 +446,33 @@ export class AuctionsService implements OnModuleInit {
     auction.estado = "cerrado";
     auction.ganador_id = highestBid?.postor_id || null;
     await this.repo.save(auction);
+
+    // Auditoría: adjudicación o cierre desierto + notificación al vendedor cuando no hay pujas válidas
+    if (highestBid) {
+      this.audit.log({
+        action: "auction_closed_winner",
+        entity: "auction",
+        entityId: auction.id,
+        details: { product_id: auction.product_id, ganador_id: highestBid.postor_id, monto: highestBid.monto },
+      });
+    } else {
+      this.audit.log({
+        action: "auction_closed_deserted",
+        entity: "auction",
+        entityId: auction.id,
+        details: { product_id: auction.product_id },
+      });
+      // Notificar al vendedor: subasta desierta
+      try {
+        const [prod] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [auction.product_id]);
+        this.gateway.notifyUser(auction.vendedor_id, {
+          tipo: "subasta_desierta",
+          titulo: "Subasta desierta",
+          mensaje: `"${prod?.title || "Producto"}": la subasta finalizó sin pujas. Puedes reabrirla desde tu panel.`,
+          url: `/producto/${auction.product_id}`,
+        });
+      } catch {}
+    }
 
     // Mark confirmed non-winner bids as "perdida"
     if (highestBid) {
@@ -496,13 +564,16 @@ export class AuctionsService implements OnModuleInit {
   async reopen(auctionId: string, userId: string, nuevaFechaFin: string) {
     const auction = await this.repo.findOne({ where: { id: auctionId } });
     if (!auction) throw new NotFoundException("Subasta no encontrada");
-    if (auction.vendedor_id !== userId) throw new ForbiddenException("Solo el vendedor puede reabrir la subasta");
     if (auction.estado !== "cerrado") throw new BadRequestException("La subasta no está cerrada");
     if (auction.ganador_id) throw new BadRequestException("La subasta tuvo un ganador, no se puede reabrir");
 
-    // Eliminar bids previas y reabrir
+    // Marcar pujas previas como anuladas (preserva el historial completo)
+    const [{ count: totalBids }] = await this.dataSource.query(
+      `SELECT COUNT(*)::int FROM auction_bids WHERE auction_id = $1`, [auction.id],
+    );
     await this.dataSource.query(
-      `DELETE FROM auction_bids WHERE auction_id = $1`, [auction.id]
+      `UPDATE auction_bids SET estado = 'anulada' WHERE auction_id = $1`,
+      [auction.id],
     );
 
     auction.estado = "activo";
@@ -510,6 +581,15 @@ export class AuctionsService implements OnModuleInit {
     auction.precio_actual = auction.precio_inicial;
     auction.fecha_fin = new Date(nuevaFechaFin);
     await this.repo.save(auction);
+
+    // Bitácora de auditoría: reapertura administrativa con detalle de pujas anuladas
+    this.audit.log({
+      userId,
+      action: "auction_reopened_admin",
+      entity: "auction",
+      entityId: auction.id,
+      details: { product_id: auction.product_id, bids_anuladas: totalBids, nueva_fecha_fin: auction.fecha_fin },
+    });
 
     this.gateway.notifyNewBid(auction.product_id, {
       precio_actual: auction.precio_actual,

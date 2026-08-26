@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef, useCallback } f
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { getSocket } from "./socket";
+import { onUserNotification, offUserNotification } from "./socket";
 import { getUnreadCount, getCurrentUserId } from "./api";
 
 interface Notification {
@@ -86,6 +87,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       socket.on("new_message", handler);
       handlerRef.current = handler;
       cleanup = () => { socket.off("new_message", handler); };
+
+      // Notificaciones dirigidas: superado en subasta, nueva oferta, umbral alcanzado, etc.
+      const notifHandler = (data: any) => {
+        setUnread((prev) => prev + 1);
+        const opts: any = { duration: 6000 };
+        if (data?.url) {
+          opts.action = { label: "Ver", onClick: () => router.push(data.url) };
+        }
+        toast(data?.titulo || "Notificación", {
+          description: data?.mensaje || "",
+          ...opts,
+        });
+      };
+      onUserNotification(notifHandler);
+      const prevCleanup = cleanup;
+      cleanup = () => {
+        prevCleanup();
+        offUserNotification();
+      };
     }
 
     connect();

@@ -1,11 +1,16 @@
-import { Controller, Post, Param, HttpCode, HttpStatus, NotFoundException } from "@nestjs/common";
+import { Controller, Post, Param, HttpCode, HttpStatus, NotFoundException, UseGuards } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { PermissionsGuard } from "../auth/guards/permissions.guard";
+import { RequirePermission } from "../auth/decorators/permissions.decorator";
 
 @Controller("auctions/sync")
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AuctionsSyncController {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  @RequirePermission("auctions.manage")
   @Post()
   @HttpCode(HttpStatus.OK)
   async sync() {
@@ -22,6 +27,7 @@ export class AuctionsSyncController {
     return { message: `Sincronizadas ${result.length} subastas`, data: result };
   }
 
+  @RequirePermission("auctions.manage")
   @Post("reopen/:productId")
   @HttpCode(HttpStatus.OK)
   async reopen(@Param("productId") productId: string) {

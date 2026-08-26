@@ -9,6 +9,7 @@ import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
 import { GuaranteesService } from "../guarantees/guarantees.service";
 import { MessagesGateway } from "../messages/messages.gateway";
+import { AuditService } from "../audit/audit.service";
 
 @Injectable()
 export class RequestsService {
@@ -21,6 +22,7 @@ export class RequestsService {
     private readonly collusion: CollusionService,
     private readonly guarantees: GuaranteesService,
     private readonly gateway: MessagesGateway,
+    private readonly audit: AuditService,
   ) {}
 
   private num(v: any): number | null {
@@ -324,6 +326,17 @@ export class RequestsService {
     await this.offersRepo.save(offer);
     await this.emitRequestUpdate(requestId);
 
+    // Notificación dirigida al comprador: nueva oferta recibida
+    try {
+      const tituloSolicitud = (req as any).title || "tu solicitud";
+      this.gateway.notifyUser(req.user_id, {
+        tipo: "nueva_oferta",
+        titulo: "Nueva oferta en tu solicitud",
+        mensaje: `"${tituloSolicitud}": oferta de S/ ${precio.toFixed(2)} por ${cantidad} unidad(es).`,
+        url: `/solicitudes/${requestId}`,
+      });
+    } catch {}
+
     // Registro de señal para detección de colusión (IP + monto)
     this.collusion
       .recordSignal({
@@ -461,6 +474,27 @@ export class RequestsService {
       await qr.query(`UPDATE buyer_requests SET estado = 'aceptada' WHERE id = $1`, [requestId]);
       await this.emitRequestUpdate(requestId, "aceptada");
       await qr.commitTransaction();
+
+      // Notificaciones dirigidas: vendedor ganador y vendedores rechazados
+      try {
+        const tituloSolicitud = (req as any).title || "tu solicitud";
+        this.gateway.notifyUser(offer.seller_id, {
+          tipo: "oferta_aceptada",
+          titulo: "¡Tu oferta fue aceptada!",
+          mensaje: `"${tituloSolicitud}": el comprador aceptó tu oferta. Prepara el pedido.`,
+          url: "/perfil/mis-ventas",
+        });
+        for (const ro of rechazadas) {
+          if (ro.seller_id !== offer.seller_id) {
+            this.gateway.notifyUser(ro.seller_id, {
+              tipo: "oferta_rechazada",
+              titulo: "Tu oferta no fue seleccionada",
+              mensaje: `"${tituloSolicitud}": el comprador eligió otra oferta. Tu garantía de oferta fue liberada.`,
+              url: "/perfil/ofertas",
+            });
+          }
+        }
+      } catch {}
       return {
         order_id: order.id,
         guarantee_amount: guarantee,
@@ -581,8 +615,39 @@ export class RequestsService {
               [o.seller_id, Number(o.garantia_oferta)],
             );
           }
+          // Notificación dirigida: la solicitud venció y su oferta fue descartada
+          try {
+            this.gateway.notifyUser(o.seller_id, {
+              tipo: "oferta_expirada",
+              titulo: "Solicitud expirada",
+              mensaje: "La solicitud a la que ofertaste expiró. Tu garantía de oferta fue liberada.",
+              url: "/perfil/ofertas",
+            });
+          } catch {}
         }
         console.log(`[Requests] ${res.length} solicitud(es) expirada(s)`);
+        // Auditoría + notificación al iniciador (comprador) por cada solicitud expirada
+        for (const r of res) {
+          try {
+            const [solicitud] = await this.dataSource.query(
+              `SELECT user_id, title FROM buyer_requests WHERE id = $1`, [r.id],
+            );
+            this.audit.log({
+              action: "request_expired_deserted",
+              entity: "buyer_request",
+              entityId: r.id,
+              details: { titulo: solicitud?.title || null },
+            });
+            if (solicitud?.user_id) {
+              this.gateway.notifyUser(solicitud.user_id, {
+                tipo: "solicitud_expirada",
+                titulo: "Solicitud expirada",
+                mensaje: `"${solicitud?.title || "Solicitud"}": la solicitud expiró sin adjudicar.`,
+                url: `/solicitudes/${r.id}`,
+              });
+            }
+          } catch {}
+        }
       }
     } catch (e) {
       console.error("[Requests] Error expirando solicitudes:", e.message);

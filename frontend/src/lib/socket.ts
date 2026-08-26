@@ -148,3 +148,13 @@ export function offUmbralesUpdate() {
   const s = getSocket();
   if (s) s.off("umbrales_update");
 }
+
+export function onUserNotification(callback: (data: any) => void) {
+  const s = getSocket();
+  if (s) s.on("user_notification", callback);
+}
+
+export function offUserNotification() {
+  const s = getSocket();
+  if (s) s.off("user_notification");
+}

@@ -87,4 +87,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   notifyUmbralesUpdate(data: any) {
     this.server.emit("umbrales_update", data);
   }
+
+  /** Notificación dirigida a un usuario específico (superado, oferta recibida, umbral alcanzado, etc.) */
+  notifyUser(userId: string, data: { tipo: string; titulo: string; mensaje?: string; url?: string }) {
+    this.server.to(`user:${userId}`).emit("user_notification", data);
+  }
 }

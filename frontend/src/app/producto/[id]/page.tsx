@@ -407,9 +407,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 {auction.estado === "cerrado" && (
                   <div className="space-y-3">
                     {!auction.ganador_id ? (
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-                        <p className="text-gray-600 font-semibold">Subasta cerrada</p>
-                        <p className="text-gray-500 text-sm mt-1">Esta subasta finalizó sin participantes ganadores.</p>
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                        <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold mb-2">DESERTA</span>
+                        <p className="text-gray-600 font-semibold">Subasta cerrada sin adjudicar</p>
+                        <p className="text-gray-500 text-sm mt-1">Esta subasta finalizó sin pujas válidas. El vendedor puede reabrirla.</p>
 
                       </div>
                     ) : getCurrentUserId() === auction.ganador_id ? (
@@ -658,9 +659,10 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                 )}
 
                 {lot.estado === "cancelado" && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-                    <p className="text-gray-600 font-semibold">Lote cancelado</p>
-                    <p className="text-gray-500 text-sm mt-1">No se alcanzó el mínimo de unidades antes del cierre.</p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                    <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold mb-2">DESERTA</span>
+                    <p className="text-gray-600 font-semibold">Lote no adjudicado</p>
+                    <p className="text-gray-500 text-sm mt-1">No se alcanzó el mínimo de unidades ({lot.participantes_minimos || 1}) antes del cierre.</p>
                   </div>
                 )}
               </div>

@@ -11,6 +11,7 @@ import { ConfigService } from "../config/config.service";
 import { CollusionService } from "../collusion/collusion.service";
 import { GuaranteesService } from "../guarantees/guarantees.service";
 import { MessagesGateway } from "../messages/messages.gateway";
+import { AuditService } from "../audit/audit.service";
 
 const LOT_SELECT = `
   l.id, l.product_id, l.vendedor_id, l.precio_lote, l.precio_individual,
@@ -47,6 +48,7 @@ export class LotsService implements OnModuleInit {
     private readonly collusion: CollusionService,
     private readonly guarantees: GuaranteesService,
     private readonly gateway: MessagesGateway,
+    private readonly audit: AuditService,
   ) {}
 
   async onModuleInit() {
@@ -493,6 +495,30 @@ export class LotsService implements OnModuleInit {
 
     lot.estado = "cerrado";
     await this.emitLotUpdate(lotSaleId);
+
+    // Notificación dirigida: umbral alcanzado → participantes y vendedor afectados
+    try {
+      const [prod] = await this.dataSource.query(
+        `SELECT title FROM products WHERE id = $1`, [lot.product_id],
+      );
+      const tituloProd = prod?.title || "Lote";
+      const reservado = Number(lot.cantidad_reservada) || 0;
+      const partes = await this.dataSource.query(
+        `SELECT DISTINCT comprador_id FROM lot_participants WHERE lot_sale_id = $1 AND estado = 'confirmado'`,
+        [lotSaleId],
+      );
+      const destinatarios = new Set<string>(partes.map((p: any) => p.comprador_id));
+      destinatarios.add(lot.vendedor_id);
+      for (const uid of destinatarios) {
+        this.gateway.notifyUser(uid, {
+          tipo: "umbral_alcanzado",
+          titulo: "Umbral del lote alcanzado",
+          mensaje: `"${tituloProd}": el lote cerró exitosamente con ${reservado} unidad(es) comprometida(s). Revisa tus pedidos.`,
+          url: `/producto/${lot.product_id}`,
+        });
+      }
+    } catch {}
+
     return lot;
   }
 
@@ -682,6 +708,26 @@ export class LotsService implements OnModuleInit {
       `UPDATE lot_participants SET estado = 'cancelado' WHERE lot_sale_id = $1 AND estado = 'reservado'`,
       [lotSaleId],
     );
+
+    // Auditoría + notificación al vendedor: lote desierto (no alcanzó el mínimo)
+    const reservado = Number(lot.cantidad_reservada) || 0;
+    const minimo = Number(lot.participantes_minimos) || 1;
+    this.audit.log({
+      action: "lot_closed_deserted",
+      entity: "lot",
+      entityId: lotSaleId,
+      details: { product_id: lot.product_id, reservado, minimo },
+    });
+    try {
+      const [prod] = await this.dataSource.query(`SELECT title FROM products WHERE id = $1`, [lot.product_id]);
+      this.gateway.notifyUser(lot.vendedor_id, {
+        tipo: "lote_cancelado",
+        titulo: "Lote no alcanzó el mínimo",
+        mensaje: `"${prod?.title || "Lote"}": el lote canceló con ${reservado}/${minimo} unidad(es). Los participantes fueron liberados.`,
+        url: `/producto/${lot.product_id}`,
+      });
+    } catch {}
+
     return lot;
   }
 

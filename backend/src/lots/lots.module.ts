@@ -8,11 +8,12 @@ import { ConfigModule } from "../config/config.module";
 import { CollusionModule } from "../collusion/collusion.module";
 import { GuaranteesModule } from "../guarantees/guarantees.module";
 import { MessagesModule } from "../messages/messages.module";
+import { AuditModule } from "../audit/audit.module";
 import { LotsService } from "./lots.service";
 import { LotsController } from "./lots.controller";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LotSale, LotParticipant, LotRcgTier, LotBenefitApplication]), ConfigModule, CollusionModule, GuaranteesModule, MessagesModule],
+  imports: [TypeOrmModule.forFeature([LotSale, LotParticipant, LotRcgTier, LotBenefitApplication]), ConfigModule, CollusionModule, GuaranteesModule, MessagesModule, AuditModule],
   controllers: [LotsController],
   providers: [LotsService],
   exports: [LotsService],
