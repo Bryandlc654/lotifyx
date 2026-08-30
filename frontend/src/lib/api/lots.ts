@@ -51,6 +51,8 @@ export interface LotSale {
   rcg_tiers: RcgTier[];
   tier_actual?: RcgTier | null;
   expectativa_superada: boolean;
+  porcentaje_demanda_vigente?: number;
+  ua_alcanzado?: boolean;
   fecha_cierre?: string;
   estado: string;
   created_at: string;

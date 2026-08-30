@@ -74,7 +74,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   /** Difusión en tiempo real de la demanda agregada (lotes): volumen comprometido y umbral */
-  notifyLotUpdate(productId: string, data: { cantidad_reservada: number; participantes_count: number; umbral: number; estado: string; meta_venta?: number | null; cantidad_total?: number; tier_actual?: any; expectativa_superada?: boolean }) {
+  notifyLotUpdate(productId: string, data: { cantidad_reservada: number; participantes_count: number; umbral: number; estado: string; meta_venta?: number | null; cantidad_total?: number; tier_actual?: any; expectativa_superada?: boolean; porcentaje_demanda_vigente?: number; ua_alcanzado?: boolean }) {
     this.server.to(`product:${productId}`).emit("lot_update", data);
   }
 

@@ -17,6 +17,7 @@ export interface BuyerRequest {
   ua?: string | null;
   ficha_tecnica?: Record<string, any> | null;
   nivel_coincidencia?: string;
+  visibilidad_ofertas?: string;
   fecha_limite?: string | null;
   estado: string;
   created_at: string;
@@ -33,6 +34,10 @@ export interface RequestOffer {
   precio: number;
   cantidad: number;
   costo_envio: number;
+  stock?: number | null;
+  plazo_entrega_dias?: number | null;
+  beneficios?: string | null;
+  anonimo?: boolean;
   mensaje?: string | null;
   estado: string;
   order_id?: string | null;
@@ -134,7 +139,7 @@ export async function checkCoincidencia(requestId: string, productId: string): P
 
 export async function makeRequestOffer(
   requestId: string,
-  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; mensaje?: string; es_variante?: boolean; garantia_pct?: number },
+  dto: { product_id: string; precio: number; cantidad?: number; costo_envio?: number; stock?: number; plazo_entrega_dias?: number; beneficios?: string; mensaje?: string; es_variante?: boolean; garantia_pct?: number },
 ): Promise<RequestOffer> {
   const res = await authFetch(`${API_URL}/requests/${requestId}/offers`, {
     method: "POST",

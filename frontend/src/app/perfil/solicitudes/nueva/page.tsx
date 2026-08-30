@@ -35,6 +35,7 @@ function NuevaSolicitudContent() {
   const [precioObjetivo, setPrecioObjetivo] = useState("");
   const [ua, setUa] = useState("");
   const [nivelCoincidencia, setNivelCoincidencia] = useState("estricta");
+  const [visibilidadOfertas, setVisibilidadOfertas] = useState("publica");
   const [fechaLimite, setFechaLimite] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -68,6 +69,7 @@ function NuevaSolicitudContent() {
       setPrecioObjetivo(r.precio_objetivo != null ? String(r.precio_objetivo) : "");
       setUa(r.ua || "");
       setNivelCoincidencia(r.nivel_coincidencia || "estricta");
+      setVisibilidadOfertas(r.visibilidad_ofertas || "publica");
       if (r.fecha_limite) setFechaLimite(new Date(r.fecha_limite).toISOString().slice(0, 16));
     });
   }, [editingId]);
@@ -171,6 +173,7 @@ function NuevaSolicitudContent() {
         cmc: cmcVal,
         ua: ua.trim() || null,
         nivel_coincidencia: nivelCoincidencia,
+        visibilidad_ofertas: visibilidadOfertas,
         fecha_limite: fechaLimite ? new Date(fechaLimite).toISOString() : null,
       };
       if (editingId) {
@@ -287,6 +290,14 @@ function NuevaSolicitudContent() {
                   <option value="estricta">Estricta (todas las especificaciones)</option>
                   <option value="flexible">Flexible (varían atributos secundarios)</option>
                   <option value="amplia">Amplia (más tolerancia)</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Visibilidad de ofertas</label>
+                <select value={visibilidadOfertas} onChange={e => setVisibilidadOfertas(e.target.value)} className="w-full form-input-custom">
+                  <option value="publica">Pública (identidad y monto visibles)</option>
+                  <option value="parcial">Parcial (identidad oculta, monto visible)</option>
+                  <option value="anonima">Anónima (identidad y monto ocultos)</option>
                 </select>
               </div>
             </div>

@@ -61,6 +61,10 @@ export class BuyerRequest {
   @Column({ type: "varchar", length: 20, default: "estricta" })
   nivel_coincidencia: string;
 
+  /** Visibilidad de las ofertas: publica | parcial | anonima */
+  @Column({ type: "varchar", length: 20, default: "publica" })
+  visibilidad_ofertas: string;
+
   /** Fecha límite para recibir ofertas */
   @Column({ type: "timestamp", nullable: true })
   fecha_limite: Date | null;

@@ -6,6 +6,7 @@ import { AppConfig } from "./app-config.entity";
 export const UMBRALES = {
   garantia_subasta_inversa_pct: 5,
   garantia_demanda_agregada_pct: 5,
+  demanda_agregada_pct: 70,
   garantia_min_monto: 0,
   garantia_tope_monto: 0,
   garantia_redondeo_monto: 0.01,

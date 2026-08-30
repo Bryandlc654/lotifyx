@@ -25,6 +25,18 @@ export class RequestOffer {
   @Column({ type: "int", default: 1 })
   cantidad: number;
 
+  /** Stock disponible ofrecido por el vendedor (volumen disponible) */
+  @Column({ type: "int", nullable: true })
+  stock: number | null;
+
+  /** Plazo de entrega ofrecido en días */
+  @Column({ type: "int", nullable: true })
+  plazo_entrega_dias: number | null;
+
+  /** Beneficios adicionales ofrecidos (descuentos, bonos, garantías, etc.) */
+  @Column({ type: "text", nullable: true })
+  beneficios: string | null;
+
   @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
   costo_envio: number;
 

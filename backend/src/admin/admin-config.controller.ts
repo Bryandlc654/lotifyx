@@ -20,6 +20,7 @@ export class AdminConfigController {
     return {
       garantia_subasta_inversa_pct: all.garantia_subasta_inversa_pct ?? 5,
       garantia_demanda_agregada_pct: all.garantia_demanda_agregada_pct ?? 5,
+      demanda_agregada_pct: all.demanda_agregada_pct ?? 70,
       limite_pago_dias: all.limite_pago_dias ?? 3,
       limite_pago_normal_dias: all.limite_pago_normal_dias ?? 3,
       limite_pago_subasta_dias: all.limite_pago_subasta_dias ?? 2,
@@ -51,6 +52,7 @@ export class AdminConfigController {
   @RequirePermission("config.umbrales")
   async update(@Body() dto: {
     garantia_subasta_inversa_pct?: number; garantia_demanda_agregada_pct?: number;
+    demanda_agregada_pct?: number;
     limite_pago_dias?: number; limite_pago_normal_dias?: number; limite_pago_subasta_dias?: number;
     limite_pago_lote_garantia_dias?: number; limite_pago_lote_saldo_dias?: number;
     garantia_min_monto?: number; garantia_tope_monto?: number;     garantia_redondeo_monto?: number;
@@ -73,6 +75,11 @@ export class AdminConfigController {
       const v = Number(dto.garantia_demanda_agregada_pct);
       if (!Number.isFinite(v) || v <= 0 || v > 100) throw new BadRequestException("garantia_demanda_agregada_pct debe ser un porcentaje entre 1 y 100");
       await this.config.setPct("garantia_demanda_agregada_pct", v);
+    }
+    if (dto.demanda_agregada_pct !== undefined && dto.demanda_agregada_pct !== null) {
+      const v = Number(dto.demanda_agregada_pct);
+      if (!Number.isFinite(v) || v <= 0 || v > 100) throw new BadRequestException("demanda_agregada_pct debe ser un porcentaje entre 1 y 100");
+      await this.config.setPct("demanda_agregada_pct", v);
     }
     if (dto.limite_pago_dias !== undefined && dto.limite_pago_dias !== null) {
       const v = Number(dto.limite_pago_dias);
@@ -171,6 +178,7 @@ export class AdminConfigController {
     const result = {
       garantia_subasta_inversa_pct: all.garantia_subasta_inversa_pct ?? 5,
       garantia_demanda_agregada_pct: all.garantia_demanda_agregada_pct ?? 5,
+      demanda_agregada_pct: all.demanda_agregada_pct ?? 70,
       limite_pago_dias: all.limite_pago_dias ?? 3,
       limite_pago_normal_dias: all.limite_pago_normal_dias ?? 3,
       limite_pago_subasta_dias: all.limite_pago_subasta_dias ?? 2,

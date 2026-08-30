@@ -40,6 +40,9 @@ export default function SolicitudDetallePage() {
   const [offerEnvio, setOfferEnvio] = useState("0");
   const [offerMensaje, setOfferMensaje] = useState("");
   const [offerGarantia, setOfferGarantia] = useState("5");
+  const [offerStock, setOfferStock] = useState("");
+  const [offerPlazo, setOfferPlazo] = useState("");
+  const [offerBeneficios, setOfferBeneficios] = useState("");
   const [sending, setSending] = useState(false);
   const [coincidencia, setCoincidencia] = useState<CoincidenciaResult | null>(null);
   const [coincidenciaLoading, setCoincidenciaLoading] = useState(false);
@@ -179,6 +182,9 @@ export default function SolicitudDetallePage() {
         precio: Number(offerPrecio),
         cantidad: Number(offerCantidad) || request?.cantidad || 1,
         costo_envio: Number(offerEnvio) || 0,
+        stock: offerStock !== "" ? Number(offerStock) : undefined,
+        plazo_entrega_dias: offerPlazo !== "" ? Number(offerPlazo) : undefined,
+        beneficios: offerBeneficios || undefined,
         mensaje: offerMensaje || undefined,
         es_variante: esVariante,
         garantia_pct: offerGarantia ? Number(offerGarantia) : undefined,
@@ -327,6 +333,42 @@ export default function SolicitudDetallePage() {
                   Aún no hay ofertas. Comparte tu solicitud para que los vendedores respondan.
                 </div>
               ) : (
+                <>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto mb-4">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">Comparación normalizada de ofertas</h3>
+                  </div>
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                        <th className="px-4 py-2 font-semibold">Proveedor</th>
+                        <th className="px-4 py-2 font-semibold">Precio unit.</th>
+                        <th className="px-4 py-2 font-semibold">Cantidad</th>
+                        <th className="px-4 py-2 font-semibold">Volumen / Stock</th>
+                        <th className="px-4 py-2 font-semibold">Entrega</th>
+                        <th className="px-4 py-2 font-semibold">Beneficios</th>
+                        <th className="px-4 py-2 font-semibold">Coincidencia</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {offers.map(o => (
+                        <tr key={o.id}>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{o.anonimo ? "Proveedor anónimo" : `${o.seller?.first_name || "—"} ${o.seller?.last_name || ""}`}</td>
+                          <td className="px-4 py-3">{o.precio != null ? `S/ ${Number(o.precio).toFixed(2)}` : "—"}</td>
+                          <td className="px-4 py-3">{o.cantidad} unid.</td>
+                          <td className="px-4 py-3">{o.stock != null ? `${o.stock} unid.` : "—"}</td>
+                          <td className="px-4 py-3">{o.plazo_entrega_dias != null ? `${o.plazo_entrega_dias} días` : "—"}</td>
+                          <td className="px-4 py-3">{o.beneficios || "—"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full ${o.es_variante ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-green-50 text-green-600 border border-green-100"}`}>
+                              {o.es_variante ? `Variante (${o.coincidencia || "flexible"})` : "Estricta"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 <div className="space-y-3">
                   {offers.map(o => (
                     <div key={o.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -410,6 +452,7 @@ export default function SolicitudDetallePage() {
                     </div>
                   ))}
                 </div>
+                </>
               )}
             </div>
           )}
@@ -504,6 +547,18 @@ export default function SolicitudDetallePage() {
                     <label className="form-label">Garantía de compromiso (%)</label>
                     <input type="number" min="1" max="100" step="1" value={offerGarantia} onChange={e => setOfferGarantia(e.target.value)} className="form-input-custom w-full" placeholder="5" />
                     <p className="text-xs text-slate-400 mt-1">% mínimo según umbral configurado por la plataforma. Se imputa al precio final.</p>
+                  </div>
+                  <div>
+                    <label className="form-label">Stock disponible</label>
+                    <input type="number" min="0" step="1" value={offerStock} onChange={e => setOfferStock(e.target.value)} className="form-input-custom w-full" placeholder="Volumen disponible" />
+                  </div>
+                  <div>
+                    <label className="form-label">Plazo de entrega (días)</label>
+                    <input type="number" min="1" step="1" value={offerPlazo} onChange={e => setOfferPlazo(e.target.value)} className="form-input-custom w-full" placeholder="Ej: 5" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="form-label">Beneficios adicionales</label>
+                    <input type="text" value={offerBeneficios} onChange={e => setOfferBeneficios(e.target.value)} className="form-input-custom w-full" placeholder="Ej: descuento 5% por volumen, garantía extendida, flete incluido" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="form-label">Mensaje / condiciones</label>

@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getProduct, getCategories, getCategoryFields, getActiveProducts, getImageUrl, getCurrentUserId, registerProductView, toggleProductSave, getProductSaveStatus, getProductReviews, getAuctionByProduct, placeAuctionBid, getLotByProduct, joinLot, registerInterest, Product, CategoryField, Review } from "@/lib/api";
 import { useCart } from "@/lib/cart-context";
-import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck, Star } from "lucide-react";
+import { ChevronDown, Eye, Heart, Truck, Store, XCircle, X, Loader2, Layers, Gift, BadgeCheck, Star, CheckCircle2 } from "lucide-react";
 import { joinProductAuction, leaveProductAuction, onAuctionUpdate, offAuctionUpdate, onLotUpdate, offLotUpdate } from "@/lib/socket";
 import { AuctionCountdown } from "@/components/auction-countdown";
 import { toast } from "sonner";
@@ -102,6 +102,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             estado: data.estado,
             tier_actual: data.tier_actual !== undefined ? data.tier_actual : prev.tier_actual,
             expectativa_superada: data.expectativa_superada !== undefined ? data.expectativa_superada : prev.expectativa_superada,
+            porcentaje_demanda_vigente: data.porcentaje_demanda_vigente !== undefined ? data.porcentaje_demanda_vigente : prev.porcentaje_demanda_vigente,
+            ua_alcanzado: data.ua_alcanzado !== undefined ? data.ua_alcanzado : prev.ua_alcanzado,
           } : prev);
         });
       }
@@ -551,11 +553,16 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
                   <div className="px-4 pb-4">
                     <div className="flex justify-between text-xs text-gray-500 mb-1.5">
                       <span>{lot.cantidad_disponible} unidad{lot.cantidad_disponible !== 1 ? "es" : ""} disponibles</span>
-                      <span>{Math.min(100, Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100))}%</span>
+                      <span>{(lot.porcentaje_demanda_vigente ?? Math.min(100, Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100)))}% de demanda</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#8234FE] to-[#26BEFE] rounded-full" style={{ width: `${Math.min(100, Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100))}%` }} />
+                      <div className="h-full bg-gradient-to-r from-[#8234FE] to-[#26BEFE] rounded-full" style={{ width: `${Math.min(100, lot.porcentaje_demanda_vigente ?? Math.round((lot.cantidad_reservada / Math.max(1, lot.cantidad_total)) * 100))}%` }} />
                     </div>
+                    {lot.ua_alcanzado && (
+                      <div className="mt-2 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-100 rounded-lg px-2 py-1 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> UA alcanzado
+                      </div>
+                    )}
                   </div>
                 </div>
 

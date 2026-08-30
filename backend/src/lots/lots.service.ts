@@ -313,6 +313,13 @@ export class LotsService implements OnModuleInit {
       );
       if (row) {
         const reserved = Number(row.cantidad_reservada) || 0;
+        const metaVenta = row.meta_venta != null ? Number(row.meta_venta) : null;
+        const base = metaVenta || Number(row.cantidad_total) || 0;
+        // Porcentaje de demanda vigente: cobertura de la meta de venta (o cantidad total como respaldo)
+        const pctDemanda = base > 0 ? Math.round((reserved / base) * 1000) / 10 : 0;
+        // Marcar el UA alcanzado al superar el % de demanda vigente configurado (por defecto 70)
+        const umbralPct = await this.config.getPct("demanda_agregada_pct").catch(() => 70);
+        const uaAlcanzado = base > 0 && pctDemanda >= umbralPct;
         let tierActual: any = null;
         try {
           const tiers = await this.dataSource.query(
@@ -335,10 +342,12 @@ export class LotsService implements OnModuleInit {
           participantes_count: Number(row.participantes_count) || 0,
           umbral: Number(row.participantes_minimos) || 0,
           estado: row.estado,
-          meta_venta: row.meta_venta != null ? Number(row.meta_venta) : null,
+          meta_venta: metaVenta,
           cantidad_total: Number(row.cantidad_total) || 0,
+          porcentaje_demanda_vigente: pctDemanda,
+          ua_alcanzado: uaAlcanzado,
           tier_actual: tierActual,
-          expectativa_superada: row.meta_venta != null && reserved >= Number(row.meta_venta),
+          expectativa_superada: metaVenta != null && reserved >= metaVenta,
         });
       }
     } catch {}

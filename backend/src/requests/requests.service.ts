@@ -60,6 +60,8 @@ export class RequestsService {
     const cmc = Math.max(1, Math.floor(this.num(dto?.cmc) ?? 1));
     const nivelCoincidencia = ["estricta", "flexible", "amplia"].includes(dto?.nivel_coincidencia)
       ? dto.nivel_coincidencia : "estricta";
+    const visibilidadOfertas = ["publica", "parcial", "anonima"].includes(dto?.visibilidad_ofertas)
+      ? dto.visibilidad_ofertas : "publica";
     if (dto?.cantidad_objetivo != null && (this.num(dto.cantidad_objetivo) ?? 0) < 1) {
       throw new BadRequestException("La cantidad objetivo debe ser mayor o igual a 1");
     }
@@ -82,6 +84,7 @@ export class RequestsService {
       ua: dto?.ua || null,
       ficha_tecnica: dto?.ficha_tecnica && typeof dto.ficha_tecnica === "object" ? dto.ficha_tecnica : null,
       nivel_coincidencia: nivelCoincidencia,
+      visibilidad_ofertas: visibilidadOfertas,
       fecha_limite: dto?.fecha_limite
         ? new Date(dto.fecha_limite)
         : new Date(Date.now() + (await this.config.getNum("tiempo_public_rfq_horas")) * 3600 * 1000),
@@ -183,6 +186,9 @@ export class RequestsService {
     if (dto?.ficha_tecnica !== undefined) req.ficha_tecnica = dto.ficha_tecnica && typeof dto.ficha_tecnica === "object" ? dto.ficha_tecnica : null;
     if (dto?.nivel_coincidencia !== undefined && ["estricta", "flexible", "amplia"].includes(dto.nivel_coincidencia)) {
       req.nivel_coincidencia = dto.nivel_coincidencia;
+    }
+    if (dto?.visibilidad_ofertas !== undefined && ["publica", "parcial", "anonima"].includes(dto.visibilidad_ofertas)) {
+      req.visibilidad_ofertas = dto.visibilidad_ofertas;
     }
     if (dto?.fecha_limite !== undefined) req.fecha_limite = dto.fecha_limite ? new Date(dto.fecha_limite) : null;
     if (dto?.specifications && typeof dto.specifications === "object") req.specifications = dto.specifications;
@@ -355,6 +361,9 @@ export class RequestsService {
       cantidad,
       costo_envio: envio,
       mensaje: dto?.mensaje ?? null,
+      stock: dto?.stock != null ? Math.max(0, Math.floor(this.num(dto.stock) ?? 0)) : null,
+      plazo_entrega_dias: dto?.plazo_entrega_dias != null ? Math.max(1, Math.floor(this.num(dto.plazo_entrega_dias) ?? 1)) : null,
+      beneficios: dto?.beneficios ? String(dto.beneficios).trim() || null : null,
       estado: "pendiente",
       es_variante: necEsVariante,
       coincidencia: match.nivel,
@@ -405,7 +414,7 @@ export class RequestsService {
     const req = await this.requestsRepo.findOne({ where: { id: requestId } });
     if (!req) throw new NotFoundException("Solicitud no encontrada");
     if (req.user_id !== userId) throw new ForbiddenException("Solo el solicitante puede ver las ofertas");
-    return this.dataSource.query(
+    const rows = await this.dataSource.query(
       `SELECT ro.*,
          json_build_object('id', u.id, 'first_name', up.first_name, 'last_name', up.last_name, 'email', u.email, 'phone', u.phone) AS seller,
          json_build_object('id', p.id, 'title', p.title, 'nivel_coincidencia', p.nivel_coincidencia) AS product
@@ -416,6 +425,21 @@ export class RequestsService {
        WHERE ro.request_id = $1
        ORDER BY ro.created_at ASC`, [requestId],
     );
+    const vis = req.visibilidad_ofertas || "publica";
+    const isOwner = req.user_id === userId;
+    // Enmascarar según la visibilidad configurada por el comprador:
+    //  - publica : se muestra identidad del vendedor y montos.
+    //  - parcial : se oculta la identidad del vendedor (evaluación sin sesgo).
+    //  - anonima : se oculta la identidad del vendedor; los montos se mantienen para poder decidir.
+    return rows.map((o: any) => {
+      const out = { ...o };
+      const anonimo = vis !== "publica";
+      if (anonimo) {
+        out.anonimo = true;
+        out.seller = isOwner ? o.seller : { id: null, first_name: "Proveedor", last_name: "anónimo" };
+      }
+      return out;
+    });
   }
 
   async acceptOffer(userId: string, requestId: string, offerId: string, dto: any = {}) {
