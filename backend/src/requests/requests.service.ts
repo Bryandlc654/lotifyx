@@ -57,6 +57,15 @@ export class RequestsService {
     if (!category.length) throw new BadRequestException("Categoría inválida");
 
     const cantidad = Math.max(1, Math.floor(this.num(dto?.cantidad) ?? 1));
+    const cmc = Math.max(1, Math.floor(this.num(dto?.cmc) ?? 1));
+    const nivelCoincidencia = ["estricta", "flexible", "amplia"].includes(dto?.nivel_coincidencia)
+      ? dto.nivel_coincidencia : "estricta";
+    if (dto?.cantidad_objetivo != null && (this.num(dto.cantidad_objetivo) ?? 0) < 1) {
+      throw new BadRequestException("La cantidad objetivo debe ser mayor o igual a 1");
+    }
+    if (dto?.cantidad_objetivo != null && cmc > (this.num(dto.cantidad_objetivo) ?? 0)) {
+      throw new BadRequestException("La CMC no puede superar la cantidad objetivo");
+    }
     const req = this.requestsRepo.create({
       user_id: userId,
       category_id: dto.category_id,
@@ -66,7 +75,13 @@ export class RequestsService {
       image: dto?.image ?? null,
       precio_minimo: this.num(dto?.precio_minimo),
       precio_maximo: this.num(dto?.precio_maximo),
+      precio_objetivo: this.num(dto?.precio_objetivo),
       cantidad,
+      cantidad_objetivo: this.num(dto?.cantidad_objetivo),
+      cmc,
+      ua: dto?.ua || null,
+      ficha_tecnica: dto?.ficha_tecnica && typeof dto.ficha_tecnica === "object" ? dto.ficha_tecnica : null,
+      nivel_coincidencia: nivelCoincidencia,
       fecha_limite: dto?.fecha_limite
         ? new Date(dto.fecha_limite)
         : new Date(Date.now() + (await this.config.getNum("tiempo_public_rfq_horas")) * 3600 * 1000),
@@ -150,7 +165,25 @@ export class RequestsService {
     if (dto?.image !== undefined) req.image = dto.image ?? null;
     if (dto?.precio_minimo !== undefined) req.precio_minimo = this.num(dto.precio_minimo);
     if (dto?.precio_maximo !== undefined) req.precio_maximo = this.num(dto.precio_maximo);
+    if (dto?.precio_objetivo !== undefined) req.precio_objetivo = this.num(dto.precio_objetivo);
     if (dto?.cantidad !== undefined) req.cantidad = Math.max(1, Math.floor(this.num(dto.cantidad) ?? 1));
+    if (dto?.cantidad_objetivo !== undefined) {
+      req.cantidad_objetivo = this.num(dto.cantidad_objetivo);
+      if (req.cantidad_objetivo != null && req.cantidad_objetivo < 1) {
+        throw new BadRequestException("La cantidad objetivo debe ser mayor o igual a 1");
+      }
+    }
+    if (dto?.cmc !== undefined) {
+      req.cmc = Math.max(1, Math.floor(this.num(dto.cmc) ?? 1));
+      if (req.cantidad_objetivo != null && req.cmc > req.cantidad_objetivo) {
+        throw new BadRequestException("La CMC no puede superar la cantidad objetivo");
+      }
+    }
+    if (dto?.ua !== undefined) req.ua = dto.ua || null;
+    if (dto?.ficha_tecnica !== undefined) req.ficha_tecnica = dto.ficha_tecnica && typeof dto.ficha_tecnica === "object" ? dto.ficha_tecnica : null;
+    if (dto?.nivel_coincidencia !== undefined && ["estricta", "flexible", "amplia"].includes(dto.nivel_coincidencia)) {
+      req.nivel_coincidencia = dto.nivel_coincidencia;
+    }
     if (dto?.fecha_limite !== undefined) req.fecha_limite = dto.fecha_limite ? new Date(dto.fecha_limite) : null;
     if (dto?.specifications && typeof dto.specifications === "object") req.specifications = dto.specifications;
     await this.requestsRepo.save(req);
@@ -209,7 +242,7 @@ export class RequestsService {
       ...result,
       mismo_categoria: p.category_id === req.category_id,
       producto: { id: p.id, title: p.title, nivel_coincidencia: p.nivel_coincidencia || "estricta" },
-      regla: "estricta",
+      regla: req.nivel_coincidencia || "estricta",
     };
   }
 
@@ -242,22 +275,28 @@ export class RequestsService {
     const cantidad = Math.max(1, Math.floor(this.num(dto?.cantidad) ?? req.cantidad ?? 1));
     const envio = Math.max(0, this.num(dto?.costo_envio) ?? 0);
 
-    // Coincidencia de producto (regla base de la demanda: estricta)
+    // Coincidencia de producto (regla configurada por el comprador: estricta | flexible | amplia)
     const fields = await this.dataSource.query(
       `SELECT name, label, grupo FROM category_fields WHERE category_id = $1`, [req.category_id],
     );
     const match = this.matching.calcularCoincidencia(p.specifications, req.specifications, fields);
-    const requiereVariante = match.nivel !== "estricta";
-    if (requiereVariante && !Boolean(dto?.es_variante)) {
+    const reglaReq = req.nivel_coincidencia || "estricta";
+    // Con regla flexible se permiten diferencias solo en atributos secundarios (1).
+    // Con regla amplia se permiten diferencias en atributos secundarios (ilimitadas).
+    const variantesPermitidas = reglaReq === "amplia";
+    const secundariosMin = reglaReq === "flexible" ? 1 : 0;
+    const requiereVariante = match.nivel !== "estricta" && !variantesPermitidas;
+    const necEsVariante = requiereVariante;
+    if (necEsVariante && !Boolean(dto?.es_variante)) {
       const detalle = match.faltantes.length
         ? `faltan: ${match.faltantes.map(d => d.label).join(", ")}`
         : `varía: ${match.variantes.map(d => d.label).join(", ")}`;
       throw new BadRequestException(
-        `Tu producto no coincide estrictamente con la solicitud (${detalle}). ` +
+        `Tu producto no coincide ${reglaReq}mente con la solicitud (${detalle}). ` +
         `Márcalo como variante para ofertarlo y el comprador deberá aceptarlo expresamente.`,
       );
     }
-    if (requiereVariante && !String(dto?.mensaje || "").trim()) {
+    if (necEsVariante && !String(dto?.mensaje || "").trim()) {
       throw new BadRequestException("Al ofrecer una variante debes explicar en un mensaje en qué se diferencia");
     }
 
@@ -317,7 +356,7 @@ export class RequestsService {
       costo_envio: envio,
       mensaje: dto?.mensaje ?? null,
       estado: "pendiente",
-      es_variante: requiereVariante,
+      es_variante: necEsVariante,
       coincidencia: match.nivel,
       garantia_pct: garantiaPct,
       garantia_oferta: garantiaOferta,
@@ -399,6 +438,14 @@ export class RequestsService {
     const unitPrice = Number(offer.precio) || 0;
     const shipping = Number(offer.costo_envio) || 0;
     const total = Number((unitPrice * qty + shipping).toFixed(2));
+
+    // Requisito RFQ: el compromiso del vendedor debe cubrir al menos la CMC definida por el comprador.
+    const cmcReq = Math.max(1, Number(req.cmc) || 1);
+    if (qty < cmcReq) {
+      throw new BadRequestException(
+        `El compromiso mínimo por oferta (CMC) es de ${cmcReq} unidad(es); esta oferta solo entrega ${qty}. Contáctate con el vendedor o rechaza la oferta.`,
+      );
+    }
 
     const pct = offer.garantia_pct ?? null;
     const calc = await this.guarantees.calcular({ canal: "subasta_inversa", categoriaId: req.category_id, base: total, pctOverride: pct });

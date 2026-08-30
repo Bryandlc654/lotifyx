@@ -10,7 +10,13 @@ export interface BuyerRequest {
   image?: string | null;
   precio_minimo?: number | null;
   precio_maximo?: number | null;
+  precio_objetivo?: number | null;
   cantidad: number;
+  cantidad_objetivo?: number | null;
+  cmc?: number;
+  ua?: string | null;
+  ficha_tecnica?: Record<string, any> | null;
+  nivel_coincidencia?: string;
   fecha_limite?: string | null;
   estado: string;
   created_at: string;

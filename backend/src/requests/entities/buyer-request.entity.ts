@@ -37,6 +37,30 @@ export class BuyerRequest {
   @Column({ type: "int", default: 1 })
   cantidad: number;
 
+  /** Cantidad objetivo (cantidad_objetivo): meta de unidades a reunir en la demanda */
+  @Column({ type: "int", nullable: true })
+  cantidad_objetivo: number | null;
+
+  /** CMC: cantidad mínima de unidades que debe comprometer cada participante */
+  @Column({ type: "int", default: 1 })
+  cmc: number;
+
+  /** Precio objetivo/máximo que el comprador desea pagar por unidad (S/) */
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  precio_objetivo: number | null;
+
+  /** UA - Unidad Agregada / unidad de medida de la demanda (ej: caja, kg, docena) */
+  @Column({ type: "varchar", length: 30, nullable: true })
+  ua: string | null;
+
+  /** Ficha técnica del requerimiento (JSON) */
+  @Column({ type: "json", nullable: true })
+  ficha_tecnica: Record<string, any> | null;
+
+  /** Nivel de coincidencia configurado por el Buyer: estricta | flexible | amplia */
+  @Column({ type: "varchar", length: 20, default: "estricta" })
+  nivel_coincidencia: string;
+
   /** Fecha límite para recibir ofertas */
   @Column({ type: "timestamp", nullable: true })
   fecha_limite: Date | null;

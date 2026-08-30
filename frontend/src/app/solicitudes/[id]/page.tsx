@@ -141,7 +141,9 @@ export default function SolicitudDetallePage() {
     try {
       const res = await checkCoincidencia(id, pid);
       setCoincidencia(res);
-      setOfferVariante(res && !res.es_estricta);
+      const reglaDemanda = request?.nivel_coincidencia || "estricta";
+      const necesitaVariante = !res.es_estricta && reglaDemanda !== "flexible" && reglaDemanda !== "amplia";
+      setOfferVariante(necesitaVariante);
     } catch {
       setCoincidencia(null);
     } finally {
@@ -152,13 +154,22 @@ export default function SolicitudDetallePage() {
   async function handleOffer(e: React.FormEvent) {
     e.preventDefault();
     if (!offerProduct || !offerPrecio) { toast.error("Selecciona un producto e ingresa el precio"); return; }
-    const esVariante = !!(coincidencia && !coincidencia.es_estricta && offerVariante);
-    if (coincidencia && !coincidencia.es_estricta && !offerVariante) {
+    const reglaDemanda = request?.nivel_coincidencia || "estricta";
+    const esVariante = !!(coincidencia && !coincidencia.es_estricta && reglaDemanda === "estricta" && offerVariante);
+    if (coincidencia && !coincidencia.es_estricta && reglaDemanda === "estricta" && !offerVariante) {
       toast.error("Tu producto no coincide estrictamente. Marca la opción para ofertarlo como variante.");
       return;
     }
     if (esVariante && !offerMensaje.trim()) {
       toast.error("Al ofrecer una variante debes explicar en qué se diferencia en el mensaje");
+      return;
+    }
+    if (coincidencia && !coincidencia.es_estricta && reglaDemanda === "flexible" && coincidencia.nivel !== "flexible") {
+      toast.error("Con coincidencia flexible, tu producto solo puede diferir en atributos secundarios.");
+      return;
+    }
+    if (coincidencia && !coincidencia.es_estricta && reglaDemanda === "amplia" && coincidencia.nivel !== "flexible" && coincidencia.nivel !== "amplia") {
+      toast.error("Tu producto no cumple la regla de coincidencia amplia de esta solicitud.");
       return;
     }
     setSending(true);
@@ -258,7 +269,17 @@ export default function SolicitudDetallePage() {
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-semibold uppercase">Cantidad</p>
-                <p className="text-lg font-bold text-slate-800">{request.cantidad} unid.</p>
+                <p className="text-lg font-bold text-slate-800">{request.cantidad} unid.{request.ua ? ` (${request.ua})` : ""}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-semibold uppercase">CMC por vendedor</p>
+                <p className="text-lg font-bold text-slate-800">{request.cmc ?? 1} unid.</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-semibold uppercase">Coincidencia</p>
+                <p className="text-lg font-bold text-slate-800">
+                  {request.nivel_coincidencia === "flexible" ? "Flexible" : request.nivel_coincidencia === "amplia" ? "Amplia" : "Estricta"}
+                </p>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-semibold uppercase">Ofertas recibidas</p>
@@ -444,15 +465,24 @@ export default function SolicitudDetallePage() {
                             {coincidencia.variantes.length > 0 && (
                               <p className="text-xs text-amber-700 mt-1">Tu producto varía en: {coincidencia.variantes.map(d => `${d.label} (solicitado: ${String(d.esperado)} — ofreces: ${String(d.ofrecido)})`).join(", ")}.</p>
                             )}
-                            <p className="text-xs text-amber-700 mt-1">
-                              La regla de esta solicitud es coincidencia técnica estricta. Al ofertar tu producto como variante, el comprador deberá aceptarla expresamente.
-                            </p>
-                            <label className="flex items-start gap-2 mt-2 cursor-pointer">
-                              <input type="checkbox" checked={offerVariante} onChange={e => setOfferVariante(e.target.checked)} className="mt-0.5 accent-amber-600" />
-                              <span className="text-xs text-amber-800 font-semibold">
-                                Ofrezco mi producto como variante y acepto expresamente que el comprador decida sobre ella
-                              </span>
-                            </label>
+                            {request.nivel_coincidencia === "flexible" || request.nivel_coincidencia === "amplia" ? (
+                              <p className="text-xs text-green-700 mt-1">
+                                La regla de esta solicitud es coincidencia {request.nivel_coincidencia}. Puedes ofertar directamente
+                                {request.nivel_coincidencia === "flexible" ? " pues solo varían atributos secundarios" : ""}.
+                              </p>
+                            ) : (
+                              <p className="text-xs text-amber-700 mt-1">
+                                La regla de esta solicitud es coincidencia técnica estricta. Al ofertar tu producto como variante, el comprador deberá aceptarla expresamente.
+                              </p>
+                            )}
+                            {request.nivel_coincidencia !== "flexible" && request.nivel_coincidencia !== "amplia" && (
+                              <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                                <input type="checkbox" checked={offerVariante} onChange={e => setOfferVariante(e.target.checked)} className="mt-0.5 accent-amber-600" />
+                                <span className="text-xs text-amber-800 font-semibold">
+                                  Ofrezco mi producto como variante y acepto expresamente que el comprador decida sobre ella
+                                </span>
+                              </label>
+                            )}
                           </>
                         )}
                       </div>

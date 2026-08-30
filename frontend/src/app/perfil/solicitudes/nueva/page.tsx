@@ -30,6 +30,11 @@ function NuevaSolicitudContent() {
   const [precioMinimo, setPrecioMinimo] = useState("");
   const [precioMaximo, setPrecioMaximo] = useState("");
   const [cantidad, setCantidad] = useState("");
+  const [cantidadObjetivo, setCantidadObjetivo] = useState("");
+  const [cmc, setCmc] = useState("");
+  const [precioObjetivo, setPrecioObjetivo] = useState("");
+  const [ua, setUa] = useState("");
+  const [nivelCoincidencia, setNivelCoincidencia] = useState("estricta");
   const [fechaLimite, setFechaLimite] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +63,11 @@ function NuevaSolicitudContent() {
       setPrecioMinimo(r.precio_minimo != null ? String(r.precio_minimo) : "");
       setPrecioMaximo(r.precio_maximo != null ? String(r.precio_maximo) : "");
       setCantidad(String(r.cantidad || 1));
+      setCantidadObjetivo(r.cantidad_objetivo != null ? String(r.cantidad_objetivo) : "");
+      setCmc(String(r.cmc || 1));
+      setPrecioObjetivo(r.precio_objetivo != null ? String(r.precio_objetivo) : "");
+      setUa(r.ua || "");
+      setNivelCoincidencia(r.nivel_coincidencia || "estricta");
       if (r.fecha_limite) setFechaLimite(new Date(r.fecha_limite).toISOString().slice(0, 16));
     });
   }, [editingId]);
@@ -139,6 +149,12 @@ function NuevaSolicitudContent() {
     e.preventDefault();
     if (!categoryId) { toast.error("Selecciona una categoría"); return; }
     if (!title.trim()) { toast.error("Escribe el título de lo que necesitas"); return; }
+    const cmcVal = parseInt(cmc) || 1;
+    const objetivoVal = cantidadObjetivo !== "" ? parseInt(cantidadObjetivo) || 0 : 0;
+    if (objetivoVal > 0 && cmcVal > objetivoVal) {
+      toast.error("La CMC no puede superar la cantidad objetivo");
+      return;
+    }
     setSaving(true);
     try {
       const payload: any = {
@@ -149,7 +165,12 @@ function NuevaSolicitudContent() {
         image: image || null,
         precio_minimo: precioMinimo !== "" ? parseFloat(precioMinimo) : null,
         precio_maximo: precioMaximo !== "" ? parseFloat(precioMaximo) : null,
+        precio_objetivo: precioObjetivo !== "" ? parseFloat(precioObjetivo) : null,
         cantidad: cantidad !== "" ? parseInt(cantidad) || 1 : 1,
+        cantidad_objetivo: objetivoVal > 0 ? objetivoVal : null,
+        cmc: cmcVal,
+        ua: ua.trim() || null,
+        nivel_coincidencia: nivelCoincidencia,
         fecha_limite: fechaLimite ? new Date(fechaLimite).toISOString() : null,
       };
       if (editingId) {
@@ -184,7 +205,7 @@ function NuevaSolicitudContent() {
               {editingId ? "Editar solicitud de compra" : "Publicar solicitud de compra"}
             </h1>
             <p className="text-xs text-slate-500 mb-6 bg-slate-50 rounded-lg px-3 py-2">
-              Regla base: <strong>coincidencia técnica estricta</strong>. Si un vendedor ofrece un producto que no cumple tus especificaciones, quedará marcado como <strong>variante</strong> y solo se concreta si lo aceptas expresamente.
+              Define el nivel de <strong>coincidencia técnica</strong> y la <strong>CMC (compromiso mínimo de cantidad)</strong> que cada vendedor debe cubrir al ofertar. Las ofertas por debajo de tu CMC no podrán concretarse.
             </p>
 
             <div className="mb-4">
@@ -231,7 +252,7 @@ function NuevaSolicitudContent() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="form-label">Precio mínimo (S/)</label>
                 <input type="number" min="0" step="0.01" value={precioMinimo} onChange={e => setPrecioMinimo(e.target.value)} className="w-full form-input-custom" placeholder="0.00" />
@@ -241,8 +262,32 @@ function NuevaSolicitudContent() {
                 <input type="number" min="0" step="0.01" value={precioMaximo} onChange={e => setPrecioMaximo(e.target.value)} className="w-full form-input-custom" placeholder="0.00" />
               </div>
               <div>
+                <label className="form-label">Precio objetivo (S/)</label>
+                <input type="number" min="0" step="0.01" value={precioObjetivo} onChange={e => setPrecioObjetivo(e.target.value)} className="w-full form-input-custom" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="form-label">UA · unidad de medida</label>
+                <input type="text" value={ua} onChange={e => setUa(e.target.value)} className="w-full form-input-custom" placeholder="Ej: caja, kg, docena" />
+              </div>
+              <div>
                 <label className="form-label">Cantidad que necesitas</label>
                 <input type="number" min="1" step="1" value={cantidad} onChange={e => setCantidad(e.target.value)} className="w-full form-input-custom" placeholder="1" />
+              </div>
+              <div>
+                <label className="form-label">Cantidad objetivo (meta de demanda)</label>
+                <input type="number" min="1" step="1" value={cantidadObjetivo} onChange={e => setCantidadObjetivo(e.target.value)} className="w-full form-input-custom" placeholder="Opcional" />
+              </div>
+              <div>
+                <label className="form-label">CMC · compromiso mínimo por vendedor</label>
+                <input type="number" min="1" step="1" value={cmc} onChange={e => setCmc(e.target.value)} className="w-full form-input-custom" placeholder="1" />
+              </div>
+              <div>
+                <label className="form-label">Nivel de coincidencia</label>
+                <select value={nivelCoincidencia} onChange={e => setNivelCoincidencia(e.target.value)} className="w-full form-input-custom">
+                  <option value="estricta">Estricta (todas las especificaciones)</option>
+                  <option value="flexible">Flexible (varían atributos secundarios)</option>
+                  <option value="amplia">Amplia (más tolerancia)</option>
+                </select>
               </div>
             </div>
 
@@ -250,6 +295,12 @@ function NuevaSolicitudContent() {
               <label className="form-label">Fecha límite para recibir ofertas</label>
               <input type="datetime-local" value={fechaLimite} onChange={e => setFechaLimite(e.target.value)} className="w-full form-input-custom" />
             </div>
+
+            {cantidadObjetivo !== "" && (
+              <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-800">
+                Demanda agregada: meta de <strong>{cantidadObjetivo}</strong> {ua || "unidad(es)"} con CMC de <strong>{cmc || 1}</strong> {ua || "unidad(es)"} por vendedor.
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <button
