@@ -318,6 +318,8 @@ export class ProductsService {
         delete (dto as any)[field];
       }
     }
+    // Validación CMC: la compra mínima debe ser >= 1 y <= cantidad total del lote/demanda agregada
+    this.validarCmc(dto);
     const product = await this.repo.save(this.repo.create({ ...dto, sku, status: "pending_approval" }));
     this.audit.log({ userId: dto.user_id, action: "product_created", entity: "product", entityId: product.id, details: { title: dto.title } });
 
@@ -400,6 +402,8 @@ export class ProductsService {
         delete (dto as any)[field];
       }
     }
+    // Validación CMC en edición (contra la cantidad total del producto guardado)
+    this.validarCmc({ ...p, ...dto });
     const saved = await this.repo.save({ ...p, ...dto });
 
     // Actualizar subasta si se modificaron campos de subasta
@@ -955,5 +959,23 @@ export class ProductsService {
       divisibilidad: divisibilidades.length === 1 ? (divisibilidades[0] ? "requerida" : "prohibida") : "cualquiera",
       actores,
     };
+  }
+
+  /** Valida que la CMC (Compra Mínima por Compra) sea >= 1 y no supere la cantidad total del lote/demanda agregada */
+  private validarCmc(dto: Partial<Product>) {
+    const cantidadTotal = Number((dto as any).cantidad_total);
+    const cmc = (dto as any).cmc;
+    const minQty = (dto as any).min_qty;
+
+    for (const [nombre, valor] of [["cmc (Compra Mínima por Compra)", cmc], ["min_qty (Compra Mínima por Compra)", minQty]] as const) {
+      if (valor === undefined || valor === null || valor === "") continue;
+      const n = Number(valor);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new BadRequestException(`La ${nombre} debe ser un entero mayor o igual a 1.`);
+      }
+      if (cantidadTotal > 0 && n > cantidadTotal) {
+        throw new BadRequestException(`La ${nombre} (${n}) no puede superar la cantidad total disponible (${cantidadTotal}).`);
+      }
+    }
   }
 }

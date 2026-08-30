@@ -302,21 +302,43 @@ export class LotsService implements OnModuleInit {
     };
   }
 
-  /** Emite en tiempo real el volumen comprometido y umbral del lote (demanda agregada) */
+  /** Emite en tiempo real el volumen comprometido, umbral y RCG vigente del lote (demanda agregada) */
   private async emitLotUpdate(lotSaleId: string) {
     try {
       const [row] = await this.dataSource.query(
-        `SELECT l.product_id, l.cantidad_reservada, l.participantes_minimos, l.estado,
+        `SELECT l.product_id, l.cantidad_reservada, l.participantes_minimos, l.estado, l.meta_venta, l.cantidad_total,
                 (SELECT COUNT(*)::int FROM lot_participants lp WHERE lp.lot_sale_id = l.id AND lp.estado = 'reservado') AS participantes_count
          FROM lot_sales l WHERE l.id = $1`,
         [lotSaleId],
       );
       if (row) {
+        const reserved = Number(row.cantidad_reservada) || 0;
+        let tierActual: any = null;
+        try {
+          const tiers = await this.dataSource.query(
+            `SELECT * FROM lot_rcg_tiers WHERE lot_sale_id = $1`, [lotSaleId],
+          );
+          const cierreTier = this.pickCierreTier(tiers, reserved);
+          if (cierreTier) {
+            tierActual = {
+              id: cierreTier.id,
+              desde: cierreTier.desde,
+              hasta: cierreTier.hasta,
+              tipo_beneficio: cierreTier.tipo_beneficio,
+              valor: Number(cierreTier.valor),
+              descripcion: cierreTier.descripcion,
+            };
+          }
+        } catch {}
         this.gateway.notifyLotUpdate(row.product_id, {
-          cantidad_reservada: Number(row.cantidad_reservada) || 0,
+          cantidad_reservada: reserved,
           participantes_count: Number(row.participantes_count) || 0,
           umbral: Number(row.participantes_minimos) || 0,
           estado: row.estado,
+          meta_venta: row.meta_venta != null ? Number(row.meta_venta) : null,
+          cantidad_total: Number(row.cantidad_total) || 0,
+          tier_actual: tierActual,
+          expectativa_superada: row.meta_venta != null && reserved >= Number(row.meta_venta),
         });
       }
     } catch {}

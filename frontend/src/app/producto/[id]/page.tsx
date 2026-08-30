@@ -100,6 +100,8 @@ export default function ProductoDetallePage({ params }: { params: { id: string }
             cantidad_reservada: data.cantidad_reservada,
             participantes_count: data.participantes_count,
             estado: data.estado,
+            tier_actual: data.tier_actual !== undefined ? data.tier_actual : prev.tier_actual,
+            expectativa_superada: data.expectativa_superada !== undefined ? data.expectativa_superada : prev.expectativa_superada,
           } : prev);
         });
       }
